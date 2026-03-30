@@ -163,37 +163,55 @@ export class ResultsScene extends Phaser.Scene {
     const agents = this.results.agents;
 
     // ─── Comparison Table ───
-    this.addText(40, y, 'GENOME COMPARISON', '#80c080', '12px'); y += 22;
+    // ─── End-Game Stats ───
+    this.addText(40, y, 'END-GAME STATS', '#80c080', '12px'); y += 22;
 
-    // Comparison rows: show key values per agent side by side
-    const fields: [string, (g: any) => string][] = [
-      ['Version', g => `v${g?.version ?? 1}`],
-      ['Mutations', g => `${(g?.version ?? 1) - 1}`],
-      ['Rules', g => `${g?.strategyRules?.length ?? 0}`],
-      ['Flee', g => `${g?.interruptWeights?.fleeBase ?? '?'}`],
-      ['Fight', g => `${g?.interruptWeights?.fightBack ?? '?'}`],
-      ['Thirst thr.', g => `${g?.thresholds?.criticalThirst ?? '?'}`],
-      ['Hunger thr.', g => `${g?.thresholds?.criticalHunger ?? '?'}`],
-      ['Health thr.', g => `${g?.thresholds?.criticalHealth ?? '?'}`],
-      ['Flee panic', g => `${g?.thresholds?.fleeHealthPanic ?? '?'}`],
-      ['Hunt wt.', g => `${g?.fallbackWeights?.huntAnimal ?? '?'}`],
-      ['Wood wt.', g => `${g?.fallbackWeights?.gatherWood ?? '?'}`],
-      ['Drink prio', g => `${g?.mediumPriorityWeights?.drinkMedium ?? '?'}`],
-      ['Eat prio', g => `${g?.mediumPriorityWeights?.eatMedium ?? '?'}`],
-      ['Thirst goal', g => `${g?.goalWeights?.survive_thirst?.toFixed?.(1) ?? '?'}`],
-      ['Protein goal', g => `${g?.goalWeights?.survive_protein?.toFixed?.(1) ?? '?'}`],
+    const statFields: [string, (a: AgentResult) => string, (a: AgentResult) => string][] = [
+      ['Score', a => `${a.effectiveness}`, a => a.rank === 1 ? '#ffd700' : '#c8d0c8'],
+      ['Level', a => `${a.totalSkillLevels}`, _ => '#909890'],
+      ['Deaths', a => `${a.totalDeaths}`, a => a.totalDeaths > 5 ? '#cc6644' : '#909890'],
+      ['Lives', a => `${a.livesRemaining}`, a => a.livesRemaining > 50 ? '#44cc44' : '#cccc44'],
+      ['Best life', a => { const s = Math.floor(a.bestLifeTicks / 10); return `${Math.floor(s/60)}m${s%60}s`; }, _ => '#909890'],
+      ['Genome v', a => `${a.genomeVersion}`, _ => '#909890'],
+      ['AI', a => a.aiRole === 'none' ? 'DT' : a.aiRole, a => a.aiProvider ? '#80c080' : '#888888'],
     ];
 
-    // Header: field name + agent names
     const col0 = 40;
-    const colStart = 170;
+    const colStart = 140;
     const colW = Math.min(90, (width - colStart - 40) / agents.length);
+
+    // Agent name header
     this.addText(col0, y, '', '#556655', '9px');
     agents.forEach((a, i) => {
       const c = a.rank === 1 ? '#ffd700' : '#aaaaaa';
       this.addText(colStart + i * colW, y, a.name, c, '9px');
     });
     y += 16;
+
+    for (const [label, getter, colorFn] of statFields) {
+      this.addText(col0, y, label, '#556655', '9px');
+      agents.forEach((a, i) => {
+        this.addText(colStart + i * colW, y, getter(a), colorFn(a), '9px');
+      });
+      y += 14;
+    }
+
+    // ─── Genome Comparison ───
+    y += 12;
+    this.addText(40, y, 'GENOME VALUES', '#80c080', '12px'); y += 22;
+
+    const fields: [string, (g: any) => string][] = [
+      ['Mutations', g => `${(g?.version ?? 1) - 1}`],
+      ['Rules', g => `${g?.strategyRules?.length ?? 0}`],
+      ['Flee', g => `${g?.interruptWeights?.fleeBase ?? '?'}`],
+      ['Thirst thr.', g => `${g?.thresholds?.criticalThirst ?? '?'}`],
+      ['Hunger thr.', g => `${g?.thresholds?.criticalHunger ?? '?'}`],
+      ['Health thr.', g => `${g?.thresholds?.criticalHealth ?? '?'}`],
+      ['Flee panic', g => `${g?.thresholds?.fleeHealthPanic ?? '?'}`],
+      ['Hunt wt.', g => `${g?.fallbackWeights?.huntAnimal ?? '?'}`],
+      ['Drink prio', g => `${g?.mediumPriorityWeights?.drinkMedium ?? '?'}`],
+      ['Thirst goal', g => `${g?.goalWeights?.survive_thirst?.toFixed?.(1) ?? '?'}`],
+    ];
 
     for (const [label, getter] of fields) {
       this.addText(col0, y, label, '#556655', '9px');
