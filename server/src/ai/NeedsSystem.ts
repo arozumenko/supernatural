@@ -976,6 +976,35 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
     }
   }
 
+  // --- Desperate: hunt other agents for food when starving ---
+  // Only when protein is critically low AND no animal hunt or corpse was found
+  if (isStarving && !decisions.some(d => d.reason?.includes('hunt') || d.reason?.includes('corpse'))) {
+    // Find weakest nearby agent
+    let weakestAgent: AgentState | null = null;
+    let weakestPower = Infinity;
+    for (const other of allAgents) {
+      if (other.id === agent.id || !other.alive) continue;
+      const d = distance(agent.x, agent.y, other.x, other.y);
+      if (d > genome.thresholds.huntDetectRange) continue;
+      const otherPower = Object.values(other.skills).reduce((sum, s) => sum + s.level, 0);
+      // Prefer weaker targets, or sleeping/resting agents
+      const effectivePower = (other.action === 'resting' || other.action === 'idle') ? otherPower * 0.5 : otherPower;
+      if (effectivePower < weakestPower) {
+        weakestPower = effectivePower;
+        weakestAgent = other;
+      }
+    }
+    if (weakestAgent) {
+      decisions.push({
+        action: 'harvesting',
+        priority: 70, // below critical survival but above medium needs
+        target: { x: Math.floor(weakestAgent.x), y: Math.floor(weakestAgent.y) },
+        targetAgentId: weakestAgent.id,
+        reason: `desperate: hunting ${weakestAgent.name} for food`
+      });
+    }
+  }
+
   // --- Stockpile food: gather berries for inventory ---
   const totalFood = agent.resources.food + agent.resources.meat;
   const foodTarget = genome.thresholds.foodTarget ?? 6;
