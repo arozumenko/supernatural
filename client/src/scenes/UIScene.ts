@@ -1209,6 +1209,15 @@ export class UIScene extends Phaser.Scene {
       y += 12;
     };
 
+    const addDivider = () => {
+      y += 4;
+      const div = this.add.graphics();
+      div.lineStyle(1, 0x2a3a2a);
+      div.lineBetween(14, y, contentW, y);
+      this.infoPanelContainer.add(div);
+      y += 8;
+    };
+
     // Tier color mapping based on species
     const apexSpecies = ['bear', 'tiger', 'alligator'];
     const midPredSpecies = ['fox', 'cat', 'dog-0'];
