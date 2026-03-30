@@ -965,10 +965,10 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
     const canBuild = NEW_RECIPES.some(r => {
       if (r.skillType !== 'building' || r.produces.type !== 'tile') return false;
       if (agent.skills.building.level < r.skillRequired) return false;
-      // Don't build station structures if one exists nearby
+      // Don't build workbench/forge duplicates within 5 tiles (but campfire is always OK)
       const pt = r.produces.tileType as TileType;
-      if ((pt === TileType.CAMPFIRE || pt === TileType.WORKBENCH || pt === TileType.FORGE)
-        && world.findNearest(ax, ay, pt, 10) !== null) return false;
+      if ((pt === TileType.WORKBENCH || pt === TileType.FORGE)
+        && world.findNearest(ax, ay, pt, 5) !== null) return false;
       if (r.station === 'workbench' && !isAdjacentToTile(ax, ay, TileType.WORKBENCH, world)) return false;
       if (r.station === 'forge' && !isAdjacentToTile(ax, ay, TileType.FORGE, world)) return false;
       return Object.entries(r.requires).every(([res, amt]) => ((agent.resources as any)[res] || 0) >= amt);
@@ -979,6 +979,7 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
       decisions.push({
         action: 'building',
         priority: 45 + (agent.skills.building.level / 5) + shelterUrgency,
+        target: { x: ax, y: ay }, // build at current position
         reason: 'needs shelter'
       });
     }
