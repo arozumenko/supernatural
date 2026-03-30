@@ -44,6 +44,11 @@ export function createDefaultGenome(tick: number = 0): BehaviorGenome {
       stoneMinimum: 5,
       ironOreMinimum: 4,
 
+      foodTarget: 6,
+      woodTarget: 10,
+      stoneTarget: 5,
+      stockpileUrgent: 50,
+
       plantHungerTrigger: 60,
       woodToKeepBeforePlanting: 5,
 

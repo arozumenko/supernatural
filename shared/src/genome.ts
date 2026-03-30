@@ -44,6 +44,12 @@ export interface BehaviorGenome {
     stoneMinimum: number;         // default 5
     ironOreMinimum: number;       // default 4
 
+    // Survival stockpile targets — gather until these amounts
+    foodTarget: number;           // default 6 — food + meat combined
+    woodTarget: number;           // default 10 — wood for building/crafting
+    stoneTarget: number;          // default 5 — stone for building
+    stockpileUrgent: number;      // default 50 — priority when completely empty
+
     // Planting thresholds
     plantHungerTrigger: number;   // default 60
     woodToKeepBeforePlanting: number; // default 5

@@ -68,19 +68,39 @@ export const AGENT_ARCHETYPES: Record<AgentArchetype, {
     stats: { strength: 11, toughness: 11, agility: 11, endurance: 11, perception: 11, charisma: 11 } },
   warrior:  { label: '\u2694\uFE0F', description: 'STR+TGH, combat focus',
     stats: { strength: 13, toughness: 13, agility: 11, endurance: 10, perception: 10, charisma: 9 },
-    genomeOverrides: { 'fallbackWeights.huntAnimal': 55, 'interruptWeights.fightBack': 95, 'thresholds.fightBackMinRatio': 0.4, 'fallbackWeights.socialize': 12, 'goalWeights.socialize': 0.4 } },
+    genomeOverrides: {
+      'fallbackWeights.huntAnimal': 55, 'interruptWeights.fightBack': 95, 'thresholds.fightBackMinRatio': 0.4,
+      'fallbackWeights.socialize': 12, 'goalWeights.socialize': 0.4,
+      'thresholds.foodTarget': 4, 'thresholds.woodTarget': 5, 'thresholds.stoneTarget': 3, // light packer — hunts for food
+    } },
   survivor: { label: '\uD83D\uDEE1\uFE0F', description: 'END+TGH, survival focus',
     stats: { strength: 10, toughness: 13, agility: 10, endurance: 13, perception: 11, charisma: 9 },
-    genomeOverrides: { 'interruptWeights.fleeBase': 82, 'thresholds.criticalThirst': 35, 'thresholds.criticalHunger': 35, 'thresholds.fleeHealthPanic': 0.5, 'fallbackWeights.socialize': 20, 'goalWeights.socialize': 0.7 } },
+    genomeOverrides: {
+      'interruptWeights.fleeBase': 82, 'thresholds.criticalThirst': 35, 'thresholds.criticalHunger': 35, 'thresholds.fleeHealthPanic': 0.5,
+      'fallbackWeights.socialize': 20, 'goalWeights.socialize': 0.7,
+      'thresholds.foodTarget': 10, 'thresholds.woodTarget': 15, 'thresholds.stoneTarget': 8, // hoarder — stockpiles everything
+    } },
   builder:  { label: '\uD83D\uDD28', description: 'STR+END, build focus',
     stats: { strength: 13, toughness: 10, agility: 10, endurance: 13, perception: 11, charisma: 9 },
-    genomeOverrides: { 'fallbackWeights.gatherWood': 50, 'fallbackWeights.mineStone': 45, 'goalWeights.get_shelter': 1.8, 'goalWeights.get_equipped': 1.5, 'fallbackWeights.socialize': 25, 'goalWeights.socialize': 0.8 } },
+    genomeOverrides: {
+      'fallbackWeights.gatherWood': 50, 'fallbackWeights.mineStone': 45, 'goalWeights.get_shelter': 1.8, 'goalWeights.get_equipped': 1.5,
+      'fallbackWeights.socialize': 25, 'goalWeights.socialize': 0.8,
+      'thresholds.foodTarget': 6, 'thresholds.woodTarget': 25, 'thresholds.stoneTarget': 15, // needs building materials
+    } },
   scout:    { label: '\uD83D\uDC41\uFE0F', description: 'AGI+PER, explore focus',
     stats: { strength: 10, toughness: 10, agility: 13, endurance: 11, perception: 13, charisma: 9 },
-    genomeOverrides: { 'thresholds.threatDetectBase': 10, 'thresholds.huntDetectRange': 20, 'fallbackWeights.wander': 25, 'fallbackWeights.socialize': 10, 'goalWeights.socialize': 0.3 } },
+    genomeOverrides: {
+      'thresholds.threatDetectBase': 10, 'thresholds.huntDetectRange': 20, 'fallbackWeights.wander': 25,
+      'fallbackWeights.socialize': 10, 'goalWeights.socialize': 0.3,
+      'thresholds.foodTarget': 8, 'thresholds.woodTarget': 5, 'thresholds.stoneTarget': 3, // travels light
+    } },
   social:   { label: '\uD83E\uDD1D', description: 'CHA+PER, trades to survive',
     stats: { strength: 9, toughness: 10, agility: 10, endurance: 10, perception: 13, charisma: 14 },
-    genomeOverrides: { 'fallbackWeights.socialize': 55, 'fallbackWeights.tameAnimal': 35, 'goalWeights.socialize': 2.5, 'thresholds.socialDetectRange': 25, 'fallbackWeights.huntAnimal': 20, 'fallbackWeights.gatherWood': 20, 'fallbackWeights.mineStone': 15 } },
+    genomeOverrides: {
+      'fallbackWeights.socialize': 55, 'fallbackWeights.tameAnimal': 35, 'goalWeights.socialize': 2.5,
+      'thresholds.socialDetectRange': 25, 'fallbackWeights.huntAnimal': 20, 'fallbackWeights.gatherWood': 20, 'fallbackWeights.mineStone': 15,
+      'thresholds.foodTarget': 10, 'thresholds.woodTarget': 8, 'thresholds.stoneTarget': 5, // trades for what it needs, hoards food
+    } },
 };
 
 // --- World ---

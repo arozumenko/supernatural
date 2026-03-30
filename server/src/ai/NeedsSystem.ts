@@ -976,13 +976,14 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
     }
   }
 
-  // --- Stockpile food: gather berries for inventory when supplies are low ---
+  // --- Stockpile food: gather berries for inventory ---
   const totalFood = agent.resources.food + agent.resources.meat;
-  if (totalFood < 6) {
+  const foodTarget = genome.thresholds.foodTarget ?? 6;
+  if (totalFood < foodTarget) {
     const berryBush = world.findNearestPlant(ax, ay, [PlantType.BERRY_BUSH, PlantType.EDIBLE_FLOWER], 20);
     if (berryBush) {
-      // Priority scales with how empty the pantry is
-      const stockPriority = totalFood === 0 ? 50 : totalFood < 3 ? 40 : 30;
+      const urgentPriority = genome.thresholds.stockpileUrgent ?? 50;
+      const stockPriority = totalFood === 0 ? urgentPriority : totalFood < foodTarget / 2 ? urgentPriority - 10 : urgentPriority - 20;
       decisions.push({
         action: 'harvesting',
         priority: stockPriority + gatherBonus,
@@ -1008,7 +1009,7 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
   }
 
   // --- Gathering resources ---
-  if (agent.resources.wood < genome.thresholds.woodMinimum) {
+  if (agent.resources.wood < (genome.thresholds.woodTarget ?? genome.thresholds.woodMinimum)) {
     const tree = world.findNearestTree(ax, ay);
     if (tree) {
       const adj = world.findNearestWalkable(ax, ay, tree.x, tree.y);
@@ -1033,7 +1034,7 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
     }
   }
 
-  if (agent.resources.stone < genome.thresholds.stoneMinimum) {
+  if (agent.resources.stone < (genome.thresholds.stoneTarget ?? genome.thresholds.stoneMinimum)) {
     const rock = world.findNearestRock(ax, ay);
     if (rock) {
       const adj = world.findNearestWalkable(ax, ay, rock.x, rock.y);
