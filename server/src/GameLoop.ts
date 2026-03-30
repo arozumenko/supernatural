@@ -828,13 +828,15 @@ export class GameLoop {
   }
 
   private periodicEvents(): void {
-    // Count alive + respawning as "population" to prevent duplicate spawning
-    const aliveCount = this.agents.filter(a => a.alive).length;
+    // Count ALL agents (alive + respawning + dead) as "total population"
+    // Only auto-spawn if agents were truly lost (e.g. server started with fewer)
+    // NOT when agents die — death is part of the game
+    const totalAgents = this.agents.length;
     const respawningCount = this.respawnQueue.length;
-    const effectivePopulation = aliveCount + respawningCount;
+    const effectivePopulation = totalAgents + respawningCount;
 
-    // If population is low (counting respawning agents), spawn new agents
-    if (effectivePopulation < WorldConfig.agents.minPopulation) {
+    // Only spawn if we somehow have fewer agents than configured
+    if (effectivePopulation < this.gameConfig.agentCount) {
       const agent = createAgent(undefined, undefined, undefined, this.world);
       this.agents.push(agent);
       this.events.onAgentBorn(agent);
