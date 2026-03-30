@@ -936,9 +936,11 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
       return Object.entries(r.requires).every(([res, amt]) => ((agent.resources as any)[res] || 0) >= amt);
     });
     if (canBuild) {
+      // Higher priority when shelter is critically low
+      const shelterUrgency = agent.needs.shelter < 15 ? 20 : agent.needs.shelter < 30 ? 10 : 0;
       decisions.push({
         action: 'building',
-        priority: 40 + (agent.skills.building.level / 5),
+        priority: 45 + (agent.skills.building.level / 5) + shelterUrgency,
         reason: 'needs shelter'
       });
     }
