@@ -20,23 +20,23 @@ export function createDefaultGenome(tick: number = 0): BehaviorGenome {
       staminaHerb: 82,
       exhaustionRest: 80,
       groupDefense: 75,
-      fleeBase: 70,
+      fleeBase: 75,         // was 70 — flee earlier from threats
     },
 
     mediumPriorityWeights: {
-      drinkMedium: 60,
-      eatMedium: 55,
-      forageMedium: 55,
+      drinkMedium: 63,      // was 60 — drink proactively
+      eatMedium: 58,        // was 55 — eat proactively
+      forageMedium: 58,     // was 55
     },
 
     thresholds: {
-      criticalThirst: 20,
-      criticalHunger: 20,
-      criticalStamina: 15,
-      criticalHealth: 30,
+      criticalThirst: 30,      // was 20 — drink sooner
+      criticalHunger: 30,      // was 20 — eat sooner
+      criticalStamina: 20,     // was 15 — rest sooner
+      criticalHealth: 40,      // was 30 — heal sooner
       moderateHealth: 60,
-      fleeHealthPanic: 0.3,
-      fightBackMinRatio: 0.5,
+      fleeHealthPanic: 0.4,    // was 0.3 — flee at 40% HP not 30%
+      fightBackMinRatio: 0.6,  // was 0.5 — only fight if stronger
       groupDefenseRange: 8,
 
       meatMinimum: 3,
@@ -55,10 +55,10 @@ export function createDefaultGenome(tick: number = 0): BehaviorGenome {
     },
 
     goalWeights: {
-      survive_thirst: 1.0,
-      survive_protein: 1.0,
-      survive_plant: 1.0,
-      rest: 1.0,
+      survive_thirst: 1.3,    // was 1.0 — prioritize hydration
+      survive_protein: 1.2,   // was 1.0 — prioritize food
+      survive_plant: 1.2,     // was 1.0
+      rest: 1.1,              // was 1.0 — rest more to avoid exhaustion
       get_shelter: 1.0,
       get_equipped: 1.0,
       socialize: 1.0,

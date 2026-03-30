@@ -118,7 +118,7 @@ export function applyDeathPenalty(
 ): void {
   for (const name of SKILL_NAMES) {
     const state = skills[name];
-    const xpLost = state.xp * 0.05;
+    const xpLost = state.xp * 0.15; // 15% XP rust on death (was 5%)
     state.xp = Math.max(state.xp - xpLost, 0);
   }
   recalculateLevels(skills, caps);
