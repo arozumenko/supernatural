@@ -88,7 +88,7 @@ export class MainMenuScene extends Phaser.Scene {
     }
 
     // Two-column panel
-    this.panelW = 900;
+    this.panelW = 1100;
     const panelH = 620;
     this.panelX = cx - this.panelW / 2;
     this.panelY = cy - panelH / 2;
