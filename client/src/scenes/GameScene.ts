@@ -1281,7 +1281,7 @@ export class GameScene extends Phaser.Scene {
     this.tombstones.push({
       sprite,
       nameText,
-      expireTime: Date.now() + 120_000, // 2 minutes
+      expireTime: Date.now() + 15_000, // 15 seconds
     });
 
     // Cap tombstones to prevent performance issues
