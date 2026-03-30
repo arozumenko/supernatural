@@ -957,16 +957,21 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
     }
   }
 
-  // --- Harvest nearby corpses for materials/meat ---
-  if (agent.needs.proteinHunger < genome.goalThresholds.proteinRelevant || agent.resources.meat < genome.thresholds.meatMinimum) {
-    const corpse = world.findNearestCorpse(ax, ay, genome.thresholds.corpseDetectRange);
+  // --- Harvest nearby corpses for materials/meat (always check — free food!) ---
+  {
+    const corpseRange = agent.needs.proteinHunger < 20 ? 40 : genome.thresholds.corpseDetectRange;
+    const corpse = world.findNearestCorpse(ax, ay, corpseRange);
     if (corpse) {
+      // Priority scales with hunger — starving agents rush to corpses
+      let corpsePriority = genome.fallbackWeights.harvestCorpse;
+      if (agent.needs.proteinHunger < 20) corpsePriority = Math.max(corpsePriority, 75); // starving: high priority
+      else if (agent.needs.proteinHunger < 40) corpsePriority = Math.max(corpsePriority, 60); // hungry: medium-high
       decisions.push({
         action: 'harvesting',
-        priority: genome.fallbackWeights.harvestCorpse,
+        priority: corpsePriority,
         target: { x: Math.floor(corpse.x), y: Math.floor(corpse.y) },
         targetCorpseId: corpse.id,
-        reason: 'harvesting corpse'
+        reason: 'scavenging corpse'
       });
     }
   }

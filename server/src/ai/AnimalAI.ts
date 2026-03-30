@@ -925,15 +925,18 @@ export function decideAnimalAction(
   }
 
   // ──────────────────────────────────────────────
-  // Scavenge corpses (scavenger species only)
+  // Scavenge corpses (all meat-eaters, not just isScavenger)
   // ──────────────────────────────────────────────
-  if (species.isScavenger) {
-    const corpse = world.findNearestCorpse(ax, ay, species.detectionRange);
+  if (species.diet !== 'herbivore') {
+    const scavengeRange = animal.proteinHunger < 20 ? 40 : species.detectionRange;
+    const corpse = world.findNearestCorpse(ax, ay, scavengeRange);
     if (corpse && corpse.materials.meat && corpse.materials.meat > 0) {
-      const hungerVal = species.diet === 'herbivore' ? 100 : animal.proteinHunger;
-      const scavengeScore = quadratic(hungerVal) * species.utilityWeights.food * 1.3; // 30% bonus over hunting
+      // Scavenging is safer than hunting — bonus priority
+      let scavengeScore = quadratic(animal.proteinHunger) * species.utilityWeights.food * 1.5;
+      // Starving: scavenge score at least 0.8 (overrides most other actions)
+      if (animal.proteinHunger < 20) scavengeScore = Math.max(scavengeScore, 0.8);
       candidates.push({
-        action: 'grazing',  // reuse grazing action for eating from corpse
+        action: 'grazing',
         target: { x: Math.floor(corpse.x), y: Math.floor(corpse.y) },
         targetEntityId: 'corpse:' + corpse.id,
         score: scavengeScore,
