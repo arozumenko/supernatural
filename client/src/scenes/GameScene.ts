@@ -9,7 +9,7 @@ import { UIScene } from './UIScene.js';
 
 const PIXEL_FONT = '"Press Start 2P", monospace';
 const PANEL_W = 380;
-const SIDEBAR_W = 260;
+const SIDEBAR_W = 300;
 
 interface AgentSprite {
   sprite: Phaser.GameObjects.Sprite;

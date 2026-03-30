@@ -3,7 +3,7 @@ import { AgentState, TreeState, RockState, PlantState, PlantType, AnimalState, C
 
 const PIXEL_FONT = '"Press Start 2P", monospace';
 const PANEL_W = 380;
-const SIDEBAR_W = 260;
+const SIDEBAR_W = 300;
 
 const ROLE_BADGE_COLORS: Record<string, number> = {
   advisor: 0x4ecdc4, puppeteer: 0xff6b6b, god: 0xffd93d,
@@ -457,9 +457,12 @@ export class UIScene extends Phaser.Scene {
         });
         const best = tierAnimals[0];
         if (best) {
-          const secs = Math.floor(best.age / 10);
+          const totalSecs = Math.floor(best.age / 10);
+          const mins = Math.floor(totalSecs / 60);
+          const secs = totalSecs % 60;
+          const timeStr = mins > 0 ? `${mins}m${secs}s` : `${totalSecs}s`;
           const lvl = Object.values(best.skills).reduce((sum: number, s: any) => sum + (s.level || 0), 0);
-          const t = this.add.text(12, y, `${emoji} ${tierLabel}: ${best.species} Lv${lvl} ${secs}s`, {
+          const t = this.add.text(12, y, `${emoji} ${best.species} Lv${lvl} ${timeStr}`, {
             fontFamily: PIXEL_FONT, fontSize: '11px', color: '#909890',
           });
           this.sidebarContainer.add(t);
@@ -476,6 +479,12 @@ export class UIScene extends Phaser.Scene {
     const lives = agent.livesRemaining ?? 100;
     const level = agentLevel(agent);
     const name = agent.name.length > 6 ? agent.name.slice(0, 5) + '.' : agent.name;
+    const rowH = 18;
+
+    // Hover background (rendered first = behind everything)
+    const hoverBg = this.add.graphics();
+    hoverBg.setAlpha(0);
+    this.sidebarContainer.add(hoverBg);
 
     // Alive dot
     const dot = this.add.graphics();
@@ -495,14 +504,14 @@ export class UIScene extends Phaser.Scene {
     });
     this.sidebarContainer.add(lvText);
 
-    // Lives (heart + number, color-coded)
+    // Lives
     const livesColor = !alive ? '#cc4444' : lives > 50 ? '#44cc44' : lives > 20 ? '#cccc44' : '#cc4444';
     const livesT = this.add.text(148, y - 1, `\u2764${lives}`, {
       fontSize: '12px', color: livesColor,
     });
     this.sidebarContainer.add(livesT);
 
-    // Deaths (skull × count, if died before)
+    // Deaths
     if (agent.totalDeaths > 0) {
       const deathT = this.add.text(210, y - 1, `\uD83D\uDC80${agent.totalDeaths}`, {
         fontSize: '11px', color: '#886666',
@@ -510,8 +519,8 @@ export class UIScene extends Phaser.Scene {
       this.sidebarContainer.add(deathT);
     }
 
-    // Click zone for selection (full row height)
-    const zone = this.add.zone(SIDEBAR_W / 2, y + 9, SIDEBAR_W - 12, 20).setInteractive({ useHandCursor: true });
+    // Click zone — full row width and height, on top of everything
+    const zone = this.add.zone(SIDEBAR_W / 2, y + rowH / 2, SIDEBAR_W, rowH).setInteractive({ useHandCursor: true });
     this.sidebarContainer.add(zone);
     zone.on('pointerup', () => {
       const gameScene = this.scene.get('GameScene') as any;
@@ -519,15 +528,10 @@ export class UIScene extends Phaser.Scene {
         gameScene.selectAgentById(agent.id);
       }
     });
-
-    // Hover highlight
-    const hoverBg = this.add.graphics();
-    hoverBg.setAlpha(0);
-    this.sidebarContainer.add(hoverBg);
     zone.on('pointerover', () => {
       hoverBg.clear();
       hoverBg.fillStyle(0xffffff, 0.08);
-      hoverBg.fillRect(6, y - 2, SIDEBAR_W - 12, 22);
+      hoverBg.fillRect(0, y - 1, SIDEBAR_W, rowH + 2);
       hoverBg.setAlpha(1);
     });
     zone.on('pointerout', () => {
