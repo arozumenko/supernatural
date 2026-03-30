@@ -17,6 +17,8 @@ interface AgentSprite {
   actionText: Phaser.GameObjects.Text;
   needsBar: Phaser.GameObjects.Graphics;
   crownText?: Phaser.GameObjects.Text;
+  lastHealth?: number;
+  hitFlashUntil?: number;
 }
 
 interface TreeSprite {
@@ -35,7 +37,7 @@ export class GameScene extends Phaser.Scene {
   private treeSprites: Map<string, TreeSprite> = new Map();
   private rockSprites: Map<string, RockSprite> = new Map();
   private plantSprites: Map<string, { sprite: Phaser.GameObjects.Sprite }> = new Map();
-  private animalSprites: Map<string, { sprite: Phaser.GameObjects.Sprite; labelText: Phaser.GameObjects.Text }> = new Map();
+  private animalSprites: Map<string, { sprite: Phaser.GameObjects.Sprite; labelText: Phaser.GameObjects.Text; lastHealth?: number; hitFlashUntil?: number }> = new Map();
   private corpseSprites: Map<string, { sprite: Phaser.GameObjects.Sprite }> = new Map();
   private agents: AgentState[] = [];
   private trees: TreeState[] = [];
@@ -604,37 +606,29 @@ export class GameScene extends Phaser.Scene {
     sprite.setInteractive();
 
     const lvl = getTotalLevel(agent.skills);
+    // Name + level below the sprite
     const nameText = this.add.text(
       agent.x * TILE_SIZE + TILE_SIZE / 2,
-      agent.y * TILE_SIZE - 8,
+      agent.y * TILE_SIZE + TILE_SIZE + 2,
       `[${lvl}] ${agent.name}`,
       {
         fontFamily: PIXEL_FONT,
-        fontSize: '12px',
+        fontSize: '10px',
         color: agent.ownerId ? '#ffdd44' : '#ffffff',
         stroke: '#000000',
         strokeThickness: 3,
       }
     );
-    nameText.setOrigin(0.5, 1);
+    nameText.setOrigin(0.5, 0);
     nameText.setDepth(101);
 
-    // Action text kept but hidden by default (only shown when selected)
-    const actionText = this.add.text(
-      agent.x * TILE_SIZE + TILE_SIZE / 2,
-      agent.y * TILE_SIZE + TILE_SIZE + 4,
-      '',
-      {
-        fontFamily: PIXEL_FONT,
-        fontSize: '14px',
-        color: '#c0c0c0',
-        stroke: '#000000',
-        strokeThickness: 2,
-      }
-    );
-    actionText.setOrigin(0.5, 0);
-    actionText.setDepth(101);
+    // Action text (hidden, kept for compatibility)
+    const actionText = this.add.text(0, 0, '', {
+      fontFamily: PIXEL_FONT, fontSize: '10px', color: '#c0c0c0',
+      stroke: '#000000', strokeThickness: 2,
+    });
     actionText.setVisible(false);
+    actionText.setDepth(101);
 
     const needsBar = this.add.graphics();
     needsBar.setDepth(102);
@@ -677,20 +671,26 @@ export class GameScene extends Phaser.Scene {
 
     const lvl = getTotalLevel(agent.skills);
     sprites.nameText.setText(`[${lvl}] ${agent.name}`);
+    // Name below sprite
     sprites.nameText.x = sprites.sprite.x;
-    sprites.nameText.y = sprites.sprite.y - TILE_SIZE - 4;
+    sprites.nameText.y = sprites.sprite.y + 2;
 
-    // Show action text only when this agent is selected
-    const isSelected = this.selectedAgent?.id === agent.id;
-    sprites.actionText.setVisible(isSelected);
-    if (isSelected) {
-      sprites.actionText.x = sprites.sprite.x;
-      sprites.actionText.y = sprites.sprite.y + 4;
-      sprites.actionText.setText(formatAction(agent.action));
+    // Hide action text (no longer shown on map)
+    sprites.actionText.setVisible(false);
+
+    // Hit flash: red tint when taking damage
+    const currentHealth = agent.needs.health;
+    const prevHealth = sprites.lastHealth ?? currentHealth;
+    if (currentHealth < prevHealth - 0.5) {
+      sprites.hitFlashUntil = Date.now() + 300; // flash for 300ms
     }
+    sprites.lastHealth = currentHealth;
 
-    // Highlight selected
-    if (this.selectedAgent?.id === agent.id) {
+    // Tint: hit flash > selected highlight > normal
+    const now = Date.now();
+    if (sprites.hitFlashUntil && now < sprites.hitFlashUntil) {
+      sprites.sprite.setTint(0xff4444);
+    } else if (this.selectedAgent?.id === agent.id) {
       sprites.sprite.setTint(0xffffaa);
     } else {
       sprites.sprite.clearTint();
@@ -942,12 +942,24 @@ export class GameScene extends Phaser.Scene {
     as.labelText.y = as.sprite.y - TILE_SIZE / 2 - 2;
     as.labelText.setDepth(51 + Math.floor(animal.y));
 
-    // Tint when low health
+    // Hit flash: red tint when taking damage
+    const currentHealth = animal.health;
+    const prevHealth = as.lastHealth ?? currentHealth;
+    if (currentHealth < prevHealth - 0.5) {
+      as.hitFlashUntil = Date.now() + 300;
+    }
+    as.lastHealth = currentHealth;
+
+    const now = Date.now();
     if (!animal.alive) {
       as.sprite.setAlpha(0.5);
       as.labelText.setVisible(false);
+    } else if (as.hitFlashUntil && now < as.hitFlashUntil) {
+      as.sprite.setTint(0xff2222); // bright red flash on hit
+    } else if (this.selectedAnimal?.id === animal.id) {
+      as.sprite.setTint(0xffffaa); // selected highlight
     } else if (animal.health < animal.maxHealth * 0.3) {
-      as.sprite.setTint(0xff8888);
+      as.sprite.setTint(0xff8888); // low health tint
     } else {
       as.sprite.clearTint();
       as.sprite.setAlpha(1);
