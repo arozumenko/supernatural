@@ -137,7 +137,7 @@ export class GameScene extends Phaser.Scene {
     this.client.on('world:init', (data: WorldInitData) => this.onWorldInit(data));
     this.client.on('world:update', (data: WorldUpdateData) => this.onWorldUpdate(data));
     this.client.on('agent:died', (data: { agentId: string; name: string; cause: string }) => {
-      this.ui.addEvent(`[death] ${data.name} died of ${data.cause}`);
+      this.ui.addEvent(`\uD83D\uDC80 ${data.name} died: ${data.cause}`);
       // Place tombstone at agent's last position
       const agent = this.agents.find(a => a.id === data.agentId);
       if (agent) {
@@ -145,10 +145,10 @@ export class GameScene extends Phaser.Scene {
       }
     });
     this.client.on('agent:born', (data: { agent: AgentState }) => {
-      this.ui.addEvent(`[born] ${data.agent.name} appeared`);
+      this.ui.addEvent(`\u2728 ${data.agent.name} appeared`);
     });
     this.client.on('world:event', (data: { type: string; message: string }) => {
-      this.ui.addEvent(`[world] ${data.message}`);
+      this.ui.addEvent(`\uD83C\uDF0D ${data.message}`);
     });
     this.client.on('game:results', (data: any) => {
       this.scene.stop('UIScene');
@@ -158,7 +158,7 @@ export class GameScene extends Phaser.Scene {
       const a = this.agents.find(ag => ag.id === data.agentA);
       const b = this.agents.find(ag => ag.id === data.agentB);
       if (a && b) {
-        const tag = data.outcome > 0 ? '[chat]' : '[conflict]';
+        const tag = data.outcome > 0 ? '\uD83D\uDCAC' : '\u2694\uFE0F';
         this.ui.addEvent(`${tag} ${a.name} & ${b.name}`);
       }
     });
@@ -341,7 +341,7 @@ export class GameScene extends Phaser.Scene {
     // Store structures
     this.structuresList = data.structures || [];
 
-    this.ui.addEvent('Connected to the world');
+    this.ui.addEvent('\uD83D\uDD0C Connected');
   }
 
   private onWorldUpdate(data: WorldUpdateData): void {
