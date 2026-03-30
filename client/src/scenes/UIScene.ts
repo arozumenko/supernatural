@@ -133,6 +133,25 @@ export class UIScene extends Phaser.Scene {
       }
     });
 
+    // STOP GAME button (fixed position, not in scrollable container)
+    const stopBtnW = SIDEBAR_W - 24;
+    const stopBtnH = 28;
+    const stopBtnY = this.scale.height - 30;
+    const stopBg = this.add.graphics().setDepth(1001);
+    stopBg.fillStyle(0x882222, 0.9); stopBg.fillRoundedRect(12, stopBtnY, stopBtnW, stopBtnH, 4);
+    stopBg.lineStyle(1, 0xcc4444, 0.6); stopBg.strokeRoundedRect(12, stopBtnY, stopBtnW, stopBtnH, 4);
+    const stopText = this.add.text(SIDEBAR_W / 2, stopBtnY + stopBtnH / 2, 'STOP GAME', {
+      fontFamily: PIXEL_FONT, fontSize: '11px', color: '#ff6666',
+    }).setOrigin(0.5).setDepth(1001);
+    const stopZone = this.add.zone(SIDEBAR_W / 2, stopBtnY + stopBtnH / 2, stopBtnW, stopBtnH)
+      .setInteractive({ useHandCursor: true }).setDepth(1001);
+    stopZone.on('pointerup', () => {
+      const gameScene = this.scene.get('GameScene') as any;
+      if (gameScene?.client?.stopGame) {
+        gameScene.client.stopGame();
+      }
+    });
+
     // Fetch LLM provider labels
     this.fetchProviderLabels();
 
@@ -295,7 +314,7 @@ export class UIScene extends Phaser.Scene {
 
   // ─── Left Sidebar ───
 
-  updateSidebar(agents: AgentState[]): void {
+  updateSidebar(agents: AgentState[], animals?: AnimalState[]): void {
     // Check if structural reorder needed (agents die/respawn/assignment change)
     const structureHash = agents.map(a => a.id + ':' + (a.alive ? '1' : '0') + ':' + (a.llmProviderId ?? 'x')).join(',');
     const needsReorder = structureHash !== this.lastAgentStructureHash;
@@ -404,6 +423,42 @@ export class UIScene extends Phaser.Scene {
       }
 
       y += 8; // Gap between groups
+    }
+
+    // Top animals by tier
+    if (animals && animals.length > 0) {
+      y += 4;
+      const divA = this.add.graphics();
+      divA.lineStyle(1, 0x334433, 0.4);
+      divA.lineBetween(10, y, SIDEBAR_W - 10, y);
+      this.sidebarContainer.add(divA);
+      y += 8;
+
+      const headerT = this.add.text(12, y, 'TOP ANIMALS', {
+        fontFamily: PIXEL_FONT, fontSize: '12px', color: '#556655',
+      });
+      this.sidebarContainer.add(headerT);
+      y += 18;
+
+      const tiers: [string, string, string[]][] = [
+        ['Apex', '\uD83D\uDC3B', ['bear', 'tiger', 'alligator']],
+        ['Pred', '\uD83E\uDD8A', ['fox', 'cat', 'dog-0']],
+        ['Herb', '\uD83E\uDD8C', ['deer', 'cow-0', 'horse', 'pig', 'goat', 'sheep', 'donkey', 'rabbit', 'chicken', 'duck', 'squirrel', 'hedgehog', 'capybara']],
+      ];
+
+      for (const [tierLabel, emoji, species] of tiers) {
+        const tierAnimals = animals.filter((a: any) => species.includes(a.species) && a.alive);
+        tierAnimals.sort((a: any, b: any) => b.age - a.age);
+        const best = tierAnimals[0];
+        if (best) {
+          const secs = Math.floor(best.age / 10);
+          const t = this.add.text(12, y, `${emoji} ${tierLabel}: ${best.species} ${secs}s`, {
+            fontFamily: PIXEL_FONT, fontSize: '11px', color: '#909890',
+          });
+          this.sidebarContainer.add(t);
+          y += 18;
+        }
+      }
     }
 
     this.sidebarContentHeight = y;

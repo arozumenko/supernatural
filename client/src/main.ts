@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { MainMenuScene } from './scenes/MainMenuScene.js';
 import { GameScene } from './scenes/GameScene.js';
 import { UIScene } from './scenes/UIScene.js';
+import { ResultsScene } from './scenes/ResultsScene.js';
 
 // Wait for the pixel font to load before starting Phaser.
 // Without this, text created in create() renders with fallback font
@@ -15,7 +16,7 @@ document.fonts.load('16px "Press Start 2P"').then(() => {
     backgroundColor: '#0a0a0a',
     pixelArt: true,
     roundPixels: true,
-    scene: [MainMenuScene, GameScene, UIScene],
+    scene: [MainMenuScene, GameScene, UIScene, ResultsScene],
     scale: {
       mode: Phaser.Scale.RESIZE,
       autoCenter: Phaser.Scale.CENTER_BOTH,

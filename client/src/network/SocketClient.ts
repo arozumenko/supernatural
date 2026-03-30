@@ -87,6 +87,10 @@ export class SocketClient {
     this.socket.on('agent:plan_update', (data: any) => {
       this.emit('agent:plan_update', data);
     });
+
+    this.socket.on('game:results', (data: any) => {
+      this.emit('game:results', data);
+    });
   }
 
   // Event system
@@ -116,6 +120,10 @@ export class SocketClient {
 
   sendMessage(agentId: string, content: string): void {
     this.socket.emit('player:message', { agentId, content });
+  }
+
+  stopGame(): void {
+    this.socket.emit('game:stop' as any);
   }
 
   get id(): string | undefined {

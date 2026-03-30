@@ -18,7 +18,11 @@ export type {
   AgentSummary, WorldSummary, NearbyEntity, NearbyResource, NearbyAgent, NearbyCorpse,
   ApiError, JsonPatch,
   LLMResponse, LLMAction,
+  GameResults, AgentResult, AnimalResult,
 } from './api-types.ts';
+import type { GameResults as _GameResults } from './api-types.ts';
+// Make GameResults available in this file's scope for ServerToClientEvents
+type GameResults = _GameResults;
 
 // --- Orchestrator Roles ---
 
@@ -656,6 +660,7 @@ export interface ServerToClientEvents {
   'agent:permadeath': (data: { agentId: string; name: string; achievements: string[] }) => void;
   'agent:llm_action': (data: { agentId: string; role: OrchestratorRole; actionType: string; details: string }) => void;
   'agent:plan_update': (data: { agentId: string; planName: string; currentStep: number; totalSteps: number; status: string }) => void;
+  'game:results': (data: GameResults) => void;
   'social:interaction': (data: SocialInteraction) => void;
   'message:result': (data: { messageId: string; followed: boolean; reason: string }) => void;
   'world:event': (data: { type: string; message: string; x?: number; y?: number }) => void;
@@ -669,6 +674,7 @@ export interface ClientToServerEvents {
   'game:configure': (config: GameConfig) => void;
   'agent:assign_llm': (data: { agentId: string; providerId: string; role: OrchestratorRole }) => void;
   'agent:remove_llm': (data: { agentId: string }) => void;
+  'game:stop': () => void;
 }
 
 // --- Utility ---

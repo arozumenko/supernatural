@@ -212,6 +212,53 @@ export type LLMAction =
   | { type: 'plan'; plan: ActionPlan }
   | { type: 'genome_patch'; patches: JsonPatch[]; reason: string };
 
+// === Game Results ===
+
+export interface GameResults {
+  ticksPlayed: number;
+  season: string;
+  agents: AgentResult[];
+  bestGenome: any;  // BehaviorGenome
+  topAnimals: {
+    apex: AnimalResult | null;
+    midPredator: AnimalResult | null;
+    largeHerb: AnimalResult | null;
+    mediumHerb: AnimalResult | null;
+    smallPrey: AnimalResult | null;
+  };
+  comparison: {
+    llmAvgEffectiveness: number;
+    dtAvgEffectiveness: number;
+    llmAvgSurvival: number;
+    dtAvgSurvival: number;
+    bestApproach: 'llm' | 'decision_tree' | 'tie';
+    perRole: Record<string, { count: number; avgEffectiveness: number }>;
+  };
+}
+
+export interface AgentResult {
+  rank: number;
+  name: string;
+  effectiveness: number;
+  bestLifeTicks: number;
+  livesRemaining: number;
+  totalDeaths: number;
+  totalSkillLevels: number;
+  aiRole: string;
+  aiProvider: string | null;
+  genomeVersion: number;
+}
+
+export interface AnimalResult {
+  species: string;
+  tier: string;
+  effectiveness: number;
+  ticksAlive: number;
+  kills: number;
+  timesBreed: number;
+  skillLevels: number;
+}
+
 // === JSON Patch (RFC 6902 subset) ===
 
 export interface JsonPatch {

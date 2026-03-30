@@ -159,6 +159,14 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('game:stop' as any, () => {
+    console.log(`Game stopped by ${socket.id}`);
+    orchestrator.stop();
+    game.stop();
+    const results = game.computeResults();
+    io.emit('game:results', results);
+  });
+
   socket.on('agent:remove_llm' as any, (data: { agentId: string }) => {
     const agent = game.getAgent(data.agentId);
     if (agent) {

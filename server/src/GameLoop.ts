@@ -621,6 +621,111 @@ export class GameLoop {
     return this.agents.find(a => a.id === agentId);
   }
 
+  computeResults(): import('../../shared/src/index.ts').GameResults {
+    const season = getCurrentSeason(this.tickCount);
+
+    // Score agents
+    const agentResults = this.agents.map(a => {
+      const totalSkillLevels = Object.values(a.skills).reduce((sum, s) => sum + s.level, 0);
+      const bestLife = a.lifetimeBestSurvival ?? 0;
+      const avgLife = a.totalDeaths > 0 ? Math.floor(this.tickCount / (a.totalDeaths + 1)) : this.tickCount;
+      const effectiveness = Math.floor(
+        (bestLife / 100) + (avgLife / 50) + ((a.livesRemaining ?? 100) * 2)
+        - (a.totalDeaths * 5) + totalSkillLevels
+      );
+      return {
+        rank: 0,
+        name: a.name,
+        effectiveness,
+        bestLifeTicks: bestLife,
+        livesRemaining: a.livesRemaining ?? 100,
+        totalDeaths: a.totalDeaths,
+        totalSkillLevels: totalSkillLevels,
+        aiRole: a.llmRole ?? 'none',
+        aiProvider: a.llmProviderId ?? null,
+        genomeVersion: a.genomeVersion ?? 1,
+      };
+    }).sort((a, b) => b.effectiveness - a.effectiveness);
+    agentResults.forEach((r, i) => r.rank = i + 1);
+
+    // Best genome
+    const bestAgent = this.agents.find(a => a.name === agentResults[0]?.name);
+    const bestGenome = bestAgent ? (bestAgent as any).currentGenome : null;
+
+    // Score animals by tier
+    const tierMap: Record<string, string> = {
+      bear: 'apex', tiger: 'apex', alligator: 'apex',
+      fox: 'midPredator', cat: 'midPredator', 'dog-0': 'midPredator',
+      deer: 'largeHerb', 'cow-0': 'largeHerb', horse: 'largeHerb',
+      pig: 'mediumHerb', goat: 'mediumHerb', sheep: 'mediumHerb', donkey: 'mediumHerb',
+      rabbit: 'smallPrey', chicken: 'smallPrey', duck: 'smallPrey',
+      squirrel: 'smallPrey', hedgehog: 'smallPrey', capybara: 'smallPrey', rat: 'smallPrey',
+    };
+
+    const animalScores = this.world.animals.map(animal => {
+      const skillLevels = Object.values(animal.skills).reduce((sum, s) => sum + s.level, 0);
+      const effectiveness = Math.floor(
+        (animal.age / 100) + (animal.breedCooldown < 1 ? 30 : 0) + (skillLevels * 5)
+      );
+      return {
+        species: animal.species,
+        tier: tierMap[animal.species] ?? 'smallPrey',
+        effectiveness,
+        ticksAlive: animal.age,
+        kills: 0,
+        timesBreed: 0,
+        skillLevels,
+      };
+    });
+
+    const topByTier = (tier: string) => {
+      const filtered = animalScores.filter(a => a.tier === tier);
+      filtered.sort((a, b) => b.effectiveness - a.effectiveness);
+      return filtered[0] ?? null;
+    };
+
+    // LLM vs DT comparison
+    const llmAgents = agentResults.filter(a => a.aiRole !== 'none' && a.aiProvider);
+    const dtAgents = agentResults.filter(a => a.aiRole === 'none' || !a.aiProvider);
+    const avg = (arr: number[]) => arr.length > 0 ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
+
+    const llmAvgEff = avg(llmAgents.map(a => a.effectiveness));
+    const dtAvgEff = avg(dtAgents.map(a => a.effectiveness));
+
+    const perRole: Record<string, { count: number; avgEffectiveness: number }> = {};
+    for (const a of agentResults) {
+      const role = a.aiRole || 'none';
+      if (!perRole[role]) perRole[role] = { count: 0, avgEffectiveness: 0 };
+      perRole[role].count++;
+      perRole[role].avgEffectiveness += a.effectiveness;
+    }
+    for (const r of Object.values(perRole)) {
+      r.avgEffectiveness = Math.floor(r.avgEffectiveness / r.count);
+    }
+
+    return {
+      ticksPlayed: this.tickCount,
+      season,
+      agents: agentResults,
+      bestGenome,
+      topAnimals: {
+        apex: topByTier('apex'),
+        midPredator: topByTier('midPredator'),
+        largeHerb: topByTier('largeHerb'),
+        mediumHerb: topByTier('mediumHerb'),
+        smallPrey: topByTier('smallPrey'),
+      },
+      comparison: {
+        llmAvgEffectiveness: Math.floor(llmAvgEff),
+        dtAvgEffectiveness: Math.floor(dtAvgEff),
+        llmAvgSurvival: Math.floor(avg(llmAgents.map(a => a.bestLifeTicks))),
+        dtAvgSurvival: Math.floor(avg(dtAgents.map(a => a.bestLifeTicks))),
+        bestApproach: llmAvgEff > dtAvgEff + 10 ? 'llm' : dtAvgEff > llmAvgEff + 10 ? 'decision_tree' : 'tie',
+        perRole,
+      },
+    };
+  }
+
   spawnAgent(name?: string, personality?: PersonalityTrait[], ownerId?: string): AgentState | null {
     if (this.agents.filter(a => a.alive).length >= MAX_AGENTS) return null;
 

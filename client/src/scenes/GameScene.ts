@@ -150,6 +150,10 @@ export class GameScene extends Phaser.Scene {
     this.client.on('world:event', (data: { type: string; message: string }) => {
       this.ui.addEvent(`[world] ${data.message}`);
     });
+    this.client.on('game:results', (data: any) => {
+      this.scene.stop('UIScene');
+      this.scene.start('ResultsScene', { results: data });
+    });
     this.client.on('social:interaction', (data: any) => {
       const a = this.agents.find(ag => ag.id === data.agentA);
       const b = this.agents.find(ag => ag.id === data.agentB);
@@ -582,7 +586,7 @@ export class GameScene extends Phaser.Scene {
       this.ui.setSeason(data.season);
     }
     this.ui.setAliveCount(alive);
-    this.ui.updateSidebar(data.agents);
+    this.ui.updateSidebar(data.agents, data.animals);
   }
 
   private createAgentSprite(agent: AgentState): void {
