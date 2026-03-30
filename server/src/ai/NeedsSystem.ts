@@ -88,6 +88,10 @@ let lastReplanIndex = 0;
 
 // Async planning: agents currently waiting for microtask plan result
 const pendingPlans = new Set<string>();
+const socialCooldowns = new Map<string, number>(); // pairKey → last interaction tick
+// Per-agent disposition toward another: "agentA→agentB" = friend/foe
+// A can be friend to B while B is foe to A
+const agentDisposition = new Map<string, 'friend' | 'foe'>();
 
 function isAdjacentToTile(x: number, y: number, tileType: TileType, world: World): boolean {
   const dirs = [{dx:0,dy:0},{dx:1,dy:0},{dx:-1,dy:0},{dx:0,dy:1},{dx:0,dy:-1}];
@@ -388,6 +392,16 @@ function tryGOAPDecision(
   }
 
   return decision;
+}
+
+/** Clear social dispositions involving a dead agent — reset on next meeting */
+export function clearDispositions(agentId: string): void {
+  for (const key of agentDisposition.keys()) {
+    if (key.includes(agentId)) agentDisposition.delete(key);
+  }
+  for (const key of socialCooldowns.keys()) {
+    if (key.includes(agentId)) socialCooldowns.delete(key);
+  }
 }
 
 export function decayNeeds(agent: AgentState): void {
@@ -1773,51 +1787,64 @@ export function executeAction(
             Math.floor(a.x) === decision.target!.x && Math.floor(a.y) === decision.target!.y
           );
           if (nearbyAgent) {
-            // Social interaction — outcome depends on personality + relationship
-            const relationship = agent.relationships[nearbyAgent.id] ?? 0;
-            const isSocial = agent.personality.includes('social');
-            const isLoner = agent.personality.includes('loner');
-            const otherLoner = nearbyAgent.personality.includes('loner');
-            // Base 70% positive, modified by personality and relationship
-            let positiveChance = 0.7;
-            if (isSocial) positiveChance += 0.15;           // social agents are friendlier
-            if (isLoner) positiveChance -= 0.25;            // loners conflict more
-            if (otherLoner) positiveChance -= 0.15;         // two loners = trouble
-            positiveChance += relationship * 0.002;          // existing relationship matters
-            positiveChance = Math.max(0.1, Math.min(0.95, positiveChance));
-            const outcome = Math.random() < positiveChance ? randomOutcome(3, 8) : randomOutcome(-3, -1);
-            agent.needs.social = clamp(agent.needs.social + SOCIAL_RESTORE, 0, 100);
-            nearbyAgent.needs.social = clamp(nearbyAgent.needs.social + SOCIAL_RESTORE * 0.5, 0, 100);
-            agent.relationships[nearbyAgent.id] = clamp(
-              (agent.relationships[nearbyAgent.id] ?? 0) + outcome, -100, 100
-            );
-            nearbyAgent.relationships[agent.id] = clamp(
-              (nearbyAgent.relationships[agent.id] ?? 0) + outcome * 0.5, -100, 100
-            );
-            awardXP(agent.skills, 'social', 1.0);
-            agent.socialScore += outcome > 0 ? 1 : -1;
+            // Interaction cooldown: once per second (10 ticks) per pair
+            const pairKey = [agent.id, nearbyAgent.id].sort().join(':');
+            const lastInteraction = socialCooldowns.get(pairKey) ?? 0;
+            if (agent.age - lastInteraction < 10) break;
+            socialCooldowns.set(pairKey, agent.age);
 
-            // Only emit social events every ~10 ticks to avoid spam
-            if (Math.random() < 0.1) {
-              interactions.push({
-                agentA: agent.id,
-                agentB: nearbyAgent.id,
-                type: outcome > 0 ? 'conversation' : 'conflict',
-                outcome,
-                timestamp: Date.now(),
-              });
+            // Each agent decides independently: friend or foe (on first meeting, persists until death)
+            const dispKey = agent.id + '>' + nearbyAgent.id;
+            if (!agentDisposition.has(dispKey)) {
+              const relationship = agent.relationships[nearbyAgent.id] ?? 0;
+              const isSocial = agent.personality.includes('social');
+              const isLoner = agent.personality.includes('loner');
+              const totalLevels = Object.values(agent.skills).reduce((sum, s) => sum + s.level, 0);
+              let friendChance = 0.7;
+              if (isSocial) friendChance += 0.15;
+              if (isLoner) friendChance -= 0.25;
+              friendChance += relationship * 0.002;
+              // Higher level = more aggressive: 10% foe at lv0 → 50% foe at ~200 total levels
+              friendChance -= totalLevels * 0.002; // -40% at 200 total levels
+              friendChance = Math.max(0.1, Math.min(0.95, friendChance));
+              agentDisposition.set(dispKey, Math.random() < friendChance ? 'friend' : 'foe');
             }
 
-            // Social recovery: small health + stamina boost — only if basic needs met
-            if (outcome > 0 && agent.needs.thirst > 10 && agent.needs.proteinHunger > 10) {
-              agent.needs.health = clamp(agent.needs.health + 1, 0, 100);
-              agent.needs.stamina = clamp(agent.needs.stamina + 2, 0, 100);
+            const disposition = agentDisposition.get(dispKey)!;
+
+            if (disposition === 'friend') {
+              // Chat: restore social, build relationship
+              const outcome = randomOutcome(3, 8);
+              agent.needs.social = clamp(agent.needs.social + SOCIAL_RESTORE, 0, 100);
+              nearbyAgent.needs.social = clamp(nearbyAgent.needs.social + SOCIAL_RESTORE * 0.5, 0, 100);
+              agent.relationships[nearbyAgent.id] = clamp((agent.relationships[nearbyAgent.id] ?? 0) + outcome, -100, 100);
+              nearbyAgent.relationships[agent.id] = clamp((nearbyAgent.relationships[agent.id] ?? 0) + outcome * 0.5, -100, 100);
+              awardXP(agent.skills, 'social', 1.0);
+              agent.socialScore++;
+              interactions.push({ agentA: agent.id, agentB: nearbyAgent.id, type: 'conversation', outcome, timestamp: Date.now() });
+              // Friendly health/stamina boost
+              if (agent.needs.thirst > 10 && agent.needs.proteinHunger > 10) {
+                agent.needs.health = clamp(agent.needs.health + 1, 0, 100);
+                agent.needs.stamina = clamp(agent.needs.stamina + 2, 0, 100);
+              }
+            } else {
+              // Fight: deal damage, mark as attacker so other can fight back or flee
+              const attackPower = agent.baseStats.strength + agent.skills.combat.level * 0.3;
+              const damage = Math.max(1, Math.floor(attackPower * 0.3));
+              nearbyAgent.needs.health = clamp(nearbyAgent.needs.health - damage, 0, 100);
+              nearbyAgent.lastAttackedBy = { type: 'agent', id: agent.id, tick: agent.age };
+              agent.relationships[nearbyAgent.id] = clamp((agent.relationships[nearbyAgent.id] ?? 0) - 10, -100, 100);
+              nearbyAgent.relationships[agent.id] = clamp((nearbyAgent.relationships[agent.id] ?? 0) - 15, -100, 100);
+              awardXP(agent.skills, 'combat', 0.5);
+              awardXP(nearbyAgent.skills, 'defense', 0.3);
+              agent.socialScore--;
+              interactions.push({ agentA: agent.id, agentB: nearbyAgent.id, type: 'conflict', outcome: -damage, timestamp: Date.now() });
             }
 
             // Trading: charisma-scaled chance to swap surplus resources
             // High CHA agents trade more often and get better deals
             const tradeChance = 0.1 + (agent.baseStats.charisma * 0.02); // 10-38% based on CHA
-            if (Math.random() < tradeChance && outcome > 0) {
+            if (Math.random() < tradeChance && disposition === 'friend') {
               const tradeAmount = 2 + Math.floor(agent.skills.social.level / 10); // 2-12 based on skill
               // Trade what agent has surplus for what it lacks
               const trades: [keyof typeof agent.resources, keyof typeof agent.resources][] = [

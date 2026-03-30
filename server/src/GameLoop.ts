@@ -8,7 +8,7 @@ import {
 import { World } from './World.ts';
 import { WorldConfig } from './WorldConfig.ts';
 import { createAgent } from './Agent.ts';
-import { decayNeeds, decideAction, executeAction } from './ai/NeedsSystem.ts';
+import { decayNeeds, decideAction, executeAction, clearDispositions } from './ai/NeedsSystem.ts';
 import { decayAnimalNeeds, decideAnimalAction, executeAnimalAction } from './ai/AnimalAI.ts';
 import { getSpecies } from './AnimalSpeciesConfig.ts';
 import { createAnimalBaseStats, createSkillSet, applyDeathPenalty, getCarryWeight, getCarryCapacity } from './Progression.ts';
@@ -215,6 +215,7 @@ export class GameLoop {
         // Apply death penalty: 5% XP rust
         applyDeathPenalty(agent.skills, undefined, agent.baseStats);
         agent.totalDeaths++;
+        clearDispositions(agent.id); // reset friend/foe on death
 
         // Check Highlander status
         agent.isHighlander = checkHighlander(agent);
