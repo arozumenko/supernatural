@@ -992,9 +992,6 @@ export class UIScene extends Phaser.Scene {
       const reasonFull = agent.lastDecisionReason ?? agent.action;
       const [reason, topDec] = reasonFull.split('\n');
       addLine(`\uD83D\uDCAD ${reason}`, '#88aacc', '12px');
-      if (topDec) {
-        addLine(topDec, '#555566', '9px');
-      }
 
       const priorities: [string, string, number][] = [];
       if (agent.needs.thirst < 40) priorities.push(['\uD83D\uDCA7', 'thirsty', agent.needs.thirst]);
@@ -1013,6 +1010,12 @@ export class UIScene extends Phaser.Scene {
         }
       } else {
         addLine('\u2705 all needs met', '#668866', '12px');
+      }
+
+      // Competing decisions (debug) — after needs
+      if (topDec) {
+        y += 4;
+        addLine(topDec, '#555566', '9px');
       }
     } else {
       addLine('\uD83D\uDC80 dead', '#cc4444', '12px');
