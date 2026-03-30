@@ -47,6 +47,7 @@ export class UIScene extends Phaser.Scene {
   private logLabel!: Phaser.GameObjects.Text;
   private eventLogText!: Phaser.GameObjects.Text;
   private infoPanelContainer!: Phaser.GameObjects.Container;
+  private infoPanelMaskGraphics!: Phaser.GameObjects.Graphics;
 
   // Left sidebar
   private sidebarBg!: Phaser.GameObjects.Graphics;
@@ -81,8 +82,11 @@ export class UIScene extends Phaser.Scene {
       color: '#80c080',
     }).setDepth(1000);
 
-    // Info panel container for selected agent
+    // Info panel container for selected agent (masked to avoid event log overlap)
     this.infoPanelContainer = this.add.container(0, 0).setDepth(1000);
+    this.infoPanelMaskGraphics = this.add.graphics();
+    this.infoPanelMaskGraphics.setVisible(false);
+    this.infoPanelContainer.setMask(this.infoPanelMaskGraphics.createGeometryMask());
 
     // Events label
     this.logLabel = this.add.text(0, 0, 'EVENTS', {
@@ -186,8 +190,13 @@ export class UIScene extends Phaser.Scene {
     // Info panel position
     this.infoPanelContainer.setPosition(panelX, 0);
 
-    // Event log area
+    // Mask info panel to not overlap event log
     const logH = 240;
+    this.infoPanelMaskGraphics.clear();
+    this.infoPanelMaskGraphics.fillStyle(0xffffff);
+    this.infoPanelMaskGraphics.fillRect(panelX, 0, PANEL_W, h - logH - 50);
+
+    // Event log area
     // Divider line for events
     this.rightPanelBg.lineStyle(1, 0x2a3a2a);
     this.rightPanelBg.lineBetween(panelX + 12, h - logH - 24, w - 12, h - logH - 24);
@@ -566,7 +575,7 @@ export class UIScene extends Phaser.Scene {
 
     addDivider();
 
-    // Needs
+    // Needs — compact 2-column with inline bars
     addLine('NEEDS', '#556655', '8px');
     const needsList: [string, number, number][] = [
       ['HP',      agent.needs.health,  0xcc4444],
@@ -577,12 +586,39 @@ export class UIScene extends Phaser.Scene {
       ['Social',  agent.needs.social,  0xaa44aa],
       ['Shelter', agent.needs.shelter, 0x888844],
     ];
-    for (const [label, value, color] of needsList) {
-      addLine(`${label}  ${Math.floor(value)}`, '#909890', '8px');
-      addBar(value, 100, color);
+    const colBarW = 100;
+    const col1x = 14;
+    const col2x = 14 + contentW / 2;
+    for (let ni = 0; ni < needsList.length; ni += 2) {
+      // Left column
+      const [lbl1, val1, clr1] = needsList[ni];
+      const t1 = this.add.text(col1x, y, `${lbl1} ${Math.floor(val1)}`, {
+        fontFamily: PIXEL_FONT, fontSize: '10px', color: '#909890',
+      });
+      this.infoPanelContainer.add(t1);
+      const bar1 = this.add.graphics();
+      bar1.fillStyle(0x1a1a2e); bar1.fillRect(col1x + 80, y + 2, colBarW, 8);
+      bar1.fillStyle(clr1); bar1.fillRect(col1x + 80, y + 2, colBarW * Math.max(0, Math.min(1, val1 / 100)), 8);
+      bar1.lineStyle(1, 0x2a3a2a); bar1.strokeRect(col1x + 80, y + 2, colBarW, 8);
+      this.infoPanelContainer.add(bar1);
+
+      // Right column (if exists)
+      if (ni + 1 < needsList.length) {
+        const [lbl2, val2, clr2] = needsList[ni + 1];
+        const t2 = this.add.text(col2x, y, `${lbl2} ${Math.floor(val2)}`, {
+          fontFamily: PIXEL_FONT, fontSize: '10px', color: '#909890',
+        });
+        this.infoPanelContainer.add(t2);
+        const bar2 = this.add.graphics();
+        bar2.fillStyle(0x1a1a2e); bar2.fillRect(col2x + 80, y + 2, colBarW, 8);
+        bar2.fillStyle(clr2); bar2.fillRect(col2x + 80, y + 2, colBarW * Math.max(0, Math.min(1, val2 / 100)), 8);
+        bar2.lineStyle(1, 0x2a3a2a); bar2.strokeRect(col2x + 80, y + 2, colBarW, 8);
+        this.infoPanelContainer.add(bar2);
+      }
+      y += 18;
     }
 
-    // Metabolism indicator (sum of all skill levels / 500 + 1)
+    // Metabolism
     const totalLevels = Object.values(agent.skills).reduce((sum: number, s: any) => sum + (s.level || 0), 0);
     const metabolism = (1 + totalLevels / 500).toFixed(1);
     addLine(`Metabolism: ${metabolism}x`, '#888880', '8px');
