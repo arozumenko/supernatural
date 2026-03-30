@@ -527,6 +527,13 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
   for (const animal of world.animals) {
     if (!animal.alive) continue;
     const species = getSpecies(animal.species);
+
+    // Only consider actual predators as threats — herbivores don't hunt agents
+    const isPredator = species.diet === 'carnivore' || species.diet === 'omnivore';
+    const isActivelyAttacking = animal.action === 'hunting' || animal.action === 'fighting';
+    const wasAttacker = agent.lastAttackedBy?.type === 'animal' && agent.lastAttackedBy.id === animal.id;
+    if (!isPredator && !isActivelyAttacking && !wasAttacker) continue;
+
     const dist = distance(agent.x, agent.y, animal.x, animal.y);
 
     // Perception-based detection range
