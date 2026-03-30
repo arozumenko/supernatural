@@ -565,6 +565,9 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
     const proximityUrgency = 1 - (dist / Math.max(detectRange, soundRange));
     // Confidence reduces flee urgency — powerful agents stand their ground more
     let fleePriority = Math.floor(genome.interruptWeights.fleeBase + (dangerRatio * proximityUrgency * 35) - (confidence * 10));
+    // Desperate agents don't flee as readily — they'll fight for survival
+    const desperation = (agent.needs.proteinHunger < 15 || agent.needs.thirst < 15) ? 15 : 0;
+    fleePriority -= desperation;
     if (wasAttacked) fleePriority = Math.min(fleePriority + 20, 98);
 
     if (fleePriority > 60) {
@@ -596,13 +599,15 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
           weaponBonus = weaponDef.attackBonus || 0;
         }
         const myAttack = 10 + agent.skills.combat.level * 0.5 + weaponBonus;
-        if (myAttack > attackerSpecies.attack * genome.thresholds.fightBackMinRatio) {
+        const desperate = agent.needs.health < 30 || agent.needs.proteinHunger < 15;
+        // Fight back if strong enough OR if desperate (nothing to lose)
+        if (desperate || myAttack > attackerSpecies.attack * genome.thresholds.fightBackMinRatio) {
           decisions.push({
             action: 'harvesting',
             priority: genome.interruptWeights.fightBack,
             target: { x: Math.floor(attacker.x), y: Math.floor(attacker.y) },
             targetAnimalId: attacker.id,
-            reason: 'fighting back against attacker'
+            reason: desperate ? 'fighting back (desperate)' : 'fighting back against attacker'
           });
         }
       }
@@ -800,6 +805,12 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
       ?? recallLocation(agent, 'water', agent.age);
     if (water) {
       decisions.push({ action: 'drinking', priority: genome.mediumPriorityWeights.drinkMedium, target: water, reason: 'getting thirsty' });
+    } else {
+      // Can't find water — wander to search
+      const rx = ax + Math.floor(Math.random() * 40) - 20;
+      const ry = ay + Math.floor(Math.random() * 40) - 20;
+      decisions.push({ action: 'wandering', priority: genome.mediumPriorityWeights.drinkMedium - 10,
+        target: { x: rx, y: ry }, reason: 'searching for water' });
     }
   }
 
@@ -829,6 +840,8 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
   const gatherBonus = isIndustrious ? 15 : 0;
 
   // --- Hunt animals for food — utility-scored risk/reward ---
+  // Desperate mode: when starving, hunt at much higher priority and accept more risk
+  const isStarving = agent.needs.proteinHunger < 15;
   if (agent.needs.proteinHunger < genome.goalThresholds.proteinRelevant) {
     for (const animal of world.animals) {
       if (!animal.alive) continue;
@@ -844,11 +857,16 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
       const rewardScore = meatValue / 15;
       const hungerUrgency = 1 - (agent.needs.proteinHunger / 100);
 
-      // Don't hunt things much stronger unless starving
-      if (riskScore > 1.5 && hungerUrgency < 0.7) continue;
+      // Starving agents fight anything — even bears — to survive
+      if (!isStarving && riskScore > 1.5 && hungerUrgency < 0.7) continue;
 
       const huntBase = genome.fallbackWeights.huntAnimal - 10;
-      const huntPriority = Math.floor(huntBase + (rewardScore * hungerUrgency * 30) - (riskScore * 10));
+      let huntPriority = Math.floor(huntBase + (rewardScore * hungerUrgency * 30) - (riskScore * 10));
+
+      // Starvation boost: hunt priority spikes when truly desperate
+      if (isStarving) {
+        huntPriority = Math.max(huntPriority, 75); // at least as urgent as flee
+      }
 
       if (huntPriority > huntBase) {
         decisions.push({
@@ -856,7 +874,7 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
           priority: huntPriority + gatherBonus,
           target: { x: Math.floor(animal.x), y: Math.floor(animal.y) },
           targetAnimalId: animal.id,
-          reason: `hunting ${species.name}`
+          reason: isStarving ? `desperate hunt: ${species.name}` : `hunting ${species.name}`
         });
         break; // only target closest viable prey
       }
