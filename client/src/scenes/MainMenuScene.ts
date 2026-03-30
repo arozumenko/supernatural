@@ -133,7 +133,7 @@ export class MainMenuScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     let rowY = contentTop + 30;
-    const rowH = 42;
+    const rowH = 46;
 
     // Map Size
     this.addLabel(this.labelX, rowY, 'Map Size');
@@ -503,31 +503,34 @@ export class MainMenuScene extends Phaser.Scene {
     x: number, y: number, labels: string[], activeIndex: number,
     onChange: (index: number) => void
   ): void {
-    const btnW = 75;
-    const gap = 6;
+    const btnW = 90;
+    const btnH = 30;
+    const gap = 8;
     const buttons: { bg: Phaser.GameObjects.Graphics; text: Phaser.GameObjects.Text; zone: Phaser.GameObjects.Zone }[] = [];
 
     labels.forEach((label, i) => {
       const bx = x + i * (btnW + gap);
       const bg = this.add.graphics();
       const isActive = i === activeIndex;
-      this.drawSmallButton(bg, bx, y, btnW, 26, isActive);
+      this.drawSmallButton(bg, bx, y, btnW, btnH, isActive);
 
-      const text = this.add.text(bx + btnW / 2, y + 13, label, {
+      const text = this.add.text(bx + btnW / 2, y + btnH / 2, label, {
         fontFamily: PIXEL_FONT,
-        fontSize: '11px',
-        color: isActive ? '#0a0a0a' : '#aaaaaa',
+        fontSize: '10px',
+        color: isActive ? '#e0ffe0' : '#aaaaaa',
       }).setOrigin(0.5);
+      text.setShadow(0, 0, '#000000', isActive ? 2 : 0);
 
-      const zone = this.add.zone(bx + btnW / 2, y + 13, btnW, 26).setInteractive({ useHandCursor: true });
+      const zone = this.add.zone(bx + btnW / 2, y + btnH / 2, btnW, btnH).setInteractive({ useHandCursor: true });
       buttons.push({ bg, text, zone });
 
       zone.on('pointerup', () => {
         onChange(i);
         buttons.forEach((btn, j) => {
           const active = j === i;
-          this.drawSmallButton(btn.bg, x + j * (btnW + gap), y, btnW, 26, active);
-          btn.text.setColor(active ? '#0a0a0a' : '#aaaaaa');
+          this.drawSmallButton(btn.bg, x + j * (btnW + gap), y, btnW, btnH, active);
+          btn.text.setColor(active ? '#e0ffe0' : '#aaaaaa');
+          btn.text.setShadow(0, 0, '#000000', active ? 2 : 0);
         });
       });
     });
@@ -538,20 +541,24 @@ export class MainMenuScene extends Phaser.Scene {
     onChange: (value: number) => void, suffix: string = ''
   ): void {
     let value = initial;
+    const arrowW = 36;
+    const arrowH = 30;
+    const totalW = 180;
+    const valueCx = x + totalW / 2;
 
-    const valueText = this.add.text(x + 75, y + 6, `${value}${suffix}`, {
+    const valueText = this.add.text(valueCx, y + arrowH / 2, `${value}${suffix}`, {
       fontFamily: PIXEL_FONT,
-      fontSize: '10px',
+      fontSize: '12px',
       color: '#ffffff',
-    }).setOrigin(0.5, 0);
+    }).setOrigin(0.5);
 
     // Left arrow
     const leftBg = this.add.graphics();
-    this.drawSmallButton(leftBg, x, y, 32, 26, false);
-    this.add.text(x + 16, y + 13, '<', {
-      fontFamily: PIXEL_FONT, fontSize: '10px', color: '#80c080',
+    this.drawSmallButton(leftBg, x, y, arrowW, arrowH, false);
+    this.add.text(x + arrowW / 2, y + arrowH / 2, '<', {
+      fontFamily: PIXEL_FONT, fontSize: '12px', color: '#80c080',
     }).setOrigin(0.5);
-    const leftZone = this.add.zone(x + 16, y + 13, 32, 26).setInteractive({ useHandCursor: true });
+    const leftZone = this.add.zone(x + arrowW / 2, y + arrowH / 2, arrowW, arrowH).setInteractive({ useHandCursor: true });
     leftZone.on('pointerup', () => {
       value = Math.max(min, value - step);
       valueText.setText(`${value}${suffix}`);
@@ -559,12 +566,13 @@ export class MainMenuScene extends Phaser.Scene {
     });
 
     // Right arrow
+    const rightX = x + totalW - arrowW;
     const rightBg = this.add.graphics();
-    this.drawSmallButton(rightBg, x + 118, y, 32, 26, false);
-    this.add.text(x + 134, y + 13, '>', {
-      fontFamily: PIXEL_FONT, fontSize: '10px', color: '#80c080',
+    this.drawSmallButton(rightBg, rightX, y, arrowW, arrowH, false);
+    this.add.text(rightX + arrowW / 2, y + arrowH / 2, '>', {
+      fontFamily: PIXEL_FONT, fontSize: '12px', color: '#80c080',
     }).setOrigin(0.5);
-    const rightZone = this.add.zone(x + 134, y + 13, 32, 26).setInteractive({ useHandCursor: true });
+    const rightZone = this.add.zone(rightX + arrowW / 2, y + arrowH / 2, arrowW, arrowH).setInteractive({ useHandCursor: true });
     rightZone.on('pointerup', () => {
       value = Math.min(max, value + step);
       valueText.setText(`${value}${suffix}`);
