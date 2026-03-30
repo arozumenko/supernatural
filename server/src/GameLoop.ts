@@ -285,7 +285,7 @@ export class GameLoop {
       // Decide and execute (staggered: full re-decision every 3 ticks per agent)
       const aliveAgents = this.agents.filter(a => a.alive);
       const agentIndex = aliveAgents.indexOf(agent);
-      const shouldRedecide = (this.tickCount + agentIndex) % 3 === 0;
+      const shouldRedecide = (this.tickCount + agentIndex) % 2 === 0;
 
       let decision: ReturnType<typeof decideAction>;
       if (shouldRedecide || agent.action === 'idle' || agent.action === 'wandering') {

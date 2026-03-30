@@ -216,7 +216,7 @@ function goapActionToDecision(
 }
 
 /** Estimated ticks per action step; if exceeded, assume step is done or stuck */
-const STEP_TIMEOUT_MULTIPLIER = 4.0;
+const STEP_TIMEOUT_MULTIPLIER = 2.5;
 
 function tryGOAPDecision(
   agent: AgentState,
@@ -255,10 +255,10 @@ function tryGOAPDecision(
     }
   }
 
-  // Re-plan if needed (staggered: max 1 agent re-plans per tick)
+  // Re-plan if needed (staggered: up to 3 agents can re-plan per tick)
   if (!planData) {
-    // Stagger: only allow re-planning for one agent per tick
-    if (agentIndex % Math.max(1, Math.floor(allAgents.length / 2)) === tickCount % Math.max(1, Math.floor(allAgents.length / 2))) {
+    // Stagger: allow re-planning for ~3 agents per tick
+    if (agentIndex % Math.max(1, Math.ceil(allAgents.length / 3)) === tickCount % Math.max(1, Math.ceil(allAgents.length / 3))) {
       const goal = selectGoal(agent, worldState);
       if (goal) {
         const plan = planGOAP(agent, world, worldState, goal, GOAP_ACTIONS);
