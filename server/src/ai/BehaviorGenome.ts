@@ -163,6 +163,15 @@ export function validateGenome(genome: BehaviorGenome): ValidationResult {
     errors.push(`thresholds.fightBackMinRatio out of bounds: ${genome.thresholds.fightBackMinRatio}`);
   }
 
+  // Goal thresholds (when GOAP/fallback goals activate)
+  if (genome.goalThresholds) {
+    for (const [key, val] of Object.entries(genome.goalThresholds)) {
+      if (typeof val === 'number' && (val < B.thresholds.goalThresholds.min || val > B.thresholds.goalThresholds.max)) {
+        errors.push(`goalThresholds.${key} out of bounds: ${val}`);
+      }
+    }
+  }
+
   // Goal weights
   for (const [key, val] of Object.entries(genome.goalWeights)) {
     if (val < B.goalWeights.min || val > B.goalWeights.max) {
@@ -224,6 +233,12 @@ export function clampGenome(genome: BehaviorGenome): void {
   }
   for (const key of Object.keys(genome.actionCostMods)) {
     genome.actionCostMods[key] = c(genome.actionCostMods[key], B.actionCostMods.min, B.actionCostMods.max);
+  }
+  // Clamp goal thresholds
+  if (genome.goalThresholds) {
+    for (const key of Object.keys(genome.goalThresholds) as (keyof typeof genome.goalThresholds)[]) {
+      genome.goalThresholds[key] = c(genome.goalThresholds[key], B.thresholds.goalThresholds.min, B.thresholds.goalThresholds.max);
+    }
   }
 
   // Survival goals min

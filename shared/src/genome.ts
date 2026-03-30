@@ -147,7 +147,8 @@ export const GENOME_BOUNDS = {
   interruptWeights: { min: 60, max: 99 },
   mediumPriorityWeights: { min: 40, max: 70 },
   thresholds: {
-    needs: { min: 5, max: 95 },
+    needs: { min: 15, max: 95 },      // min 15 so critical checks always fire when in danger
+    goalThresholds: { min: 20, max: 80 }, // min 20 so GOAP/fallback goals activate when needs drop
     resources: { min: 0, max: 50 },
     detection: { min: 3, max: 30 },
     fleeHealthPanic: { min: 0.1, max: 0.8 },
