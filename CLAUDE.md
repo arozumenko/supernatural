@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What This Is
 
-Supernatural is a server-authoritative AI agent civilization simulator with a full ecosystem. Autonomous agents with needs, personalities, base stats, and learnable skills inhabit a procedurally generated tile world alongside 20 animal species forming a complete food chain. Players observe and can influence (but not control) agents via messages.
+Supernatural is a server-authoritative AI agent civilization simulator. Autonomous agents with needs, personalities, base stats, and learnable skills inhabit a procedurally generated tile world alongside 20 animal species forming a complete food chain. External LLMs observe, instruct, and evolve agents through a REST API — each playing a distinct "god" role (Advisor, Puppeteer, God, Darwinist, Parent, Chaos Demon).
 
 ## Commands
 
@@ -25,145 +25,119 @@ npm run dev:client
 npm run build
 ```
 
-Server status endpoint: `GET http://localhost:3001/api/status`
+Server status: `GET http://localhost:3001/api/status`
+Dev API key: set `SUPERNATURAL_API_KEY=yourkey` env var
 
 ## Architecture
 
-Monorepo with three packages: `shared/`, `server/`, `client/`. All TypeScript (ES modules, strict mode).
+Monorepo with three packages: `shared/`, `server/`, `client/`. All TypeScript (ES modules, strict mode). Uses `tsx` runtime for server (no tsc compilation needed for dev).
 
-### shared/src/index.ts
-Central type definitions shared between server and client. Contains:
-- **World constants**: 120x90 tiles, 32px tile size, 10 ticks/sec, max 50 agents
-- **TileType enum**: GRASS, WATER, TREE, STONE, BERRY_BUSH, SAND, DIRT, TREE_STUMP, ROCK_RUBBLE, BUILT_FLOOR, BUILT_WALL, CAMPFIRE, WORKBENCH, FORGE, STONE_WALL, IRON_WALL, WOOD_DOOR, BONE_FENCE, STORAGE, TENT, BEDROLL, ANIMAL_PEN, IRON_ORE
-- **Resources**: wood, stone, food, water, seeds + 8 body materials (meat, bone, hide, sinew, fat, feathers, teeth_claws, scales) + iron_ore, iron_ingot
-- **Progression types**: BaseStats (6 stats), SkillSet (10 skills with XP/level), SkillState
-- **Dual nutrition**: AgentNeeds has proteinHunger + plantHunger (not single hunger)
-- **Entity interfaces**: TreeState, RockState, PlantState (7 types), AnimalState (20 species), CorpseState, StructureState
-- **Items & Inventory**: ItemDefinition, InventoryItem, Equipment (3 slots), Inventory
-- **Animal types**: AnimalAction (15 states), AnimalSpecies (full config), PlantType (7 types)
-- **Socket.IO event contracts**: world:init and world:update include agents, tiles, trees, rocks, plants, animals, corpses, structures
+### shared/src/
+- **index.ts** — Central type hub. Re-exports from genome.ts, journal.ts, api-types.ts. Contains: world constants (120x90, 32px, 10Hz, max 50 agents), TileType enum (24 types including TOMBSTONE), AgentState (30+ fields including evolution: livesRemaining, genomeVersion, llmRole, activeStrategyRuleNames), GameConfig (with agentLLMAssignments carrying providerId + OrchestratorRole), OrchestratorRole type (7 roles), ROLE_PERMISSIONS const, Socket.IO event contracts.
+- **genome.ts** — BehaviorGenome (interrupt weights, medium priorities, thresholds, GOAP goal weights, action cost mods, fallback weights, strategy rules), StrategyRule/RuleCondition/RuleEffect, GENOME_BOUNDS safety limits, LLMProviderConfig (supports 6 providers: anthropic, openai, google, ollama, bedrock, openai_compatible).
+- **journal.ts** — LifeJournal, DeathCause (9 types), LifeMetrics, TimelineEntry, LifeEvent (18 types).
+- **api-types.ts** — ActionPlan/ActivePlan/PlanStep/PlanCondition, AgentSummary/WorldSummary/NearbyEntity, ApiKey/ApiRateLimit, LLMResponse/LLMAction, JsonPatch.
 
 ### server/src/
-- **index.ts** — Express + Socket.IO server on port 3001. Broadcasts all entity types.
-- **GameLoop.ts** — Central orchestrator at 10 ticks/sec. Processes agents, animals (staggered 1/5 per tick), breeding, corpse decay, structure decay, meat spoilage, respawn queues.
-- **World.ts** — Procedural world generation with budget-based resource placement. Manages tile grid, entity systems (trees, rocks, plants, animals, corpses, structures), A* pathfinding support.
-- **WorldConfig.ts** — All tunable generation parameters: water coverage (20%), terrain thresholds, nature budget (40% of land), resource distribution ratios, tree/rock/plant health values, animal spawn counts, population control, structure HP, iron deposits.
-- **Agent.ts** — Agent factory with base stats, skill set, dual nutrition, inventory.
-- **Progression.ts** — XP/leveling engine, effective stat calculators, combat formulas (attack damage, hit accuracy, damage reduction, dodge chance), speed calculations with weight penalty, harvest/build bonuses, metabolism helpers.
-- **AnimalSpeciesConfig.ts** — All 20 animal species with stats, drops, breeding, taming, abilities, skill caps, flocking weights, awareness config.
-- **ItemDefinitions.ts** — 52 item definitions (tools, weapons, armor, food, materials) with weights, stats, durability.
-- **RecipeDefinitions.ts** — 53 crafting recipes across 4 tiers (hand → wood → stone → bone/iron) with station requirements and skill gates.
-- **ai/NeedsSystem.ts** — Agent AI: metabolism-scaled need decay, priority-based decisions with awareness-based threat evaluation, utility-scored hunting, crafting/building with station checks, tool auto-equip, combat with accuracy/dodge, taming, trading.
-- **ai/AnimalAI.ts** — Animal AI: utility scoring (quadratic/logistic curves), 3-sense awareness (sight/smell/sound), GOAP-lite decisions, metabolism scaling, breeding, special abilities (ambush/curl/howl/trample/steal/egg/seed/peace aura), flocking, pack behavior, attack cooldown combat with flee impulse.
-- **ai/Pathfinding.ts** — A* pathfinding with excludeTiles support (doors block animals).
+- **index.ts** — Express + Socket.IO server on port 3001. Loads LLM providers, bootstraps dev API key, mounts API router (uses `() => game` getter pattern because game is reassigned on configure), instantiates OrchestratorLoop, handles agent:assign_llm/agent:remove_llm socket events, broadcasts agent:llm_action events.
+- **GameLoop.ts** — Central tick loop at 10Hz. Death handler: 9-way cause detection → journal finalization → lives calculation → permadeath check → evolution (LLM or fallback mutation) → corpse spawn → respawn queue. Journal sampling every 100/300 ticks. Genome hot-swap on respawn. EventEmitter for API SSE streaming.
+- **World.ts** — Procedural generation (9 passes), entity management, A* pathfinding, tile grid queries (findNearest*, get*At).
+- **Agent.ts** — Factory with genome (`createDefaultGenome()`), lives (100), journal, all evolution fields. `llmRole: 'none'` default.
+- **Progression.ts** — XP/leveling, effective stats, combat formulas, metabolism helpers.
+- **WorldConfig.ts** — All tunable generation parameters.
+- **AnimalSpeciesConfig.ts** — 20 animal species.
+- **ItemDefinitions.ts** — 52 items. **RecipeDefinitions.ts** — 53 recipes.
+
+### server/src/ai/
+- **NeedsSystem.ts** — Genome-driven decision engine. All priorities/thresholds read from `agent.currentGenome` (via `(agent as any).currentGenome`). Flow: player messages → threats/flee → self-defense → critical survival → **pending plan execution** → GOAP → fallback priorities → strategy rules → wander. Sets `agent.lastDecisionReason`.
+- **GOAPPlanner.ts** — 8 goals with genome-weighted urgency, genome-modified action costs, genome-driven relevance thresholds.
+- **AnimalAI.ts** — Utility AI, 3-sense awareness, special abilities, flocking.
+- **BehaviorGenome.ts** — `createDefaultGenome()` (all current hardcoded values), `validateGenome()`, `clampGenome()`.
+- **LifeJournal.ts** — `initJournal()`, `recordTimelineEntry()`, `recordHeatmapEntry()`, `recordLifeEvent()`, `detectDeathCause()` (9-way), `finalizeJournal()`, metrics tracking. Emits to `apiEventEmitter` for SSE.
+- **LivesEconomy.ts** — `calculateLivesChange()`, achievements, Highlander check.
+- **FallbackEvolution.ts** — 8 death-cause-specific mutation functions (starvation_protein/plant/both, dehydration, killed_by_animal/agent, exhaustion, poison).
+- **StrategyRules.ts** — Recursive condition evaluator (and/or/not, need/resource checks, near_entity, skill_level, deaths_remaining), effect applicator (boost/suppress/force/flee/modify).
+- **EvolutionQueue.ts** — Async non-blocking LLM queue for death-triggered genome evolution.
+- **LLMClient.ts** — HTTP client for evolution calls. Supports all 6 providers with SigV4 signing for Bedrock.
+- **Pathfinding.ts** — A* with excludeTiles.
+
+### server/src/orchestrator/
+- **OrchestratorLoop.ts** — Per-agent timer-based orchestrator. `registerAgent()` starts observation interval per role. `tick()`: builds AgentSummary → role prompt + user message → LLM call → parse response → apply actions (message/plan/genome_patch). Enforces role permissions.
+- **LLMCaller.ts** — System+user message HTTP client. All 6 providers: Anthropic (Messages API), OpenAI (Chat Completions), Google Gemini (GenerateContent), Ollama (native /api/chat), AWS Bedrock (Converse API with zero-dep SigV4 signing), OpenAI-compatible (vLLM/Together/Groq/etc).
+- **ResponseParser.ts** — Parses LLM JSON responses, strips markdown fences, enforces role permissions, validates genome patches, caps plan priority at 70.
+- **roles.ts** — 6 embedded role system prompts, `getRolePrompt()`, `buildUserMessage()` with role-specific context (god/darwinist get genome info, puppeteer gets plan status, parent gets skill phases).
+
+### server/src/api/
+- **routes.ts** — `createApiRouter(getGame)`. Public: /status, /llm-providers. Authenticated: /agents, /agents/:id/state, /agents/:id/genome, /agents/:id/history, /world/summary, /agents/:id/message, /agents/:id/plan (CRUD), /agents/:id/genome (PATCH), /agents/:id/stream (SSE), /keys (CRUD), /webhooks (CRUD).
+- **middleware.ts** — `authenticateApiKey` (Bearer token), `rateLimit(category)` (sliding window), `requirePermission(perm)`.
+- **summary.ts** — `buildAgentSummary()` (nearby scan with distance/direction), `buildWorldSummary()`, `describeBiome()`.
+- **plan-executor.ts** — `executePendingPlan()` integrated into NeedsSystem between interrupts and GOAP. `evaluatePlanCondition()`, `resolvePlanTarget()`, `hasNearbyThreat()`.
+- **json-patch.ts** — Minimal RFC 6902 (add/replace/remove, array index, `/path/-` append).
+- **key-store.ts** — In-memory API keys with SHA-256 hashing, dev key bootstrap from env.
+- **rate-limiter.ts** — Sliding window per-key rate limiter.
+- **handlers/** — observation.ts, instruction.ts, keys.ts, streaming.ts.
+
+### server/src/config/
+- **llm-config.ts** — Loads `server/llm-providers.json`, resolves `$ENV_VAR` in apiKey, provides `getLLMProvider(id)`.
 
 ### client/src/
 - **main.ts** — Phaser 3 config.
-- **network/SocketClient.ts** — Socket.IO wrapper with full entity type support.
-- **scenes/GameScene.ts** — Renders tiles, trees, rocks, plants, animals (20 species with walk animation), corpses, agents, tombstones. Camera controls, entity selection (agents > animals > trees > rocks > plants > corpses > structures > iron ore > water).
-- **scenes/UIScene.ts** — Info panels for all selectable entities. Agent panel shows: dual nutrition bars, all 10 skill levels, inventory (resources + materials + equipped items), metabolism indicator, carry weight. Animal panel shows: health/hunger/thirst/stamina bars, skills, drops table, taming progress, breed cooldown. Also: tree, rock, plant, corpse, structure, water, iron ore panels.
-- **sprites/TileGenerator.ts** — Autotile terrain renderer + procedural textures for all tile types including iron ore, forge, walls, doors, fences, storage, tent, bedroll, animal pen.
+- **network/SocketClient.ts** — Socket.IO wrapper. Handles: world:init/update, agent:died/born/permadeath/llm_action/plan_update, social:interaction, message:result, world:event.
+- **scenes/MainMenuScene.ts** — Start screen: world settings (map size, agents 3-20, water, trees, animals) + AGENT AI section with per-agent **provider cycling** + **role cycling** (advisor/puppeteer/god/darwinist/parent/chaos_demon). Fetches `/api/llm-providers` on create. Bulk assignment buttons. Config flows as `agentLLMAssignments: Record<number, {providerId, role} | null>`.
+- **scenes/GameScene.ts** — Tile world renderer. Camera viewport: `setViewport(SIDEBAR_W, 0, width - SIDEBAR_W - PANEL_W, height)` where SIDEBAR_W=260, PANEL_W=380. Click guards exclude both panels. Public `selectAgentById(id)` for sidebar interaction.
+- **scenes/UIScene.ts** — Three-panel layout:
+  - **Left sidebar** (260px): God cards grouped by LLM provider (power score, role badge with color: ADV/PUP/GOD/DAR/PAR/CHO, provider label, agent count). Agent rows (alive dot, name, total level, action label). Unassigned section at bottom. Scrollable. Click → camera pan + selection.
+  - **Right panel** (380px): Selected entity detail. Agent panel includes: needs bars, skills, inventory, metabolism, obedience, **evolution section** (lives remaining color-coded, genome version, life/best duration, Highlander badge, AI role + provider, active strategy rules).
+  - **Event log**: Last 16 world events.
+- **sprites/TileGenerator.ts** — Autotile renderer + procedural textures.
 
 ### Data Flow
 1. Server runs simulation at 10 ticks/sec, broadcasts `world:update` with all entity states
-2. Client receives updates, lerps positions, reconciles sprite maps
-3. Player actions (`create_agent`, `message`) sent client→server, processed next tick
-4. Agents respawn 30s after death at world center with preserved skills (5% XP rust)
-5. Animals respawn based on breed cooldown if below population cap
+2. Client receives updates, lerps positions, reconciles sprite maps, updates sidebar
+3. Player actions (`create_agent`, `message`) sent client→server via Socket.IO
+4. OrchestratorLoop polls agent state per role interval (10-30s), calls LLM, applies actions
+5. On death: journal finalized → lives calculated → LLM evolution (async) or fallback mutation → respawn with updated genome
+6. REST API enables external LLM orchestration (observe → message/plan/genome_patch)
 
-## Key Systems
+## Key Conventions
 
-### Progression System (PROGRESSION.md)
-- **6 base stats** (Strength, Toughness, Agility, Endurance, Perception, Charisma) — fixed at birth
-- **10 skills** (Combat, Defense, Athletics, Woodcutting, Mining, Foraging, Building, Crafting, Survival, Social) — trained by doing
-- **XP formula**: base_xp × difficulty_mod × diminishing_returns. Level = floor(sqrt(xp/50)), cap 99
-- **Effective stats**: base + skill bonuses (capped at +99 per stat from all contributing skills)
-- **Skill effects**: hit accuracy, damage reduction, dodge chance, speed bonus, harvest bonuses, building efficiency, need decay reduction, poison identification
+- **Non-wire fields**: Heavy data stored as `(agent as any).currentGenome`, `(agent as any).currentJournal`, `(agent as any).journalArchive`, `(agent as any).pendingPlan`, `(agent as any)._metricsAccum` — avoids sending over Socket.IO every tick.
+- **PlantType array typing**: When building arrays that may include POISON_SHROOM, explicitly type as `PlantType[]` to avoid narrowing issues.
+- **Genome reads**: Always `const genome: BehaviorGenome = (agent as any).currentGenome ?? createDefaultGenome()` at function top. Default genome values match pre-refactor hardcoded constants exactly.
+- **LLM provider config**: `server/llm-providers.json` loaded at startup. `$ENV_VAR` syntax in apiKey field. For Bedrock: `apiKey = "ACCESS_KEY:SECRET_KEY"`, `baseUrl = region`. For Ollama: `apiKey = ""`, `baseUrl = "http://localhost:11434"`.
+- **Router getter pattern**: `createApiRouter(() => game)` because `game` is reassigned on `game:configure`.
 
-### Dual Nutrition (protein + plant)
-- Carnivores need protein only, herbivores need plants only, omnivores need both at 0.6x rate
-- Agents are omnivores — must hunt AND forage
-- Separate starvation damage per bar, 1.5x if both empty
+## LLM Provider Support
 
-### Metabolism Scaling (CHANGEREQ_METABOLISM.md)
-- `metabolism = (1 + totalSkillLevels/500) × activityMultiplier`
-- Scales hunger, thirst, stamina drain for both agents and animals
-- Rest recovery inversely scaled — bigger beings recover slower
-- Applies to all 15 animal action types
+| Provider | Type | Auth |
+|----------|------|------|
+| Anthropic | `anthropic` | x-api-key header |
+| OpenAI | `openai` | Bearer token |
+| Google Gemini | `google` | API key in URL |
+| Ollama | `ollama` | None (local) |
+| AWS Bedrock | `bedrock` | SigV4 (native crypto, zero deps) |
+| OpenAI-compatible | `openai_compatible` | Bearer token + custom baseUrl |
 
-### Animal System (ANIMALS.md)
-- **20 species** across 5 tiers with full food chain
-- **3-sense awareness**: sight (range + movement), smell (meat-based), sound (size × action)
-- **Utility AI** with quadratic/logistic response curves (not cliff-based priorities)
-- **Special abilities**: ambush, curl, howl, trample, steal_food, egg_laying, seed_disperse, peace_aura
-- **Breeding** with population caps, prey/predator balance
-- **Taming** via food offering, multiple species tameable
+## Orchestrator Roles
 
-### Drops & Materials (DROPS_AND_MATERIALS.md)
-- 8 body material types from animal/agent corpses
-- Per-species drop tables with randomization
-- Corpse entities with 60s decay timer
-- Scavenger behavior (bear, fox, rat, pig eat corpses)
-- Smell mechanic (predators detect meat-carrying agents)
-
-### Crafting System (CRAFTING.md)
-- 4 material tiers: Hand → Wood → Stone → Bone/Hide → Iron
-- 52 items, 53 recipes with station requirements and skill gates
-- 3 equipment slots (mainHand, body, accessory) with passive bonuses
-- Tool durability, weight-based carrying, auto-equip for tasks
-- Iron ore (finite, 15-20 deposits, never respawns)
-
-### Combat System
-- **Attack cooldown**: 10 ticks (1 second) between attacks for all beings
-- **Stat-based damage**: attackPower - targetDefense, with accuracy roll and dodge chance
-- **Flee impulse**: surviving prey pushed 0.5 tiles away + forced into flee state
-- **Speed-based pursuit**: predators give up if prey's flee speed exceeds chase speed
-- **Agent self-defense**: agents fight back when attacked (priority 93)
-
-### World Generation (WorldConfig.ts)
-- **Pass 1**: Lakes (≥20% water coverage) via noise-distorted ellipses
-- **Pass 2**: Sand beaches around water
-- **Pass 3**: Dirt patches in dry elevated zones
-- **Pass 4**: Sand widening for autotile transitions
-- **Pass 5**: Water guarantee
-- **Pass 6**: Budget-based vegetation (trees 55%, rocks 10%, plants 35% of nature budget)
-- **Pass 7**: Iron ore deposits on dirt near rocks
-- **Pass 8**: Center clearing for spawn area
-- **Pass 9**: Animal spawning by species habitat
-
-## Terrain Rendering (Client)
-
-Sequential layer compositing with Pipoya autotile spritesheets (8×6 = 48 frames per variant):
-1. **Grass** base (frame 14)
-2. **Dirt** overlay (original Pipoya autotile)
-3. **Sand** overlay
-4. **Built floor** (masked autotile: dirt shape + floor texture)
-5. **Water** overlay (on top)
-
-`groundType(t)` maps object tiles to their underlying ground type for autotile calculations. IRON_ORE maps to DIRT; most objects map to GRASS.
-
-### Entity Sprites
-- Trees: 64×64 sprites (r2_c0, r2_c1 from BaseChip), stumps 32×32
-- Rocks: 32×32 entity overlays on terrain (r8_c0 small, r8_c1 big, r8_c5 rubble)
-- Plants: 7 types from BaseChip rows 6-7 (mushroom, poison, flower, stamina, hunger, bush, edible flower)
-- Animals: 20 species in `assets/animals/{species}/0.png` and `1.png` (32×32, 2-frame animation)
-- Tombstones: r8_c4 cross at agent death positions, 2-minute decay
-- Corpses: r8_c4 cross with brown tint, 60s server-side decay
+| Role | Tiers | Interval | Key Behavior |
+|------|-------|----------|-------------|
+| advisor | message | 30s | Suggestive, respects autonomy |
+| puppeteer | plan+message | 15s | Tactical multi-step plans |
+| god | genome | 15s | Silent instinct reshaping |
+| darwinist | all | 10s | Cold optimization, metrics-driven |
+| parent | plan+message | 15s | 4 phases: infant→child→adolescent→adult |
+| chaos_demon | all | 15s | Entropy maximizer, contradictions |
 
 ## Spec Documents (docs/)
 - `SIMULATION.md` — Original design document
-- `RESOURCE_BALANCE.md` — Resource distribution formula and food chain math
 - `PROGRESSION.md` — Stats, skills, XP, nutrition, death/respawn
-- `ANIMALS.md` — 20 species, utility AI, awareness, breeding, taming, abilities
-- `DROPS_AND_MATERIALS.md` — Body materials, corpse system, scavenging, smell
+- `ANIMALS.md` — 20 species, utility AI, awareness, breeding, taming
 - `CRAFTING.md` — Items, recipes, tools, structures, inventory, iron
-- `CHANGEREQ_METABOLISM.md` — Metabolism scaling system
-- `CHANGEREQ_ANIMALS.md` — Awareness system gaps and fixes
-- `CHANGEREQ_DROPS_MATERIALS.md` — Iron ore, recipe cleanup
-- `GAP_ANALYSIS.md` — Spec vs implementation gap tracking
-- `CHANGEREQ_LLM_ROLES.md` — LLM orchestrator role system (wiring prompts + API into runtime)
-- `AGENT_MEMORY.md` — Agent memory & evolution system (behavior genome, life journal, lives economy, LLM evolution loop)
-- `AGENT_API.md` — Public REST API for LLM observation & instruction (3-tier: message, plan, genome patch)
-- `LLM_PROMPTS.md` — All LLM orchestrator prompts in one file (reference copy)
-- `prompts/` — Individual LLM orchestrator role prompts: Advisor, Puppeteer, God, Darwinist, Parent, Chaos Demon
-- `LEFT_SIDEBAR.md` — Always-visible left panel showing god cards (LLM power) and agent rows
+- `AGENT_MEMORY.md` — Behavior Genome, Life Journal, Lives Economy, LLM Evolution
+- `AGENT_API.md` — REST API (observation, message, plan, genome patch, SSE, webhooks)
+- `CHANGEREQ_LLM_ROLES.md` — Orchestrator role system (6 roles, timer-based polling)
+- `LEFT_SIDEBAR.md` — God overview panel (power scores, agent rows)
+- `LLM_PROMPTS.md` — All role prompts compiled
+- `prompts/` — Individual role prompts: advisor, puppeteer, god, darwinist, parent, chaos_demon
+- `RESOURCE_BALANCE.md`, `DROPS_AND_MATERIALS.md`, `CHANGEREQ_METABOLISM.md`, `CHANGEREQ_ANIMALS.md`, `CHANGEREQ_DROPS_MATERIALS.md`, `GAP_ANALYSIS.md`
