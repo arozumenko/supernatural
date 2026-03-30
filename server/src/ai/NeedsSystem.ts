@@ -85,6 +85,9 @@ const agentPlans = new Map<string, {
 // Re-plan staggering: track which agent index re-planned last
 let lastReplanIndex = 0;
 
+// Async planning: agents currently waiting for microtask plan result
+const pendingPlans = new Set<string>();
+
 function isAdjacentToTile(x: number, y: number, tileType: TileType, world: World): boolean {
   const dirs = [{dx:0,dy:0},{dx:1,dy:0},{dx:-1,dy:0},{dx:0,dy:1},{dx:0,dy:-1}];
   return dirs.some(({dx,dy}) => world.getTile(x+dx, y+dy) === tileType);
@@ -255,23 +258,38 @@ function tryGOAPDecision(
     }
   }
 
-  // Re-plan if needed (staggered: up to 3 agents can re-plan per tick)
+  // Re-plan if needed — async via microtask (plan arrives next tick)
   if (!planData) {
+    if (pendingPlans.has(agent.id)) {
+      // Planning in progress — wait for async result, use fallback this tick
+      return null;
+    }
     // Stagger: allow re-planning for ~3 agents per tick
     if (agentIndex % Math.max(1, Math.ceil(allAgents.length / 3)) === tickCount % Math.max(1, Math.ceil(allAgents.length / 3))) {
       const goal = selectGoal(agent, worldState);
       if (goal) {
-        const plan = planGOAP(agent, world, worldState, goal, GOAP_ACTIONS);
-        if (plan && plan.length > 0) {
-          planData = {
-            plan,
-            goalId: goal.id,
-            createdAt: tickCount,
-            stepIndex: 0,
-            stepStartTick: tickCount,
-          };
-          agentPlans.set(agent.id, planData);
-        }
+        // Queue planning as microtask — resolves between ticks
+        pendingPlans.add(agent.id);
+        const stateSnapshot = { ...worldState };
+        const capturedTick = tickCount;
+        Promise.resolve().then(() => {
+          const plan = planGOAP(agent, world, stateSnapshot, goal, GOAP_ACTIONS);
+          pendingPlans.delete(agent.id);
+          if (plan && plan.length > 0) {
+            agentPlans.set(agent.id, {
+              plan,
+              goalId: goal.id,
+              createdAt: capturedTick,
+              stepIndex: 0,
+              stepStartTick: capturedTick,
+            });
+            // Update wire fields for UI
+            agent.currentPlanGoal = goal.name;
+            agent.currentPlanSteps = plan.map(a => ({ actionId: a.id, actionName: a.name }));
+            agent.planStepIndex = 0;
+          }
+        });
+        return null; // no plan yet this tick, use fallback
       }
     }
   }

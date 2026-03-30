@@ -355,6 +355,15 @@ export class GameLoop {
     const season = getCurrentSeason(this.tickCount);
     const seasonMod = SEASON_MODIFIERS[season];
 
+    // Batch animal needs decay in microtask (pure per-animal, no conflicts)
+    const aliveAnimals = this.world.animals.filter(a => a.alive);
+    const capturedStaminaMult = seasonMod.staminaDecayMult;
+    Promise.resolve().then(() => {
+      for (const a of aliveAnimals) {
+        decayAnimalNeeds(a, getSpecies(a.species), capturedStaminaMult);
+      }
+    });
+
     // Animal updates (staggered: full AI for 1/5 of animals per tick)
     const staggerOffset = this.tickCount % 5;
     const animalOffspring: AnimalState[] = [];
@@ -363,8 +372,6 @@ export class GameLoop {
       if (!animal.alive) continue;
 
       const species = getSpecies(animal.species);
-      // Decay needs every tick (not staggered)
-      decayAnimalNeeds(animal, species, seasonMod.staminaDecayMult);
 
       let offspring;
       if (i % 5 === staggerOffset) {
@@ -615,7 +622,17 @@ export class GameLoop {
     }
 
     // Broadcast state
-    this.events.onWorldUpdate(this.agents, allTileChanges, this.world.getSerializedTrees(), this.world.getSerializedRocks(), this.world.getSerializedPlants(), this.world.getSerializedAnimals(), this.world.getSerializedCorpses(), this.world.getSerializedStructures(), season);
+    // Async broadcast — serialization runs between ticks via setImmediate
+    const agents = this.agents;
+    const trees = this.world.getSerializedTrees();
+    const rocks = this.world.getSerializedRocks();
+    const plants = this.world.getSerializedPlants();
+    const animals = this.world.getSerializedAnimals();
+    const corpses = this.world.getSerializedCorpses();
+    const structures = this.world.getSerializedStructures();
+    setImmediate(() => {
+      this.events.onWorldUpdate(agents, allTileChanges, trees, rocks, plants, animals, corpses, structures, season);
+    });
   }
 
   getAgent(agentId: string): AgentState | undefined {
