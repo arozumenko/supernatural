@@ -117,7 +117,7 @@ function isAdjacentToTile(x: number, y: number, tileType: TileType, world: World
 export function buildWorldState(agent: AgentState, world: World, allAgents: AgentState[]): GOAPWorldState {
   const ax = Math.floor(agent.x);
   const ay = Math.floor(agent.y);
-  const SCAN_RANGE = 15;
+  const SCAN_RANGE = 40;
 
   // Check equipment
   let hasAxe = false;

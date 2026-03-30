@@ -838,7 +838,7 @@ export class World {
     return this.trees.find(t => t.id === treeId) ?? null;
   }
 
-  findNearest(fromX: number, fromY: number, tileType: TileType, maxDist: number = 20): { x: number; y: number } | null {
+  findNearest(fromX: number, fromY: number, tileType: TileType, maxDist: number = 40): { x: number; y: number } | null {
     let best: { x: number; y: number } | null = null;
     let bestDist = Infinity;
 

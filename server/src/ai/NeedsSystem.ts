@@ -647,7 +647,8 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
 
   // --- Critical survival ---
   if (agent.needs.thirst < genome.thresholds.criticalThirst) {
-    const water = world.findNearest(ax, ay, TileType.WATER)
+    // Critical: search wider radius for water (60 tiles, not default 20)
+    const water = world.findNearest(ax, ay, TileType.WATER, 60)
       ?? recallLocation(agent, 'water', agent.age);
     if (water) {
       decisions.push({
@@ -810,7 +811,7 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
 
   // --- Medium priority ---
   if (agent.needs.thirst < genome.goalThresholds.thirstRelevant) {
-    const water = world.findNearest(ax, ay, TileType.WATER)
+    const water = world.findNearest(ax, ay, TileType.WATER, 40)
       ?? recallLocation(agent, 'water', agent.age);
     if (water) {
       decisions.push({ action: 'drinking', priority: genome.mediumPriorityWeights.drinkMedium, target: water, reason: 'getting thirsty' });
@@ -1133,7 +1134,9 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
   // Pick highest priority
   decisions.sort((a, b) => b.priority - a.priority);
   const best = decisions[0];
-  agent.lastDecisionReason = best?.reason ?? best?.action ?? 'idle';
+  // Store decision reason + top competing decisions for debugging
+  const topDecisions = decisions.slice(0, 3).map(d => `${d.action}(${d.priority})`).join(', ');
+  agent.lastDecisionReason = (best?.reason ?? best?.action ?? 'idle') + ' [' + topDecisions + ']';
   return best;
 }
 
