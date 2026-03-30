@@ -448,7 +448,13 @@ export class UIScene extends Phaser.Scene {
 
       for (const [tierLabel, emoji, species] of tiers) {
         const tierAnimals = animals.filter((a: any) => species.includes(a.species) && a.alive);
-        tierAnimals.sort((a: any, b: any) => b.age - a.age);
+        // Sort by composite: skill levels first, then survival time
+        tierAnimals.sort((a: any, b: any) => {
+          const aLvl = Object.values(a.skills).reduce((sum: number, s: any) => sum + (s.level || 0), 0);
+          const bLvl = Object.values(b.skills).reduce((sum: number, s: any) => sum + (s.level || 0), 0);
+          if (bLvl !== aLvl) return bLvl - aLvl;
+          return b.age - a.age;
+        });
         const best = tierAnimals[0];
         if (best) {
           const secs = Math.floor(best.age / 10);
