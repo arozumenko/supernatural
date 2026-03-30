@@ -1,0 +1,51 @@
+[
+  {
+    "id": "claude-sonnet",
+    "label": "Claude Sonnet",
+    "provider": "anthropic",
+    "model": "claude-sonnet-4-5-20250514",
+    "apiKey": "$ANTHROPIC_API_KEY",
+    "maxTokens": 4096,
+    "temperature": 0.7,
+    "timeout": 15000,
+    "maxConcurrent": 3,
+    "rateLimitPerMinute": 20
+  },
+  {
+    "id": "gpt-4o",
+    "label": "GPT-4o",
+    "provider": "openai",
+    "model": "gpt-4o",
+    "apiKey": "$OPENAI_API_KEY",
+    "maxTokens": 4096,
+    "temperature": 0.7,
+    "timeout": 15000,
+    "maxConcurrent": 3,
+    "rateLimitPerMinute": 20
+  },
+  {
+    "id": "gemini-pro",
+    "label": "Gemini Pro",
+    "provider": "google",
+    "model": "gemini-2.0-flash",
+    "apiKey": "$GOOGLE_API_KEY",
+    "maxTokens": 4096,
+    "temperature": 0.7,
+    "timeout": 15000,
+    "maxConcurrent": 3,
+    "rateLimitPerMinute": 20
+  },
+  {
+    "id": "ollama-llama",
+    "label": "Ollama Llama",
+    "provider": "ollama",
+    "model": "llama3.1",
+    "apiKey": "",
+    "baseUrl": "http://localhost:11434",
+    "maxTokens": 4096,
+    "temperature": 0.7,
+    "timeout": 30000,
+    "maxConcurrent": 1,
+    "rateLimitPerMinute": 10
+  }
+]

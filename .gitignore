@@ -1,0 +1,35 @@
+node_modules/
+dist/
+*.js.map
+
+# Environment
+.env
+.env.*
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+shared/dist/
+shared/src/*.js
+shared/src/*.d.ts
+server/dist/
+client/dist/
+
+# Claude Code
+.claude/
+
+# MCP / Playwright logs
+.mcp.json
+.playwright-mcp/
+
+# Lock files (use install:all to regenerate)
+package-lock.json

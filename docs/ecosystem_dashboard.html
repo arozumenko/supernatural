@@ -1,0 +1,1555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Supernatural - Ecosystem Balance Map</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1" integrity="sha384-jb8JQMbMoBUzgWatfe6COACi2ljcDdZQ2OxczGA3bGNeWe+6DChMTBJemed7ZnvJ" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+    <style>
+        :root {
+            --bg: #0f1117; --surface: #1a1d27; --surface2: #242836;
+            --border: #2e3348; --text: #e4e4e7; --text2: #9ca3af;
+            --apex: #ef4444; --mid-pred: #f97316; --large-herb: #22c55e;
+            --med-herb: #3b82f6; --small-prey: #a78bfa; --agent: #eab308;
+            --plant: #10b981; --mineral: #6b7280; --water: #38bdf8;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); line-height: 1.5; }
+        .dashboard { max-width: 1600px; margin: 0 auto; padding: 16px; }
+        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
+        header h1 { font-size: 22px; font-weight: 700; }
+        header h1 span { color: var(--text2); font-weight: 400; font-size: 14px; }
+        .tabs { display: flex; gap: 4px; background: var(--surface); border-radius: 8px; padding: 4px; }
+        .tab { padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; color: var(--text2); border: none; background: none; transition: all 0.2s; }
+        .tab.active { background: var(--surface2); color: var(--text); font-weight: 600; }
+        .tab:hover { color: var(--text); }
+        .panel { display: none; } .panel.active { display: block; }
+        .grid { display: grid; gap: 16px; }
+        .grid-2 { grid-template-columns: 1fr 1fr; }
+        .grid-3 { grid-template-columns: 1fr 1fr 1fr; }
+        .grid-4 { grid-template-columns: repeat(4, 1fr); }
+        .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+        .card h3 { font-size: 13px; color: var(--text2); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .card .value { font-size: 28px; font-weight: 700; }
+        .card .sub { font-size: 12px; color: var(--text2); margin-top: 2px; }
+        .chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
+        .chart-card h3 { font-size: 14px; margin-bottom: 12px; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th { text-align: left; padding: 10px 12px; color: var(--text2); font-weight: 600; border-bottom: 2px solid var(--border); cursor: pointer; white-space: nowrap; }
+        th:hover { color: var(--text); }
+        td { padding: 8px 12px; border-bottom: 1px solid var(--border); }
+        tr:hover td { background: var(--surface2); }
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+        .badge-apex { background: rgba(239,68,68,0.15); color: var(--apex); }
+        .badge-mid { background: rgba(249,115,22,0.15); color: var(--mid-pred); }
+        .badge-lherb { background: rgba(34,197,94,0.15); color: var(--large-herb); }
+        .badge-mherb { background: rgba(59,130,246,0.15); color: var(--med-herb); }
+        .badge-prey { background: rgba(167,139,250,0.15); color: var(--small-prey); }
+        .issue { background: rgba(239,68,68,0.08); border-left: 3px solid var(--apex); padding: 12px 16px; border-radius: 0 8px 8px 0; margin-bottom: 10px; }
+        .issue h4 { font-size: 13px; color: var(--apex); }
+        .issue p { font-size: 12px; color: var(--text2); margin-top: 4px; }
+        .warn { background: rgba(234,179,8,0.08); border-left: 3px solid var(--agent); }
+        .warn h4 { color: var(--agent); }
+        .ok { background: rgba(34,197,94,0.08); border-left: 3px solid var(--large-herb); }
+        .ok h4 { color: var(--large-herb); }
+        .food-web { display: flex; flex-direction: column; gap: 8px; padding: 8px 0; }
+        .fw-row { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+        .fw-arrow { color: var(--text2); }
+        .fw-name { font-weight: 600; min-width: 80px; }
+        .bar-inline { height: 14px; border-radius: 3px; display: inline-block; min-width: 2px; }
+        .flow-section { margin-bottom: 24px; }
+        .flow-section h4 { font-size: 13px; color: var(--text2); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .material-flow { display: grid; grid-template-columns: auto 1fr auto; gap: 4px 12px; font-size: 12px; align-items: center; }
+        .material-flow .source { text-align: right; color: var(--text2); }
+        .material-flow .arrow-bar { height: 6px; border-radius: 3px; position: relative; }
+        .material-flow .dest { color: var(--text); }
+        /* Decision tree styles */
+        .dt-selector { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+        .dt-btn { padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 12px; border: 1px solid var(--border); background: var(--surface); color: var(--text2); transition: all 0.2s; }
+        .dt-btn.active { background: var(--surface2); color: var(--text); border-color: var(--text2); font-weight: 600; }
+        .dt-btn:hover { color: var(--text); border-color: var(--text2); }
+        .dt-mermaid-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin-bottom: 16px; overflow-x: auto; }
+        .dt-mermaid-wrap h3 { font-size: 14px; margin-bottom: 12px; }
+        .dt-mermaid-wrap .mermaid { display: flex; justify-content: center; }
+        .dt-mermaid-wrap .mermaid svg { max-width: 100%; }
+        .dt-stats-bar { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12px; padding: 12px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; margin-bottom: 16px; }
+        .dt-stats-bar div { display: flex; align-items: center; gap: 4px; }
+        .dt-stats-bar strong { color: var(--text); }
+        .dt-stats-bar span { color: var(--text2); }
+        @media (max-width: 900px) { .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; } }
+        .legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12px; margin-bottom: 16px; }
+        .legend-item { display: flex; align-items: center; gap: 4px; }
+        .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+        .scroll-table { overflow-x: auto; }
+        .highlight { color: var(--agent); font-weight: 600; }
+        .season-bar { display: flex; border-radius: 6px; overflow: hidden; height: 24px; margin-top: 8px; font-size: 11px; font-weight: 600; }
+        .season-bar div { display: flex; align-items: center; justify-content: center; }
+    </style>
+</head>
+<body>
+<div class="dashboard">
+<header>
+    <h1>Supernatural Ecosystem Map <span>— Full Balance Analysis</span></h1>
+    <div class="tabs">
+        <button class="tab active" onclick="showPanel('overview')">Overview</button>
+        <button class="tab" onclick="showPanel('species')">Species</button>
+        <button class="tab" onclick="showPanel('foodweb')">Food Web</button>
+        <button class="tab" onclick="showPanel('resources')">Resources</button>
+        <button class="tab" onclick="showPanel('crafting')">Crafting</button>
+        <button class="tab" onclick="showPanel('decisions')">Decision Trees</button>
+        <button class="tab" onclick="showPanel('issues')">Issues & Gaps</button>
+    </div>
+</header>
+
+<!-- ========== OVERVIEW ========== -->
+<div id="overview" class="panel active">
+    <div class="grid grid-4" style="margin-bottom:16px">
+        <div class="card"><h3>Animal Species</h3><div class="value">20</div><div class="sub">5 tiers, 65 initial spawn</div></div>
+        <div class="card"><h3>Items & Recipes</h3><div class="value">52 / 53</div><div class="sub">4 crafting tiers</div></div>
+        <div class="card"><h3>Resource Types</h3><div class="value">15</div><div class="sub">5 gathered + 8 body + 2 refined</div></div>
+        <div class="card"><h3>World Size</h3><div class="value">120×90</div><div class="sub">10,800 tiles, 10 ticks/sec</div></div>
+    </div>
+    <div class="grid grid-2" style="margin-bottom:16px">
+        <div class="chart-card"><h3>Population Caps by Tier</h3><canvas id="popChart"></canvas></div>
+        <div class="chart-card"><h3>Initial Spawn vs Max Population</h3><canvas id="spawnChart"></canvas></div>
+    </div>
+    <div class="grid grid-3" style="margin-bottom:16px">
+        <div class="chart-card"><h3>World Tile Budget</h3><canvas id="tileChart"></canvas></div>
+        <div class="chart-card"><h3>Nature Budget Split</h3><canvas id="natureChart"></canvas></div>
+        <div class="chart-card">
+            <h3>Seasonal Cycle (24,000 ticks = 40 min)</h3>
+            <div class="season-bar">
+                <div style="width:25%;background:#4ade80;color:#000">Spring</div>
+                <div style="width:25%;background:#fbbf24;color:#000">Summer</div>
+                <div style="width:25%;background:#f97316;color:#000">Autumn</div>
+                <div style="width:25%;background:#60a5fa;color:#000">Winter</div>
+            </div>
+            <table style="margin-top:12px">
+                <tr><th></th><th>Plant Regrowth</th><th>Breeding</th><th>Stamina</th><th>Drops</th></tr>
+                <tr><td>🌱 Spring</td><td class="highlight">×2.0</td><td class="highlight">×0.5 cd</td><td>×1.0</td><td>×1.0</td></tr>
+                <tr><td>☀️ Summer</td><td>×1.0</td><td>×1.0</td><td>×1.0</td><td>×1.0</td></tr>
+                <tr><td>🍂 Autumn</td><td>×0.5</td><td>×1.0</td><td>×1.0</td><td class="highlight">×1.5</td></tr>
+                <tr><td>❄️ Winter</td><td style="color:var(--apex)">×0.1</td><td style="color:var(--apex)">None</td><td style="color:var(--apex)">×1.5</td><td>×1.0</td></tr>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ========== SPECIES ========== -->
+<div id="species" class="panel">
+    <div class="grid grid-2" style="margin-bottom:16px">
+        <div class="chart-card"><h3>Species Health vs Attack Power</h3><canvas id="healthAttackChart"></canvas></div>
+        <div class="chart-card"><h3>Speed vs Detection Range</h3><canvas id="speedDetectChart"></canvas></div>
+    </div>
+    <div class="chart-card" style="margin-bottom:16px">
+        <h3>All 20 Species — Complete Stats</h3>
+        <div class="scroll-table">
+            <table id="speciesTable">
+                <thead><tr>
+                    <th onclick="sortTable('speciesTable',0)">Species</th>
+                    <th onclick="sortTable('speciesTable',1)">Tier</th>
+                    <th onclick="sortTable('speciesTable',2)">Size</th>
+                    <th onclick="sortTable('speciesTable',3)">Diet</th>
+                    <th onclick="sortTable('speciesTable',4)">HP</th>
+                    <th onclick="sortTable('speciesTable',5)">ATK</th>
+                    <th onclick="sortTable('speciesTable',6)">SPD</th>
+                    <th onclick="sortTable('speciesTable',7)">Detect</th>
+                    <th onclick="sortTable('speciesTable',8)">Spawn</th>
+                    <th onclick="sortTable('speciesTable',9)">Max Pop</th>
+                    <th onclick="sortTable('speciesTable',10)">Breed CD</th>
+                    <th onclick="sortTable('speciesTable',11)">Litter</th>
+                    <th onclick="sortTable('speciesTable',12)">Meat Drop</th>
+                    <th onclick="sortTable('speciesTable',13)">Total Drops</th>
+                    <th onclick="sortTable('speciesTable',14)">Tameable</th>
+                    <th onclick="sortTable('speciesTable',15)">Ability</th>
+                </tr></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+    <div class="grid grid-2">
+        <div class="chart-card"><h3>Meat Yield per Species (at max population)</h3><canvas id="meatYieldChart"></canvas></div>
+        <div class="chart-card"><h3>Breed Rate (offspring/hour at max pop)</h3><canvas id="breedRateChart"></canvas></div>
+    </div>
+</div>
+
+<!-- ========== FOOD WEB ========== -->
+<div id="foodweb" class="panel">
+    <div class="chart-card" style="margin-bottom:16px">
+        <h3>Complete Food Web — Who Eats Whom</h3>
+        <div class="legend">
+            <div class="legend-item"><div class="legend-dot" style="background:var(--apex)"></div> Apex Predator</div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--mid-pred)"></div> Mid Predator</div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--large-herb)"></div> Large Herbivore</div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--med-herb)"></div> Medium Herbivore</div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--small-prey)"></div> Small Prey</div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--agent)"></div> Agent</div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--plant)"></div> Plants</div>
+        </div>
+        <canvas id="foodWebChart" height="350"></canvas>
+    </div>
+    <div class="grid grid-2">
+        <div class="chart-card">
+            <h3>Predator → Prey Connections</h3>
+            <div id="predPreyList"></div>
+        </div>
+        <div class="chart-card">
+            <h3>Caloric Flow Analysis</h3>
+            <canvas id="caloricChart"></canvas>
+            <div style="margin-top:12px;font-size:12px;color:var(--text2)">
+                Caloric value = meat_drop × 10 protein per unit.<br>
+                Production = max_pop × meat_per_kill × kills_per_hour (est.)
+            </div>
+        </div>
+    </div>
+    <div class="chart-card" style="margin-top:16px">
+        <h3>Predation Pressure — How Many Predators Target Each Prey?</h3>
+        <canvas id="predPressureChart"></canvas>
+    </div>
+</div>
+
+<!-- ========== RESOURCES ========== -->
+<div id="resources" class="panel">
+    <div class="grid grid-4" style="margin-bottom:16px">
+        <div class="card"><h3>Trees (initial)</h3><div class="value">~463</div><div class="sub">55% of nature budget, 50% regrow</div></div>
+        <div class="card"><h3>Rocks (initial)</h3><div class="value">~84</div><div class="sub">10% of budget, 60% respawn</div></div>
+        <div class="card"><h3>Plants (initial)</h3><div class="value">~842</div><div class="sub">35% of budget, 0.1%/tick regrow</div></div>
+        <div class="card"><h3>Iron Deposits</h3><div class="value">15-20</div><div class="sub">Slow respawn: 1/30 min</div></div>
+    </div>
+    <div class="grid grid-2" style="margin-bottom:16px">
+        <div class="chart-card"><h3>Resource Regeneration Rates</h3><canvas id="regenChart"></canvas></div>
+        <div class="chart-card"><h3>Resource Consumption vs Production (20 agents)</h3><canvas id="consumeChart"></canvas></div>
+    </div>
+    <div class="grid grid-2" style="margin-bottom:16px">
+        <div class="chart-card">
+            <h3>Body Material Drops — Total Available Per Hour</h3>
+            <canvas id="dropsChart"></canvas>
+            <div style="margin-top:8px;font-size:12px;color:var(--text2)">
+                Based on estimated 1 kill per species per 5 minutes at steady state
+            </div>
+        </div>
+        <div class="chart-card">
+            <h3>Material Sources — Which Species Drop What</h3>
+            <canvas id="materialSourceChart"></canvas>
+        </div>
+    </div>
+    <div class="chart-card">
+        <h3>Complete Resource Flow Table</h3>
+        <div class="scroll-table">
+            <table id="resourceTable">
+                <thead><tr>
+                    <th>Resource</th><th>Source</th><th>Renewable?</th><th>Production Rate</th><th>Consumption</th><th>Risk</th>
+                </tr></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ========== CRAFTING ========== -->
+<div id="crafting" class="panel">
+    <div class="grid grid-2" style="margin-bottom:16px">
+        <div class="chart-card"><h3>Recipes by Station</h3><canvas id="recipeStationChart"></canvas></div>
+        <div class="chart-card"><h3>Recipes by Skill Requirement</h3><canvas id="recipeSkillChart"></canvas></div>
+    </div>
+    <div class="chart-card" style="margin-bottom:16px">
+        <h3>Material Demand — What Crafting Consumes</h3>
+        <canvas id="craftDemandChart"></canvas>
+    </div>
+    <div class="grid grid-2" style="margin-bottom:16px">
+        <div class="chart-card">
+            <h3>Crafting Bottlenecks — Hardest Materials to Get</h3>
+            <div id="bottleneckList"></div>
+        </div>
+        <div class="chart-card">
+            <h3>Item Progression Path</h3>
+            <div id="progressionPath"></div>
+        </div>
+    </div>
+</div>
+
+<!-- ========== DECISION TREES ========== -->
+<div id="decisions" class="panel">
+    <div class="chart-card" style="margin-bottom:16px">
+        <h3>Select a Being</h3>
+        <div class="dt-selector" id="dtSelector"></div>
+    </div>
+    <div id="dtContent"></div>
+</div>
+
+<!-- ========== ISSUES ========== -->
+<div id="issues" class="panel">
+    <div class="grid grid-2">
+        <div>
+            <h3 style="margin-bottom:12px;font-size:16px">🔴 Critical Issues</h3>
+            <div id="criticalIssues"></div>
+            <h3 style="margin:16px 0 12px;font-size:16px">🟡 Warnings</h3>
+            <div id="warnIssues"></div>
+        </div>
+        <div>
+            <h3 style="margin-bottom:12px;font-size:16px">🟢 Balanced</h3>
+            <div id="okItems"></div>
+        </div>
+    </div>
+</div>
+
+</div>
+
+<script>
+// ======================== DATA ========================
+const SPECIES = [
+    {name:'Bear',id:'bear',tier:'apex',size:'large',diet:'omnivore',hp:200,atk:35,spd:0.25,detect:8,spawn:2,maxPop:5,breedCD:12000,litterMin:1,litterMax:2,
+     hunts:['deer','pig','rabbit','agent'],fleesFrom:[],drops:{meat:12,bone:6,hide:4,fat:5,sinew:3,teeth_claws:4},tameable:false,ability:'scavenger',
+     hungerDecay:0.15,thirstDecay:0.18,staminaDecay:0.04,fleeThresh:0.15},
+    {name:'Tiger',id:'tiger',tier:'apex',size:'large',diet:'carnivore',hp:160,atk:40,spd:0.55,detect:12,spawn:1,maxPop:4,breedCD:12000,litterMin:1,litterMax:1,
+     hunts:['deer','pig','goat','sheep','cow-0','agent'],fleesFrom:[],drops:{meat:8,bone:5,hide:5,sinew:3,teeth_claws:5},tameable:false,ability:'ambush',
+     hungerDecay:0.15,thirstDecay:0.18,staminaDecay:0.04,fleeThresh:0.20},
+    {name:'Alligator',id:'alligator',tier:'apex',size:'large',diet:'carnivore',hp:180,atk:45,spd:0.15,detect:6,spawn:2,maxPop:6,breedCD:10000,litterMin:2,litterMax:3,
+     hunts:['duck','deer','pig','agent'],fleesFrom:[],drops:{meat:14,bone:4,scales:8,fat:3,teeth_claws:6},tameable:false,ability:'ambush',
+     hungerDecay:0.15,thirstDecay:0.18,staminaDecay:0.04,fleeThresh:0.0},
+    {name:'Fox',id:'fox',tier:'mid_predator',size:'small',diet:'omnivore',hp:40,atk:10,spd:0.50,detect:10,spawn:3,maxPop:12,breedCD:4000,litterMin:2,litterMax:3,
+     hunts:['rabbit','chicken','duck','rat'],fleesFrom:['bear','tiger','dog-0','alligator'],drops:{meat:3,bone:2,hide:2,sinew:1,teeth_claws:1},tameable:false,ability:'steal_food',
+     hungerDecay:0.10,thirstDecay:0.12,staminaDecay:0.04,fleeThresh:0.50},
+    {name:'Cat',id:'cat',tier:'mid_predator',size:'small',diet:'carnivore',hp:25,atk:8,spd:0.45,detect:8,spawn:2,maxPop:10,breedCD:5000,litterMin:1,litterMax:3,
+     hunts:['rat','rabbit','squirrel'],fleesFrom:['dog-0','fox','bear','tiger'],drops:{meat:2,bone:1,hide:1,sinew:1,teeth_claws:1},tameable:true,ability:'-',
+     hungerDecay:0.10,thirstDecay:0.12,staminaDecay:0.04,fleeThresh:0.40},
+    {name:'Dog',id:'dog-0',tier:'mid_predator',size:'medium',diet:'carnivore',hp:60,atk:15,spd:0.45,detect:10,spawn:3,maxPop:15,breedCD:6000,litterMin:2,litterMax:4,
+     hunts:['deer','rabbit','sheep','agent'],fleesFrom:['bear','tiger','alligator'],drops:{meat:5,bone:3,hide:3,sinew:2,teeth_claws:2},tameable:true,ability:'howl',
+     hungerDecay:0.12,thirstDecay:0.15,staminaDecay:0.05,fleeThresh:0.30},
+    {name:'Rat',id:'rat',tier:'mid_predator',size:'tiny',diet:'omnivore',hp:8,atk:2,spd:0.35,detect:6,spawn:5,maxPop:30,breedCD:1200,litterMin:2,litterMax:4,
+     hunts:[],fleesFrom:['cat','fox','dog-0','bear'],drops:{meat:1,fat:1},tameable:false,ability:'steal_food',
+     hungerDecay:0.08,thirstDecay:0.10,staminaDecay:0.03,fleeThresh:0.70},
+    {name:'Deer',id:'deer',tier:'large_herb',size:'medium',diet:'herbivore',hp:60,atk:12,spd:0.55,detect:12,spawn:4,maxPop:20,breedCD:6000,litterMin:1,litterMax:2,
+     hunts:[],fleesFrom:['tiger','bear','dog-0','alligator','fox'],drops:{meat:8,bone:4,hide:4,sinew:3,teeth_claws:2},tameable:false,ability:'-',
+     hungerDecay:0.12,thirstDecay:0.15,staminaDecay:0.05,fleeThresh:0.80},
+    {name:'Cow',id:'cow-0',tier:'large_herb',size:'large',diet:'herbivore',hp:120,atk:15,spd:0.20,detect:8,spawn:3,maxPop:15,breedCD:6000,litterMin:1,litterMax:1,
+     hunts:[],fleesFrom:['tiger','bear','dog-0'],drops:{meat:14,bone:6,hide:6,fat:6,sinew:4},tameable:true,ability:'trample',
+     hungerDecay:0.15,thirstDecay:0.18,staminaDecay:0.04,fleeThresh:0.40},
+    {name:'Horse',id:'horse',tier:'large_herb',size:'large',diet:'herbivore',hp:100,atk:18,spd:0.65,detect:10,spawn:2,maxPop:10,breedCD:9000,litterMin:1,litterMax:1,
+     hunts:[],fleesFrom:['tiger','bear','dog-0','alligator'],drops:{meat:10,bone:6,hide:5,sinew:4,fat:3},tameable:true,ability:'-',
+     hungerDecay:0.15,thirstDecay:0.18,staminaDecay:0.04,fleeThresh:0.60},
+    {name:'Pig',id:'pig',tier:'medium_herb',size:'medium',diet:'omnivore',hp:80,atk:20,spd:0.35,detect:8,spawn:4,maxPop:15,breedCD:4000,litterMin:2,litterMax:4,
+     hunts:[],fleesFrom:['tiger','bear','dog-0'],drops:{meat:8,bone:3,hide:2,fat:5,sinew:2,teeth_claws:2},tameable:false,ability:'scavenger',
+     hungerDecay:0.12,thirstDecay:0.15,staminaDecay:0.05,fleeThresh:0.25},
+    {name:'Goat',id:'goat',tier:'medium_herb',size:'medium',diet:'herbivore',hp:50,atk:10,spd:0.40,detect:8,spawn:3,maxPop:12,breedCD:4000,litterMin:1,litterMax:2,
+     hunts:[],fleesFrom:['tiger','bear','dog-0','fox'],drops:{meat:5,bone:3,hide:3,sinew:2,teeth_claws:1},tameable:true,ability:'-',
+     hungerDecay:0.12,thirstDecay:0.15,staminaDecay:0.05,fleeThresh:0.50},
+    {name:'Sheep',id:'sheep',tier:'medium_herb',size:'medium',diet:'herbivore',hp:35,atk:3,spd:0.25,detect:10,spawn:5,maxPop:20,breedCD:3000,litterMin:1,litterMax:2,
+     hunts:[],fleesFrom:['tiger','bear','dog-0','fox','alligator'],drops:{meat:4,bone:2,hide:4,fat:3,sinew:1},tameable:true,ability:'-',
+     hungerDecay:0.12,thirstDecay:0.15,staminaDecay:0.05,fleeThresh:0.90},
+    {name:'Donkey',id:'donkey',tier:'medium_herb',size:'medium',diet:'herbivore',hp:90,atk:16,spd:0.30,detect:8,spawn:2,maxPop:8,breedCD:6000,litterMin:1,litterMax:1,
+     hunts:[],fleesFrom:['tiger','bear','alligator'],drops:{meat:7,bone:4,hide:4,sinew:3},tameable:true,ability:'-',
+     hungerDecay:0.12,thirstDecay:0.15,staminaDecay:0.05,fleeThresh:0.30},
+    {name:'Rabbit',id:'rabbit',tier:'small_prey',size:'tiny',diet:'herbivore',hp:12,atk:0,spd:0.50,detect:8,spawn:6,maxPop:30,breedCD:900,litterMin:2,litterMax:3,
+     hunts:[],fleesFrom:['fox','cat','dog-0','bear','tiger','alligator'],drops:{meat:2,bone:1,hide:1},tameable:false,ability:'-',
+     hungerDecay:0.08,thirstDecay:0.10,staminaDecay:0.03,fleeThresh:1.0},
+    {name:'Chicken',id:'chicken',tier:'small_prey',size:'tiny',diet:'omnivore',hp:15,atk:1,spd:0.20,detect:6,spawn:5,maxPop:20,breedCD:1500,litterMin:1,litterMax:2,
+     hunts:[],fleesFrom:['fox','cat','dog-0','rat'],drops:{meat:2,bone:1,feathers:3,fat:1},tameable:true,ability:'egg_laying',
+     hungerDecay:0.08,thirstDecay:0.10,staminaDecay:0.03,fleeThresh:0.80},
+    {name:'Duck',id:'duck',tier:'small_prey',size:'tiny',diet:'omnivore',hp:15,atk:1,spd:0.30,detect:6,spawn:4,maxPop:15,breedCD:1800,litterMin:1,litterMax:3,
+     hunts:[],fleesFrom:['fox','alligator','cat'],drops:{meat:2,bone:1,feathers:4,fat:2},tameable:true,ability:'egg_laying',
+     hungerDecay:0.08,thirstDecay:0.10,staminaDecay:0.03,fleeThresh:0.80},
+    {name:'Squirrel',id:'squirrel',tier:'small_prey',size:'tiny',diet:'herbivore',hp:10,atk:0,spd:0.45,detect:8,spawn:4,maxPop:15,breedCD:3000,litterMin:1,litterMax:2,
+     hunts:[],fleesFrom:['cat','fox','dog-0'],drops:{meat:1,hide:1},tameable:false,ability:'seed_disperse',
+     hungerDecay:0.08,thirstDecay:0.10,staminaDecay:0.03,fleeThresh:1.0},
+    {name:'Hedgehog',id:'hedgehog',tier:'small_prey',size:'tiny',diet:'omnivore',hp:20,atk:0,spd:0.15,detect:4,spawn:2,maxPop:8,breedCD:5000,litterMin:1,litterMax:2,
+     hunts:[],fleesFrom:['fox','dog-0','bear'],drops:{meat:1,bone:1,teeth_claws:1},tameable:false,ability:'curl',
+     hungerDecay:0.08,thirstDecay:0.10,staminaDecay:0.03,fleeThresh:0.0},
+    {name:'Capybara',id:'capybara',tier:'small_prey',size:'medium',diet:'herbivore',hp:45,atk:3,spd:0.25,detect:6,spawn:3,maxPop:12,breedCD:4000,litterMin:1,litterMax:2,
+     hunts:[],fleesFrom:['tiger','alligator','dog-0'],drops:{meat:5,bone:2,hide:3,fat:3},tameable:false,ability:'peace_aura',
+     hungerDecay:0.12,thirstDecay:0.15,staminaDecay:0.05,fleeThresh:0.70},
+];
+
+const TIER_COLORS = {apex:'#ef4444',mid_predator:'#f97316',large_herb:'#22c55e',medium_herb:'#3b82f6',small_prey:'#a78bfa'};
+const TIER_LABELS = {apex:'Apex',mid_predator:'Mid Pred',large_herb:'Large Herb',medium_herb:'Med Herb',small_prey:'Small Prey'};
+const TIER_BADGE = {apex:'badge-apex',mid_predator:'badge-mid',large_herb:'badge-lherb',medium_herb:'badge-mherb',small_prey:'badge-prey'};
+
+function totalDrops(d) { return Object.values(d).reduce((a,b)=>a+b,0); }
+
+// ======================== TAB SWITCHING ========================
+function showPanel(id) {
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    document.querySelector(`.tab[onclick="showPanel('${id}')"]`).classList.add('active');
+}
+
+// ======================== TABLE SORTING ========================
+let sortState = {};
+function sortTable(tableId, col) {
+    const table = document.getElementById(tableId);
+    const tbody = table.querySelector('tbody');
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    const dir = (sortState[tableId+col] === 'asc') ? 'desc' : 'asc';
+    sortState[tableId+col] = dir;
+    rows.sort((a,b) => {
+        let va = a.cells[col].getAttribute('data-val') || a.cells[col].textContent;
+        let vb = b.cells[col].getAttribute('data-val') || b.cells[col].textContent;
+        const na = parseFloat(va), nb = parseFloat(vb);
+        if (!isNaN(na) && !isNaN(nb)) return dir==='asc' ? na-nb : nb-na;
+        return dir==='asc' ? va.localeCompare(vb) : vb.localeCompare(va);
+    });
+    rows.forEach(r => tbody.appendChild(r));
+}
+
+// ======================== OVERVIEW CHARTS ========================
+function buildOverview() {
+    // Population by tier
+    const tiers = ['apex','mid_predator','large_herb','medium_herb','small_prey'];
+    const tierPops = tiers.map(t => SPECIES.filter(s=>s.tier===t).reduce((a,s)=>a+s.maxPop,0));
+    new Chart(document.getElementById('popChart'), {
+        type:'doughnut',
+        data:{labels:tiers.map(t=>TIER_LABELS[t]),datasets:[{data:tierPops,backgroundColor:tiers.map(t=>TIER_COLORS[t])}]},
+        options:{plugins:{legend:{position:'right',labels:{color:'#9ca3af',font:{size:12}}}}}
+    });
+
+    // Spawn vs max
+    new Chart(document.getElementById('spawnChart'), {
+        type:'bar',
+        data:{
+            labels:SPECIES.map(s=>s.name),
+            datasets:[
+                {label:'Initial Spawn',data:SPECIES.map(s=>s.spawn),backgroundColor:'rgba(234,179,8,0.6)'},
+                {label:'Max Population',data:SPECIES.map(s=>s.maxPop),backgroundColor:'rgba(99,102,241,0.4)'}
+            ]
+        },
+        options:{responsive:true,scales:{x:{ticks:{color:'#9ca3af',font:{size:10}}},y:{ticks:{color:'#9ca3af'}}},plugins:{legend:{labels:{color:'#9ca3af'}}}}
+    });
+
+    // Tile budget: water 20%, nature 40% of land (32% total), other land 48%
+    new Chart(document.getElementById('tileChart'), {
+        type:'doughnut',
+        data:{labels:['Water (20%)','Nature (32%)','Open Land (48%)'],datasets:[{data:[20,32,48],backgroundColor:['#38bdf8','#10b981','#6b7280']}]},
+        options:{plugins:{legend:{position:'right',labels:{color:'#9ca3af',font:{size:12}}}}}
+    });
+
+    // Nature budget
+    new Chart(document.getElementById('natureChart'), {
+        type:'doughnut',
+        data:{labels:['Trees 55%','Rocks 10%','Berry Bush 10%','Mushroom 6%','Poison 2%','Edible Flower 4%','Heal Flower 4%','Stamina Herb 4%','Hunger Herb 5%'],
+              datasets:[{data:[55,10,10,6,2,4,4,4,5],backgroundColor:['#166534','#78716c','#dc2626','#a3e635','#7c3aed','#f472b6','#fb923c','#2dd4bf','#facc15']}]},
+        options:{plugins:{legend:{position:'right',labels:{color:'#9ca3af',font:{size:11}}}}}
+    });
+}
+
+// ======================== SPECIES TAB ========================
+function buildSpecies() {
+    // Health vs Attack scatter
+    new Chart(document.getElementById('healthAttackChart'), {
+        type:'bubble',
+        data:{datasets:SPECIES.map(s=>({
+            label:s.name,
+            data:[{x:s.hp,y:s.atk,r:Math.max(4,s.maxPop/2)}],
+            backgroundColor:TIER_COLORS[s.tier]+'99'
+        }))},
+        options:{scales:{x:{title:{display:true,text:'Health',color:'#9ca3af'},ticks:{color:'#9ca3af'}},y:{title:{display:true,text:'Attack',color:'#9ca3af'},ticks:{color:'#9ca3af'}}},plugins:{legend:{display:false}}}
+    });
+
+    // Speed vs Detection
+    new Chart(document.getElementById('speedDetectChart'), {
+        type:'bubble',
+        data:{datasets:SPECIES.map(s=>({
+            label:s.name,
+            data:[{x:s.spd,y:s.detect,r:Math.max(4,s.maxPop/2)}],
+            backgroundColor:TIER_COLORS[s.tier]+'99'
+        }))},
+        options:{scales:{x:{title:{display:true,text:'Speed',color:'#9ca3af'},ticks:{color:'#9ca3af'}},y:{title:{display:true,text:'Detection Range',color:'#9ca3af'},ticks:{color:'#9ca3af'}}},plugins:{legend:{display:false}}}
+    });
+
+    // Species table
+    const tbody = document.querySelector('#speciesTable tbody');
+    SPECIES.forEach(s => {
+        const tr = document.createElement('tr');
+        const td = totalDrops(s.drops);
+        tr.innerHTML = `
+            <td><strong>${s.name}</strong></td>
+            <td><span class="badge ${TIER_BADGE[s.tier]}">${TIER_LABELS[s.tier]}</span></td>
+            <td>${s.size}</td><td>${s.diet}</td>
+            <td data-val="${s.hp}">${s.hp}</td><td data-val="${s.atk}">${s.atk}</td>
+            <td data-val="${s.spd}">${s.spd}</td><td data-val="${s.detect}">${s.detect}</td>
+            <td data-val="${s.spawn}">${s.spawn}</td><td data-val="${s.maxPop}">${s.maxPop}</td>
+            <td data-val="${s.breedCD}">${(s.breedCD/10).toFixed(0)}s</td>
+            <td>${s.litterMin}-${s.litterMax}</td>
+            <td data-val="${s.drops.meat||0}">${s.drops.meat||0}</td>
+            <td data-val="${td}">${td}</td>
+            <td>${s.tameable?'✓':'—'}</td>
+            <td>${s.ability!=='-'?s.ability:'—'}</td>`;
+        tbody.appendChild(tr);
+    });
+
+    // Meat yield at max pop
+    const meatData = SPECIES.map(s=>({name:s.name,val:(s.drops.meat||0)*s.maxPop,tier:s.tier})).sort((a,b)=>b.val-a.val);
+    new Chart(document.getElementById('meatYieldChart'), {
+        type:'bar',
+        data:{labels:meatData.map(d=>d.name),datasets:[{data:meatData.map(d=>d.val),backgroundColor:meatData.map(d=>TIER_COLORS[d.tier])}]},
+        options:{indexAxis:'y',scales:{x:{ticks:{color:'#9ca3af'}},y:{ticks:{color:'#9ca3af',font:{size:11}}}},plugins:{legend:{display:false}}}
+    });
+
+    // Breed rate: avg offspring per hour = (3600*10 / breedCD) * avgLitter * maxPop (if at cap, actual limited)
+    const breedData = SPECIES.map(s=>{
+        const ticksPerHour = 36000;
+        const breedsPerHour = ticksPerHour / s.breedCD;
+        const avgLitter = (s.litterMin+s.litterMax)/2;
+        return {name:s.name, val: breedsPerHour * avgLitter, tier:s.tier};
+    }).sort((a,b)=>b.val-a.val);
+    new Chart(document.getElementById('breedRateChart'), {
+        type:'bar',
+        data:{labels:breedData.map(d=>d.name),datasets:[{data:breedData.map(d=>d.val.toFixed(1)),backgroundColor:breedData.map(d=>TIER_COLORS[d.tier])}]},
+        options:{indexAxis:'y',scales:{x:{title:{display:true,text:'Offspring/Hour (per breeding pair)',color:'#9ca3af'},ticks:{color:'#9ca3af'}},y:{ticks:{color:'#9ca3af',font:{size:11}}}},plugins:{legend:{display:false}}}
+    });
+}
+
+// ======================== FOOD WEB ========================
+function buildFoodWeb() {
+    // Build predation connections
+    const connections = [];
+    SPECIES.forEach(s => {
+        (s.hunts||[]).forEach(prey => {
+            if (prey === 'agent') {
+                connections.push({predator:s.name, prey:'Agent', predTier:s.tier});
+            } else {
+                const target = SPECIES.find(sp=>sp.id===prey);
+                if (target) connections.push({predator:s.name, prey:target.name, predTier:s.tier, preyTier:target.tier});
+            }
+        });
+    });
+
+    // Pred-prey list
+    const ppDiv = document.getElementById('predPreyList');
+    const predators = [...new Set(connections.map(c=>c.predator))];
+    predators.forEach(pred => {
+        const preyList = connections.filter(c=>c.predator===pred).map(c=>c.prey);
+        const s = SPECIES.find(sp=>sp.name===pred);
+        const div = document.createElement('div');
+        div.className = 'fw-row';
+        div.innerHTML = `<span class="fw-name" style="color:${TIER_COLORS[s.tier]}">${pred}</span> <span class="fw-arrow">→</span> ${preyList.join(', ')}`;
+        ppDiv.appendChild(div);
+    });
+
+    // Predation pressure: count how many predators target each prey
+    const preyPressure = {};
+    connections.forEach(c => { preyPressure[c.prey] = (preyPressure[c.prey]||0) + 1; });
+    const pressureEntries = Object.entries(preyPressure).sort((a,b)=>b[1]-a[1]);
+    new Chart(document.getElementById('predPressureChart'), {
+        type:'bar',
+        data:{
+            labels:pressureEntries.map(e=>e[0]),
+            datasets:[{label:'# Predator Species Targeting',data:pressureEntries.map(e=>e[1]),backgroundColor:pressureEntries.map(e=>{
+                const s = SPECIES.find(sp=>sp.name===e[0]);
+                return s ? TIER_COLORS[s.tier] : '#eab308';
+            })}]
+        },
+        options:{scales:{x:{ticks:{color:'#9ca3af'}},y:{ticks:{color:'#9ca3af',stepSize:1}}},plugins:{legend:{display:false}}}
+    });
+
+    // Caloric flow: total meat available per tier
+    const tiers = ['apex','mid_predator','large_herb','medium_herb','small_prey'];
+    const caloricData = tiers.map(t => {
+        const sps = SPECIES.filter(s=>s.tier===t);
+        const totalMeat = sps.reduce((a,s) => a + (s.drops.meat||0) * s.maxPop, 0);
+        return totalMeat * 10; // 10 protein per meat unit
+    });
+    new Chart(document.getElementById('caloricChart'), {
+        type:'bar',
+        data:{labels:tiers.map(t=>TIER_LABELS[t]),datasets:[{label:'Total Protein Capacity',data:caloricData,backgroundColor:tiers.map(t=>TIER_COLORS[t])}]},
+        options:{scales:{x:{ticks:{color:'#9ca3af'}},y:{title:{display:true,text:'Protein Units',color:'#9ca3af'},ticks:{color:'#9ca3af'}}},plugins:{legend:{display:false}}}
+    });
+
+    // Food web network chart (adjacency matrix visualization)
+    const allNames = [...SPECIES.map(s=>s.name), 'Agent', 'Plants'];
+    const matrix = allNames.map(()=>allNames.map(()=>0));
+    connections.forEach(c => {
+        const pi = allNames.indexOf(c.predator), pri = allNames.indexOf(c.prey);
+        if (pi>=0 && pri>=0) matrix[pi][pri] = 1;
+    });
+    // Herbivores eat plants
+    SPECIES.filter(s=>s.diet==='herbivore'||s.diet==='omnivore').forEach(s=>{
+        matrix[allNames.indexOf(s.name)][allNames.indexOf('Plants')] = 1;
+    });
+    // Agent eats plants and hunts animals
+    const agentIdx = allNames.indexOf('Agent');
+    matrix[agentIdx][allNames.indexOf('Plants')] = 1;
+    SPECIES.filter(s=>s.tier==='small_prey'||s.tier==='medium_herb'||s.tier==='large_herb').forEach(s=>{
+        matrix[agentIdx][allNames.indexOf(s.name)] = 1;
+    });
+
+    // Draw as a force-like static layout
+    const ctx = document.getElementById('foodWebChart').getContext('2d');
+    const W = ctx.canvas.width, H = ctx.canvas.height;
+    const positions = {};
+    // Layout by tier rows
+    const rows = {
+        'apex': {y:40, items:SPECIES.filter(s=>s.tier==='apex').map(s=>s.name)},
+        'mid_predator': {y:110, items:SPECIES.filter(s=>s.tier==='mid_predator').map(s=>s.name)},
+        'agent': {y:110, items:['Agent']},
+        'large_herb': {y:190, items:SPECIES.filter(s=>s.tier==='large_herb').map(s=>s.name)},
+        'medium_herb': {y:250, items:SPECIES.filter(s=>s.tier==='medium_herb').map(s=>s.name)},
+        'small_prey': {y:310, items:SPECIES.filter(s=>s.tier==='small_prey').map(s=>s.name)},
+        'plants': {y:350, items:['Plants']},
+    };
+    Object.entries(rows).forEach(([key, row]) => {
+        const total = row.items.length;
+        const startX = key === 'agent' ? W - 80 : (key === 'plants' ? W/2 : 0);
+        row.items.forEach((name, i) => {
+            if (key === 'agent') positions[name] = {x: W-60, y: row.y};
+            else if (key === 'plants') positions[name] = {x: W/2, y: row.y};
+            else positions[name] = {x: 40 + (i / Math.max(1, total-1)) * (W - 80), y: row.y};
+        });
+    });
+
+    // Draw edges
+    connections.forEach(c => {
+        const from = positions[c.predator], to = positions[c.prey];
+        if (from && to) {
+            ctx.beginPath(); ctx.moveTo(from.x, from.y); ctx.lineTo(to.x, to.y);
+            ctx.strokeStyle = 'rgba(255,255,255,0.06)'; ctx.lineWidth = 1; ctx.stroke();
+        }
+    });
+    // Agent edges
+    SPECIES.filter(s=>s.tier==='small_prey'||s.tier==='medium_herb'||s.tier==='large_herb').forEach(s => {
+        const from = positions['Agent'], to = positions[s.name];
+        if (from && to) {
+            ctx.beginPath(); ctx.moveTo(from.x, from.y); ctx.lineTo(to.x, to.y);
+            ctx.strokeStyle = 'rgba(234,179,8,0.1)'; ctx.lineWidth = 1; ctx.stroke();
+        }
+    });
+
+    // Draw nodes
+    Object.entries(positions).forEach(([name, pos]) => {
+        const s = SPECIES.find(sp=>sp.name===name);
+        let color = '#eab308'; // agent
+        if (name === 'Plants') color = '#10b981';
+        else if (s) color = TIER_COLORS[s.tier];
+        const r = name === 'Plants' ? 12 : name === 'Agent' ? 10 : s ? Math.max(5, Math.min(12, s.maxPop/3)) : 6;
+        ctx.beginPath(); ctx.arc(pos.x, pos.y, r, 0, Math.PI*2);
+        ctx.fillStyle = color; ctx.fill();
+        ctx.fillStyle = '#e4e4e7'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText(name, pos.x, pos.y - r - 4);
+    });
+}
+
+// ======================== RESOURCES ========================
+function buildResources() {
+    // Regen rates
+    const regenLabels = ['Trees (stump→tree)', 'Rocks (rubble→rock)', 'Plants (spread)', 'Iron (geological)', 'Water'];
+    const regenRates = [50, 60, 0.1, 0.006, 100]; // % chance or rate per cycle
+    const regenColors = ['#166534','#78716c','#10b981','#6b7280','#38bdf8'];
+    new Chart(document.getElementById('regenChart'), {
+        type:'bar',
+        data:{labels:regenLabels,datasets:[{label:'Regeneration Rate (%)',data:regenRates,backgroundColor:regenColors}]},
+        options:{scales:{x:{ticks:{color:'#9ca3af'}},y:{title:{display:true,text:'% chance per cycle',color:'#9ca3af'},ticks:{color:'#9ca3af'}}},plugins:{legend:{display:false}}}
+    });
+
+    // Consumption vs production
+    new Chart(document.getElementById('consumeChart'), {
+        type:'bar',
+        data:{
+            labels:['Wood','Stone','Food (plant)','Meat (protein)','Water','Iron'],
+            datasets:[
+                {label:'Production/hr',data:[120,40,60,80,9999,4],backgroundColor:'rgba(34,197,94,0.6)'},
+                {label:'Consumption/hr (20 agents)',data:[40,20,52,26,40,2],backgroundColor:'rgba(239,68,68,0.6)'}
+            ]
+        },
+        options:{scales:{x:{ticks:{color:'#9ca3af'}},y:{title:{display:true,text:'Units/Hour (est.)',color:'#9ca3af'},ticks:{color:'#9ca3af'}}},plugins:{legend:{labels:{color:'#9ca3af'}}}}
+    });
+
+    // Body material drops per hour (1 kill per species per 5 min)
+    const materials = ['meat','bone','hide','sinew','fat','feathers','teeth_claws','scales'];
+    const matTotals = materials.map(m => SPECIES.reduce((a,s) => a + (s.drops[m]||0) * 12, 0)); // 12 kills/hr per species
+    new Chart(document.getElementById('dropsChart'), {
+        type:'bar',
+        data:{labels:materials.map(m=>m.replace('_',' ')),datasets:[{data:matTotals,backgroundColor:['#ef4444','#f5f5f4','#a16207','#84cc16','#fbbf24','#e879f9','#6b7280','#22d3ee']}]},
+        options:{scales:{x:{ticks:{color:'#9ca3af'}},y:{title:{display:true,text:'Units/Hour',color:'#9ca3af'},ticks:{color:'#9ca3af'}}},plugins:{legend:{display:false}}}
+    });
+
+    // Material sources
+    const matSources = {};
+    materials.forEach(m => { matSources[m] = SPECIES.filter(s=>s.drops[m]>0).map(s=>({name:s.name,val:s.drops[m],tier:s.tier})); });
+    const sourceLabels = materials.filter(m=>matSources[m].length>0);
+    const speciesNames = SPECIES.map(s=>s.name);
+    const sourceDatasets = speciesNames.map(name => {
+        const s = SPECIES.find(sp=>sp.name===name);
+        return {
+            label: name,
+            data: sourceLabels.map(m => s.drops[m] || 0),
+            backgroundColor: TIER_COLORS[s.tier] + '80',
+            hidden: s.tier === 'small_prey'
+        };
+    });
+    new Chart(document.getElementById('materialSourceChart'), {
+        type:'bar',
+        data:{labels:sourceLabels.map(m=>m.replace('_',' ')),datasets:sourceDatasets},
+        options:{scales:{x:{stacked:true,ticks:{color:'#9ca3af'}},y:{stacked:true,ticks:{color:'#9ca3af'}}},plugins:{legend:{display:false}}}
+    });
+
+    // Resource flow table
+    const rtbody = document.querySelector('#resourceTable tbody');
+    const resourceFlows = [
+        {name:'Wood',source:'Trees (chop)',renewable:'Yes — 50% stump regrow',prod:'~120/hr (at 463 trees)',consume:'~40/hr (20 agents building)',risk:'Low'},
+        {name:'Stone',source:'Rocks (mine)',renewable:'Yes — 60% rubble respawn',prod:'~40/hr',consume:'~20/hr',risk:'Low'},
+        {name:'Food (plant)',source:'Berry bush, mushroom, herbs',renewable:'Yes — 0.1%/tick spread + seed bank',prod:'~60/hr at 50% pop',consume:'~52/hr (20 agents)',risk:'Medium — can crash'},
+        {name:'Water',source:'Water tiles (infinite)',renewable:'Infinite',prod:'∞',consume:'~40/hr',risk:'None'},
+        {name:'Meat',source:'Animal kills, corpses',renewable:'Yes — animal breeding/respawn',prod:'~80/hr at full pop',consume:'~26/hr (20 agents)',risk:'Medium — predator extinction'},
+        {name:'Bone',source:'Animal corpses',renewable:'Via animal deaths',prod:'~40/hr',consume:'Low (bone tools/recipes)',risk:'Low'},
+        {name:'Hide',source:'Animal corpses',renewable:'Via animal deaths',prod:'~36/hr',consume:'Medium (armor, tent, sack)',risk:'Low'},
+        {name:'Sinew',source:'Animal corpses',renewable:'Via animal deaths',prod:'~28/hr',consume:'Medium (rope, doors, armor)',risk:'Low'},
+        {name:'Fat',source:'Bear, cow, pig, sheep, duck, capybara',renewable:'Via animal deaths',prod:'~24/hr',consume:'Low (torch, candle, rations)',risk:'Low'},
+        {name:'Feathers',source:'Chicken, Duck ONLY',renewable:'Via bird deaths',prod:'~7/hr',consume:'Medium (arrows, crown, bedroll)',risk:'HIGH — only 2 sources'},
+        {name:'Teeth/Claws',source:'Predators + deer + pig + hedgehog',renewable:'Via animal deaths',prod:'~20/hr',consume:'Low (club, necklace)',risk:'Low'},
+        {name:'Scales',source:'Alligator ONLY',renewable:'Via alligator deaths',prod:'~8/hr (max 6 alligators)',consume:'High (shield, armor, pendant)',risk:'HIGH — single source'},
+        {name:'Iron Ore',source:'Ground deposits (15-20)',renewable:'Slow — 1 deposit/30 min',prod:'~4/hr',consume:'Variable',risk:'Medium — slow respawn'},
+        {name:'Iron Ingot',source:'Smelted at forge',renewable:'Via iron ore',prod:'Depends on ore',consume:'All iron recipes',risk:'Medium'},
+        {name:'Seeds',source:'Tree felling (70%), bush harvest (90%)',renewable:'Yes',prod:'Abundant',consume:'Planting',risk:'Low'},
+    ];
+    resourceFlows.forEach(r => {
+        const tr = document.createElement('tr');
+        const riskColor = r.risk.startsWith('HIGH') ? 'var(--apex)' : r.risk.startsWith('Medium') ? 'var(--agent)' : 'var(--large-herb)';
+        tr.innerHTML = `<td><strong>${r.name}</strong></td><td>${r.source}</td><td>${r.renewable}</td><td>${r.prod}</td><td>${r.consume}</td><td style="color:${riskColor};font-weight:600">${r.risk}</td>`;
+        rtbody.appendChild(tr);
+    });
+}
+
+// ======================== CRAFTING ========================
+function buildCrafting() {
+    // Recipes by station
+    const stationCounts = {Hand:2, Workbench:34, Campfire:4, Forge:9};
+    new Chart(document.getElementById('recipeStationChart'), {
+        type:'doughnut',
+        data:{labels:Object.keys(stationCounts),datasets:[{data:Object.values(stationCounts),backgroundColor:['#6b7280','#3b82f6','#f97316','#ef4444']}]},
+        options:{plugins:{legend:{position:'right',labels:{color:'#9ca3af'}}}}
+    });
+
+    // Recipes by skill level
+    const skillBuckets = {'0-5':0,'6-10':0,'11-15':0,'16-20':0,'21-25':0,'26-35':0};
+    const allRecipeSkills = [0,5,0,0,5,5,8,10,12,5,5,3,5,15,8,12,12,15,12,20,10,10,8,18,25,35,8,10,3,5,10,18,12,25,5,12,18,15,20,25,22,22,20,28,28,20,0,10,8,5,5,3,5];
+    allRecipeSkills.forEach(s => {
+        if (s<=5) skillBuckets['0-5']++;
+        else if (s<=10) skillBuckets['6-10']++;
+        else if (s<=15) skillBuckets['11-15']++;
+        else if (s<=20) skillBuckets['16-20']++;
+        else if (s<=25) skillBuckets['21-25']++;
+        else skillBuckets['26-35']++;
+    });
+    new Chart(document.getElementById('recipeSkillChart'), {
+        type:'bar',
+        data:{labels:Object.keys(skillBuckets),datasets:[{label:'Recipe Count',data:Object.values(skillBuckets),backgroundColor:'rgba(99,102,241,0.6)'}]},
+        options:{scales:{x:{title:{display:true,text:'Skill Level Required',color:'#9ca3af'},ticks:{color:'#9ca3af'}},y:{ticks:{color:'#9ca3af'}}},plugins:{legend:{display:false}}}
+    });
+
+    // Material demand across all recipes
+    const demand = {wood:0,stone:0,bone:0,hide:0,sinew:0,fat:0,feathers:0,teeth_claws:0,scales:0,iron_ore:0,iron_ingot:0,meat:0};
+    const recipes = [
+        {wood:3,stone:2},{wood:8,stone:4},{wood:4},{wood:5},{wood:6,stone:1},{wood:3},{wood:5},{wood:6,sinew:1},{wood:10},
+        {wood:2,stone:3},{wood:2,stone:3},{wood:1,stone:2},{wood:2,stone:3},{stone:8},
+        {bone:3,sinew:1},{bone:4,wood:2,sinew:2},{bone:4,stone:2,sinew:2},{bone:5,wood:3,sinew:2},{teeth_claws:4,wood:3},
+        {wood:4,sinew:3,feathers:2},{wood:1,feathers:1,bone:1},{hide:4,sinew:2},{hide:2,sinew:1},{hide:6,sinew:3},
+        {scales:6,wood:3,sinew:2},{scales:10,hide:4,sinew:4},{sinew:4},{hide:3,sinew:1},{fat:2,wood:1},{fat:3},
+        {bone:6,wood:4},{hide:8,wood:6,sinew:3},{feathers:8,hide:3},{wood:12,sinew_rope:2,bone:4},
+        {teeth_claws:3,sinew:1},{feathers:6,sinew:2},{scales:3,sinew:1},
+        {iron_ore:2,wood:2},{stone:12,wood:8},{iron_ingot:3,wood:1,hide:1},{iron_ingot:2,wood:2},{iron_ingot:2,wood:2},
+        {iron_ingot:2,wood:2},{stone:6,iron_ingot:2,wood:2},{iron_ingot:4,hide:2},{iron_ingot:1,wood:2,feathers:2},
+        {meat:2},{meat:3},{meat:4,fat:1},{bone:3},{fat:3},{},{},
+    ];
+    recipes.forEach(r => { Object.entries(r).forEach(([k,v]) => { if (demand[k]!==undefined) demand[k]+=v; }); });
+    const demandEntries = Object.entries(demand).filter(([k,v])=>v>0).sort((a,b)=>b[1]-a[1]);
+    new Chart(document.getElementById('craftDemandChart'), {
+        type:'bar',
+        data:{labels:demandEntries.map(e=>e[0].replace('_',' ')),datasets:[{label:'Total units needed (all recipes once)',data:demandEntries.map(e=>e[1]),backgroundColor:'rgba(249,115,22,0.6)'}]},
+        options:{scales:{x:{ticks:{color:'#9ca3af'}},y:{ticks:{color:'#9ca3af'}}},plugins:{legend:{display:false}}}
+    });
+
+    // Bottlenecks
+    const bnDiv = document.getElementById('bottleneckList');
+    const bottlenecks = [
+        {mat:'Scales',issue:'Only from alligators (max 6). Need 19 scales for shield+armor+pendant. Requires killing 3 alligators minimum.',severity:'high'},
+        {mat:'Feathers',issue:'Only from chicken (3/kill) and duck (4/kill). Need 19+ feathers for arrows+crown+bedroll. Requires killing 5-6 birds.',severity:'high'},
+        {mat:'Iron Ingot',issue:'Needs iron ore (finite, slow respawn). 16 ingots needed for full iron set. Requires 32 ore = 8-16 deposits.',severity:'medium'},
+        {mat:'Sinew',issue:'Needed in 15 recipes (28 total). Most species drop 1-4. Abundant from deer/horse/cow kills.',severity:'low'},
+        {mat:'Hide',issue:'Needed in 8 recipes (30 total). Main sources: cow 6, horse 5, sheep 4, deer 4.',severity:'low'},
+    ];
+    bottlenecks.forEach(b => {
+        const cls = b.severity==='high'?'issue':b.severity==='medium'?'issue warn':'issue ok';
+        bnDiv.innerHTML += `<div class="${cls}"><h4>${b.mat}</h4><p>${b.issue}</p></div>`;
+    });
+
+    // Progression path
+    const ppDiv = document.getElementById('progressionPath');
+    ppDiv.innerHTML = `
+        <div style="font-size:12px;line-height:2">
+            <div><span class="badge" style="background:#374151;color:#9ca3af">Tier 0</span> Bare hands → <strong>Campfire</strong> (wood 3 + stone 2) → <strong>Workbench</strong> (wood 8 + stone 4)</div>
+            <div><span class="badge" style="background:#854d0e;color:#fbbf24">Tier 1</span> Workbench → Wooden tools (shovel, club, spear) — skill 0-5</div>
+            <div><span class="badge" style="background:#1e3a5f;color:#60a5fa">Tier 2</span> Workbench → Stone tools (axe, pickaxe, knife) — skill 3-5</div>
+            <div><span class="badge" style="background:#365314;color:#84cc16">Tier 3</span> Workbench + Animal kills → Bone/Hide gear — skill 8-35</div>
+            <div><span class="badge" style="background:#7f1d1d;color:#fca5a5">Tier 4</span> Forge (stone 12 + wood 8) → Iron gear — skill 15-28</div>
+            <div style="margin-top:8px;color:var(--text2)"><strong>Critical path:</strong> Chop wood → Mine stone → Build workbench → Craft stone axe → Hunt animals → Get bone/hide → Craft bone tools → Build forge → Smelt iron → Iron weapons</div>
+        </div>
+    `;
+}
+
+// ======================== ISSUES ========================
+function buildIssues() {
+    const critDiv = document.getElementById('criticalIssues');
+    const warnDiv = document.getElementById('warnIssues');
+    const okDiv = document.getElementById('okItems');
+
+    const criticals = [
+        {title:'Scales: Single-source bottleneck',desc:'Only alligators drop scales (8 per kill, max 6 alive). Scale armor (10) + shield (6) + pendant (3) = 19 scales = need 3 alligator kills. If alligators go extinct, entire scale crafting tree is permanently locked until respawn. No alternative source exists.'},
+        {title:'Feathers: Dual-source fragility',desc:'Only chicken (3/kill) and duck (4/kill) drop feathers. Bedroll (8), crown (6), arrows (1), iron arrows (2) = 17 feathers minimum. If both bird species die out, feather crafting is locked. Arrows become uncraftable.'},
+        {title:'Donkey has no predators besides apex',desc:'Donkey fleesFrom: tiger, bear, alligator. No mid-tier predator hunts donkeys. If apex predators die, donkey population is completely uncontrolled. Donkeys don\'t flee from dogs or foxes.'},
+        {title:'Horse has no predators besides apex + dog',desc:'Horse fleesFrom: tiger, bear, dog-0, alligator. But NO predator lists horse in their hunts[] array. Horses are never actively hunted — only attacked if predator is desperate. Population only controlled by starvation.'},
+        {title:'Goat only hunted by tiger',desc:'Tiger hunts: deer, pig, goat, sheep, cow, agent. Goat only appears in tiger\'s hunt list. If tigers die (maxPop 4, easily extinct), goat population has zero predation pressure.'},
+        {title:'Capybara: medium-sized but in small_prey tier',desc:'Capybara is size medium (45 HP, 3 ATK) but classified as small_prey. It has herbivore diet and herd behavior like medium_herb species. Tier mismatch affects breeding rates and AI behavior expectations.'},
+    ];
+
+    const warnings = [
+        {title:'Pig is tier medium_herb but has 20 ATK',desc:'Pig has higher attack (20) than deer (12), goat (10), sheep (3). Pig attack rivals horse (18) and donkey (16). This omnivore is essentially a mid-tier predator in disguise. Consider: should pig be classified differently?'},
+        {title:'Rat is tier mid_predator but hunts nothing',desc:'Rat has empty hunts[] array despite being classified as mid_predator. Rats are really scavengers/food-stealers, not hunters. Consider reclassifying to small_prey or giving them actual prey.'},
+        {title:'Bear is omnivore but only hunts animals',desc:'Bear diet is omnivore but hunts[] only lists deer, pig, rabbit, agent. No plant foraging in hunt behavior — omnivore diet means it CAN eat plants for plantHunger, but there\'s no priority/decision to forage berries.'},
+        {title:'No species hunts: horse, donkey, capybara, hedgehog, squirrel, goat (directly)',desc:'These 6 species appear in zero hunt[] arrays (goat only in tiger). Their populations are controlled only by starvation and agent hunting. If food is abundant, they breed to maxPop unchecked.'},
+        {title:'Alligator habitat is water_edge but speed 0.15',desc:'Slowest large predator. On land, almost anything can outrun it. Ambush ability compensates, but if prey flees, alligator can never chase. Effectiveness depends entirely on prey walking near water.'},
+        {title:'Sinew_rope is a crafting intermediate but recipe uses it as "sinew_rope"',desc:'Animal Pen requires sinew_rope × 2 (a crafted item, not raw sinew). Agent must craft sinew_rope first (sinew 4 per rope = 8 sinew total for 2 ropes). This dependency chain could block GOAP planning if not modeled.'},
+        {title:'Agent corpse drops are stat-based but most agents have similar stats',desc:'With random 5-15 base stats, average agent drops ~6 meat, 3 bone, 2 hide, 2 fat, 1 sinew. Variance is low. Killing agents is less rewarding than killing cows (14 meat, 6 bone, 6 hide).'},
+        {title:'Winter breeding freeze + slow respawn = population crash risk',desc:'Winter disables ALL breeding for 6000 ticks (10 min). If predators kill during winter, populations can\'t recover until spring. Combined with slow breed cooldowns (bear: 1200 ticks), extinction risk is elevated.'},
+    ];
+
+    const oks = [
+        {title:'Wood supply is sustainable',desc:'463 trees × 50% regrow + seed planting. At 20 agents consuming ~40 wood/hr, supply exceeds demand 3:1.'},
+        {title:'Stone supply is sustainable',desc:'84 rocks × 60% respawn at random locations. Geographic drift is a feature, not a bug — keeps world dynamic.'},
+        {title:'Water is infinite',desc:'20% world coverage, never depletes. Thirst is a movement constraint (must visit water), not a scarcity issue.'},
+        {title:'Meat supply is abundant at steady state',desc:'20 species × variable drops = ~80 meat/hr production vs ~26/hr consumption (20 agents). 3:1 surplus.'},
+        {title:'Bone/sinew/teeth_claws are well-distributed',desc:'12+ species drop bone, 10+ drop sinew. No single-source risk. Abundant from normal hunting.'},
+        {title:'Hide supply is healthy',desc:'Deer, cow, sheep, horse, goat, capybara, fox, cat all drop hide. Wide distribution across tiers.'},
+        {title:'Seed bank prevents total plant extinction',desc:'Dormant seeds sprout at 0.02%/tick even with 0 visible plants. Recovery is slow but guaranteed.'},
+        {title:'Soil fertility creates positive feedback',desc:'Corpse decomposition boosts local regrowth. Areas with high kill rates grow more plants.'},
+        {title:'Seasonal cycle creates natural population oscillation',desc:'Spring boom → Summer stable → Autumn stockpile → Winter cull. Prevents permanent equilibrium stagnation.'},
+        {title:'Iron slow respawn prevents permanent lockout',desc:'1 deposit/30 min means iron is scarce but never gone. Late-game tension preserved.'},
+        {title:'Rabbit breeding rate is highest (40 offspring/hr)',desc:'Fastest breeder ensures bottom of food chain never permanently collapses. Foundation species.'},
+        {title:'Dog pack behavior creates emergent predator coordination',desc:'Howl ability + pack size 3-6 means dogs are effective mid-tier predators despite modest individual stats.'},
+    ];
+
+    criticals.forEach(c => { critDiv.innerHTML += `<div class="issue"><h4>${c.title}</h4><p>${c.desc}</p></div>`; });
+    warnings.forEach(w => { warnDiv.innerHTML += `<div class="issue warn"><h4>${w.title}</h4><p>${w.desc}</p></div>`; });
+    oks.forEach(o => { okDiv.innerHTML += `<div class="issue ok"><h4>${o.title}</h4><p>${o.desc}</p></div>`; });
+}
+
+// ======================== DECISION TREES (Mermaid) ========================
+mermaid.initialize({
+  startOnLoad: false,
+  theme: 'dark',
+  themeVariables: {
+    darkMode: true,
+    background: '#1a1d27',
+    primaryColor: '#2e3348',
+    primaryTextColor: '#e4e4e7',
+    primaryBorderColor: '#4b5563',
+    lineColor: '#6b7280',
+    secondaryColor: '#242836',
+    tertiaryColor: '#1a1d27',
+    fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif',
+    fontSize: '12px',
+    nodeTextColor: '#e4e4e7',
+  },
+  flowchart: { curve: 'basis', padding: 12, htmlLabels: true, defaultRenderer: 'dagre-wrapper' },
+  securityLevel: 'loose'
+});
+
+const AGENT_TREE = {
+  interrupts: [
+    {action:'Dead Check',pri:0,cond:'!agent.alive',desc:'Agent is dead → enter dying state, drop all resources + corpse, 30s respawn timer'},
+    {action:'Critical Thirst',pri:95,cond:'thirst < 20 AND water source exists',desc:'Emergency water seeking — overrides everything except death'},
+    {action:'Fight Back',pri:93,cond:'lastAttackedBy within 3 tiles AND myAttack > attacker.attack × 0.5',desc:'Auto-equip best weapon, engage attacker in melee combat'},
+    {action:'Critical Hunger',pri:90,cond:'effectiveHunger < 20 AND food available',desc:'Eat from inventory or forage nearest plant — protein or plant hunger'},
+    {action:'Low Health (Critical)',pri:88,cond:'health < 30 AND healing flower found',desc:'Seek and consume healing flower to restore HP'},
+    {action:'Player Command',pri:'85+',cond:'message queue exists, obedience check passes',desc:'Execute player-sent message. Priority = 85 + obedience/10. Effective obedience = base + social_level × 0.2'},
+    {action:'Stamina Herb',pri:82,cond:'stamina < 15 AND stamina herb found nearby',desc:'Consume stamina herb to avoid collapse'},
+    {action:'Exhaustion Rest',pri:80,cond:'stamina < 15',desc:'Forced rest — too tired to do anything else'},
+    {action:'Group Defense',pri:75,cond:'ally under attack within 8 tiles, attacker within 10 tiles',desc:'Rush to help ally in combat — pack behavior for agents'},
+    {action:'Flee from Threat',pri:'60–98',cond:'threat danger > 0.5, within detection range (6 + survival×0.1)',desc:'Dynamic priority based on proximity urgency. Flee speed = base × (1 + athletics × 0.01)'},
+  ],
+  goap: {
+    goals: [
+      {id:'survive_thirst',name:'Drink Water',target:'thirst ≥ 80',relevance:'thirst < 50',urgency:'quadratic(1 - thirst/100)'},
+      {id:'survive_protein',name:'Eat Protein',target:'proteinHunger ≥ 80',relevance:'proteinHunger < 50',urgency:'quadratic(1 - protein/100)'},
+      {id:'survive_plant',name:'Eat Plants',target:'plantHunger ≥ 80',relevance:'plantHunger < 50',urgency:'quadratic(1 - plant/100)'},
+      {id:'rest',name:'Rest',target:'stamina ≥ 80',relevance:'stamina < 30',urgency:'quadratic(1 - stamina/100)'},
+      {id:'get_shelter',name:'Build Shelter',target:'shelter ≥ 60',relevance:'shelter < 40',urgency:'linear(1 - shelter/100) × 0.6'},
+      {id:'get_equipped',name:'Craft Tools',target:'hasAxe AND hasPickaxe',relevance:'missing tool',urgency:'0.3 (constant)'},
+      {id:'cook_food',name:'Cook Food',target:'food ≥ 5',relevance:'meat > 2 AND hasCampfire',urgency:'0.35'},
+      {id:'stockpile_wood',name:'Gather Wood',target:'wood ≥ 15',relevance:'wood < 15',urgency:'0.35 if wood<5, else 0.15'},
+      {id:'stockpile_stone',name:'Gather Stone',target:'stone ≥ 8',relevance:'stone < 8',urgency:'0.3 if stone<3, else 0.1'},
+      {id:'socialize',name:'Socialize',target:'social ≥ 70',relevance:'social < 40',urgency:'linear(1 - social/100) × 0.4'},
+    ],
+    actions: [
+      {id:'chop_wood',name:'Chop Tree',pre:'nearbyWood',eff:'wood +5',cost:'10/(1+woodcutting×0.01)',ticks:30},
+      {id:'mine_stone',name:'Mine Rock',pre:'nearbyStone',eff:'stone +3',cost:'12/(1+mining×0.01)',ticks:25},
+      {id:'forage_plants',name:'Forage',pre:'nearbyFood',eff:'plantHunger +15',cost:'8',ticks:15},
+      {id:'hunt_animal',name:'Hunt (armed)',pre:'nearbyPrey, hasWeapon',eff:'meat +5, protein +25',cost:'20/(1+combat×0.01)',ticks:60},
+      {id:'hunt_unarmed',name:'Hunt (unarmed)',pre:'nearbyPrey',eff:'meat +3, protein +15',cost:'30/(1+combat×0.01)',ticks:80},
+      {id:'mine_iron',name:'Mine Iron',pre:'nearbyIronOre, hasPickaxe',eff:'iron_ore +2',cost:'15',ticks:40},
+      {id:'drink_water',name:'Drink',pre:'nearbyWater',eff:'thirst +30',cost:'5',ticks:10},
+      {id:'eat_food',name:'Eat Food',pre:'(none)',eff:'protein +12, plant +12',cost:'3',ticks:5},
+      {id:'rest',name:'Rest',pre:'(none)',eff:'stamina +30',cost:'15',ticks:50},
+      {id:'build_campfire',name:'Build Campfire',pre:'wood≥3, stone≥2',eff:'hasCampfire',cost:'8',ticks:10},
+      {id:'build_workbench',name:'Build Workbench',pre:'wood≥8, stone≥4',eff:'hasWorkbench',cost:'12',ticks:15},
+      {id:'build_wall',name:'Build Wall',pre:'wood≥5, hasWorkbench',eff:'shelter +20',cost:'10/(1+building×0.01)',ticks:15},
+      {id:'build_forge',name:'Build Forge',pre:'stone≥12, wood≥8, hasWorkbench',eff:'hasForge',cost:'20',ticks:20},
+      {id:'craft_stone_axe',name:'Craft Stone Axe',pre:'wood≥2, stone≥3, hasWorkbench',eff:'hasAxe',cost:'10',ticks:20},
+      {id:'craft_stone_pick',name:'Craft Stone Pick',pre:'wood≥2, stone≥3, hasWorkbench',eff:'hasPickaxe',cost:'10',ticks:20},
+      {id:'craft_weapon',name:'Craft Weapon',pre:'wood≥5, hasWorkbench',eff:'hasWeapon',cost:'12',ticks:25},
+      {id:'cook_meat',name:'Cook Meat',pre:'meat≥2, hasCampfire',eff:'protein +20, food +1',cost:'6',ticks:15},
+      {id:'smelt_iron',name:'Smelt Iron',pre:'iron_ore≥2, wood≥2, hasForge',eff:'iron_ingot +1',cost:'15',ticks:30},
+      {id:'socialize',name:'Socialize',pre:'nearbyAgent',eff:'social +10',cost:'5',ticks:20},
+    ],
+    personality: [
+      {type:'Industrious',effect:'70% cost for gathering & building actions'},
+      {type:'Lazy',effect:'150% cost for gathering/hunting; 80% cost for eating/resting'},
+      {type:'Social',effect:'50% cost for socializing'},
+      {type:'Loner',effect:'200% cost for socializing'},
+    ],
+    planner: 'Backward-chaining A* — max depth 6, max iterations 50, re-plan 1 agent/tick'
+  },
+  fallback: [
+    {action:'Drink (medium)',pri:60,cond:'thirst < 50 AND water exists'},
+    {action:'Eat (medium)',pri:55,cond:'effectiveHunger < 50 AND food available'},
+    {action:'Harvest Corpse',pri:50,cond:'proteinHunger < 50 OR meat < 3, corpse within 15 tiles'},
+    {action:'Low Health (Moderate)',pri:50,cond:'health < 60 AND healing flower found'},
+    {action:'Stamina Herb',pri:45,cond:'stamina < 35 AND herb found'},
+    {action:'Build/Shelter',pri:40,cond:'shelter < 40 AND wood ≥ 3 AND buildable recipe exists. +building_level/5'},
+    {action:'Gather Wood',pri:35,cond:'wood < 10 AND tree found. +15 if industrious personality'},
+    {action:'Mine Stone',pri:30,cond:'stone < 5 AND rock found. +gatherBonus'},
+    {action:'Hunt Animal',pri:'30–50',cond:'proteinHunger < 50, prey within 15 tiles. Risk/reward: meatValue vs riskScore'},
+    {action:'Socialize',pri:30,cond:'social < 40 AND nearby agent. +20 if social personality'},
+    {action:'Mine Iron',pri:28,cond:'iron_ore < 4 AND has iron pickaxe AND ore within 20 tiles'},
+    {action:'Craft (various)',pri:'25–48',cond:'near station AND recipe available AND skill ≥ requirement. +23 if food recipe when hungry'},
+    {action:'Wander to Memory',pri:'22–25',cond:'need resource AND no source visible BUT spatial memory exists'},
+    {action:'Tame Animal',pri:20,cond:'tameable animal within 3 tiles AND (food > 0 OR meat > 0)'},
+    {action:'Plant Seeds',pri:20,cond:'seeds > 0 AND wood > 5'},
+    {action:'Wander (default)',pri:10,cond:'Always available — random exploration'},
+  ]
+};
+
+const ANIMAL_UTILITY = {
+  actions: [
+    {id:'tamed_follow',name:'Follow Owner',score:'0.6 × min(dist_to_home / 10, 1)',curve:'linear',cond:'tamed AND tamedBehavior = follow',override:true},
+    {id:'tamed_guard',name:'Guard Home',score:'0.85 if threat near home, else 0.3',curve:'step',cond:'tamed AND tamedBehavior = guard AND threat within 5 of home',override:true},
+    {id:'curl',name:'Curl Defense',score:'0.95 (override)',curve:'fixed',cond:'specialAbility = curl AND threat detected',special:'curl'},
+    {id:'retaliate',name:'Retaliate',score:'0.95',curve:'fixed',cond:'attacked < 50 ticks ago AND aggression > 0.5 AND attack > 15',override:true},
+    {id:'flee',name:'Flee',score:'logistic(dist, range×0.4) × safety × danger − packCourage',curve:'logistic',cond:'threat detected. 0.95 override if health < 70% AND threat < 3 tiles'},
+    {id:'hunt',name:'Hunt Prey',score:'quadratic(proteinHunger) × aggression × 0.9',curve:'quadratic',cond:'prey exists AND (carnivore or omnivore)'},
+    {id:'scavenge',name:'Scavenge Corpse',score:'quadratic(hunger) × food_wt × 1.3',curve:'quadratic',cond:'scavenger species AND corpse with meat found. 30% bonus vs hunting'},
+    {id:'food',name:'Eat Plants',score:'quadratic(plantHunger) × food_wt',curve:'quadratic',cond:'herbivore or omnivore AND plant found. Memory fallback at 0.7×'},
+    {id:'drink',name:'Drink Water',score:'linear(thirst) × 1.2 × water_wt',curve:'linear',cond:'water tile found. Memory fallback at 0.7×. 20% priority boost'},
+    {id:'breed',name:'Breed',score:'0.4 (fixed if conditions pass)',curve:'fixed',cond:'cooldown=0, hunger>60, thirst>50, no threats, mate within 5 tiles, pop < max'},
+    {id:'rest',name:'Rest/Sleep',score:'quadratic(stamina) × 0.8 + 0.5 if inactive period',curve:'quadratic',cond:'always evaluated. +0.5 during wrong activity period'},
+    {id:'travel_home',name:'Travel Home',score:'0.3 + (dist−15) × 0.02',curve:'linear',cond:'distance to home > 15 tiles'},
+    {id:'wander',name:'Wander',score:'0.12 (constant baseline)',curve:'fixed',cond:'always available — includes flocking bias for herds'},
+  ],
+  specials: [
+    {ability:'ambush',species:'Tiger, Alligator',trigger:'prey > 3 tiles away',effect:'Stalk at 0.3× speed → burst attack at ≤3 tiles for 2× damage'},
+    {ability:'curl',species:'Hedgehog',trigger:'threat within detection range',effect:'Score 0.95 override. 50 tick duration. Incoming damage × 0.5'},
+    {ability:'howl',species:'Dog',trigger:'pack hunt initiated',effect:'All pack members within 15 tiles join hunt on same target'},
+    {ability:'trample',species:'Cow',trigger:'3+ same species fleeing',effect:'10 HP damage to all non-species within 1.5 tiles'},
+    {ability:'steal_food',species:'Fox, Rat',trigger:'within 2 tiles of campfire/workbench',effect:'2% per tick: gain +10 hunger (protein or plant by diet)'},
+    {ability:'egg_laying',species:'Chicken, Duck',trigger:'plantHunger > 50, every eggRate ticks',effect:'Place edible flower (food source) at current location'},
+    {ability:'seed_disperse',species:'Squirrel',trigger:'every 200 ticks near tree/plant',effect:'Deposit seed in soil bank within 10 tiles. Keystone ecological role'},
+    {ability:'peace_aura',species:'Capybara',trigger:'passive — always active',effect:'All animals within 3 tiles have danger scores halved (× 0.5)'},
+  ],
+  awareness: {
+    sight: {formula:'(1 − dist / sightRange) × moveMod',note:'moveMod: moving target 1.2×, still target 0.7×'},
+    smell: {formula:'(1 − dist / (range×1.5×targetSmell))',note:'Carnivores/omnivores only. Agents: 0.3 base smell + meatCarried/20'},
+    sound: {formula:'noise = size × (hunting? 0.5 : wandering? 0.3 : 0)',note:'soundRange = 8 × noise. Resting/idle produce no sound'},
+  },
+  metabolism: {
+    formula:'(1 + totalSkillLevels / 500) × activityMultiplier',
+    activities: {sleeping:0.4,curled:0.5,idle:0.6,grazing:0.8,following:0.8,wandering:1.0,breeding:1.0,traveling:1.0,guarding:1.0,stalking:1.2,fleeing:1.3,hunting:1.6,fighting:1.8},
+    sizeScale: {tiny:0.5,small:0.75,medium:1.0,large:1.5}
+  }
+};
+
+let mermaidCounter = 0;
+
+async function renderMermaidBlock(container, code) {
+  const id = 'mermaid-' + (mermaidCounter++);
+  try {
+    const { svg } = await mermaid.render(id, code);
+    container.innerHTML = svg;
+  } catch(e) {
+    container.innerHTML = '<pre style="color:#ef4444;font-size:11px">Mermaid render error: '+e.message+'</pre>';
+  }
+}
+
+function buildDecisions() {
+  const sel = document.getElementById('dtSelector');
+  const beings = [{id:'agent',name:'Agent (Player)',tier:'agent'},...SPECIES.map(s=>({id:s.id,name:s.name,tier:s.tier}))];
+  beings.forEach((b,i) => {
+    const btn = document.createElement('button');
+    btn.className = 'dt-btn' + (i===0?' active':'');
+    btn.textContent = b.name;
+    const tierColor = b.tier==='agent'?'var(--agent)':TIER_COLORS[b.tier];
+    btn.style.borderLeftWidth = '3px';
+    btn.style.borderLeftColor = tierColor;
+    btn.onclick = () => {
+      sel.querySelectorAll('.dt-btn').forEach(x=>x.classList.remove('active'));
+      btn.classList.add('active');
+      renderDecisionTree(b.id);
+    };
+    sel.appendChild(btn);
+  });
+  renderDecisionTree('agent');
+}
+
+function renderDecisionTree(id) {
+  const ct = document.getElementById('dtContent');
+  if (id === 'agent') {
+    renderAgentTree(ct);
+  } else {
+    renderAnimalTree(ct, id);
+  }
+}
+
+async function renderAgentTree(ct) {
+  let html = '';
+
+  // --- MAIN DECISION FLOW TREE ---
+  html += `<div class="dt-mermaid-wrap"><h3>Agent Decision Flow — 3-Layer Architecture</h3><div class="mermaid" id="agentMainTree"></div></div>`;
+
+  // --- LAYER 1: INTERRUPT TREE ---
+  html += `<div class="dt-mermaid-wrap"><h3>Layer 1 — Interrupt Priorities (checked every tick, highest wins)</h3><div class="mermaid" id="agentInterruptTree"></div></div>`;
+
+  // --- LAYER 2: GOAP TREE ---
+  html += `<div class="dt-mermaid-wrap"><h3>Layer 2 — GOAP Planning (backward-chain A*, max depth 6, 50 iterations)</h3><div class="mermaid" id="agentGoapTree"></div></div>`;
+
+  // --- LAYER 3: FALLBACK TREE ---
+  html += `<div class="dt-mermaid-wrap"><h3>Layer 3 — Fallback Decisions (when GOAP fails)</h3><div class="mermaid" id="agentFallbackTree"></div></div>`;
+
+  // --- METABOLISM ---
+  html += `<div class="dt-mermaid-wrap"><h3>Metabolism & Need Decay</h3><div class="mermaid" id="agentMetabTree"></div></div>`;
+
+  ct.innerHTML = html;
+
+  // Render all Mermaid diagrams
+  await renderMermaidBlock(document.getElementById('agentMainTree'), `
+flowchart TD
+  START((Tick)) --> ALIVE{Alive?}
+  ALIVE -->|No| DEATH[Dead: drop items + corpse, 30s respawn]
+  ALIVE -->|Yes| INT{Interrupt check: any priority >= 60?}
+  INT -->|Yes| EXEC_INT[Execute highest-priority interrupt]
+  INT -->|No| GOAP{GOAP planner: valid plan exists?}
+  GOAP -->|Yes| EXEC_GOAP[Execute next GOAP action, priority 50]
+  GOAP -->|No| FALL{Fallback decisions, priority 10-60}
+  FALL --> EXEC_FALL[Execute highest-priority fallback]
+  EXEC_INT --> DECAY[Apply need decay x metabolism]
+  EXEC_GOAP --> DECAY
+  EXEC_FALL --> DECAY
+  DECAY --> END((Next tick))
+
+  style DEATH fill:#7f1d1d,stroke:#ef4444,color:#fca5a5
+  style EXEC_INT fill:#7f1d1d,stroke:#ef4444,color:#fca5a5
+  style EXEC_GOAP fill:#713f12,stroke:#eab308,color:#fde047
+  style EXEC_FALL fill:#14532d,stroke:#22c55e,color:#86efac
+  style DECAY fill:#1e1b4b,stroke:#818cf8,color:#c7d2fe
+  style START fill:#374151,stroke:#9ca3af,color:#e5e7eb
+  style END fill:#374151,stroke:#9ca3af,color:#e5e7eb
+  `);
+
+  await renderMermaidBlock(document.getElementById('agentInterruptTree'), `
+flowchart TD
+  CHK((Check Interrupts)) --> T{thirst < 20?}
+  T -->|Yes| THIRST["Critical Thirst, P:95 — seek water"]
+  T -->|No| FB{attacked & can fight?}
+  FB -->|Yes| FIGHT["Fight Back, P:93 — auto-equip, engage"]
+  FB -->|No| H{hunger < 20?}
+  H -->|Yes| HUNGER["Critical Hunger, P:90 — eat food/forage"]
+  H -->|No| HL{health < 30 & flower?}
+  HL -->|Yes| HEAL["Seek Healing, P:88 — consume flower"]
+  HL -->|No| CMD{player message?}
+  CMD -->|Yes| PCMD["Player Command, P:85+ — obedience check"]
+  CMD -->|No| SH{stamina < 15 & herb?}
+  SH -->|Yes| SHERB["Stamina Herb, P:82 — consume herb"]
+  SH -->|No| EX{stamina < 15?}
+  EX -->|Yes| REST["Exhaustion Rest, P:80 — forced rest"]
+  EX -->|No| GD{ally attacked nearby?}
+  GD -->|Yes| GROUP["Group Defense, P:75 — rush to ally"]
+  GD -->|No| FL{danger > 0.5 in range?}
+  FL -->|Yes| FLEE["Flee, P:60-98 — dynamic by proximity"]
+  FL -->|No| NONE(((No interrupt, go to GOAP)))
+
+  style THIRST fill:#7f1d1d,stroke:#ef4444,color:#fca5a5
+  style FIGHT fill:#7f1d1d,stroke:#ef4444,color:#fca5a5
+  style HUNGER fill:#7f1d1d,stroke:#ef4444,color:#fca5a5
+  style HEAL fill:#7f1d1d,stroke:#ef4444,color:#fca5a5
+  style PCMD fill:#713f12,stroke:#eab308,color:#fde047
+  style SHERB fill:#7f1d1d,stroke:#ef4444,color:#fca5a5
+  style REST fill:#7f1d1d,stroke:#ef4444,color:#fca5a5
+  style GROUP fill:#7f1d1d,stroke:#ef4444,color:#fca5a5
+  style FLEE fill:#7f1d1d,stroke:#ef4444,color:#fca5a5
+  style NONE fill:#14532d,stroke:#22c55e,color:#86efac
+  `);
+
+  await renderMermaidBlock(document.getElementById('agentGoapTree'), `
+flowchart TD
+  GOAP((GOAP Planner)) --> SEL[Select highest urgency goal]
+  SEL --> G1{thirst < 50?}
+  SEL --> G2{protein < 50?}
+  SEL --> G3{plant < 50?}
+  SEL --> G4{stamina < 30?}
+  SEL --> G5{shelter < 40?}
+  SEL --> G6{no tools?}
+  SEL --> G7{social < 40?}
+  SEL --> G8{wood < 15?}
+  SEL --> G9{stone < 8?}
+  SEL --> G10{meat > 2?}
+
+  G1 -->|"urgency: quadratic"| DRINK["Drink Water — find water, drink +30"]
+  G2 -->|"urgency: quadratic"| PROT["Eat Protein — hunt/cook/eat"]
+  G3 -->|"urgency: quadratic"| PLANT["Eat Plants — forage berries/herbs"]
+  G4 -->|"urgency: quadratic"| RGOAP["Rest — stamina +30"]
+  G5 -->|"urgency: linear x0.6"| SHELT["Build Shelter — wall/tent/bedroll"]
+  G6 -->|"urgency: 0.3"| EQUIP["Craft Tools — axe + pickaxe"]
+  G7 -->|"urgency: linear x0.4"| SOC["Socialize — talk to agent +10"]
+  G8 -->|"urgency: 0.15-0.35"| WOOD["Gather Wood — chop tree +5"]
+  G9 -->|"urgency: 0.1-0.3"| STONE["Gather Stone — mine rock +3"]
+  G10 -->|"urgency: 0.35"| COOK["Cook Food — meat to cooked +20"]
+
+  PROT --> CHAIN["Backward-chain: need weapon? craft it. Need workbench? build it. Need wood? chop tree."]
+  EQUIP --> CHAIN
+  SHELT --> CHAIN
+  COOK --> CHAIN
+
+  style GOAP fill:#374151,stroke:#9ca3af,color:#e5e7eb
+  style SEL fill:#713f12,stroke:#eab308,color:#fde047
+  style CHAIN fill:#1e1b4b,stroke:#818cf8,color:#c7d2fe
+  style DRINK fill:#0c4a6e,stroke:#38bdf8,color:#bae6fd
+  style PROT fill:#7f1d1d,stroke:#ef4444,color:#fca5a5
+  style PLANT fill:#14532d,stroke:#22c55e,color:#86efac
+  style RGOAP fill:#374151,stroke:#9ca3af,color:#e5e7eb
+  style SHELT fill:#713f12,stroke:#eab308,color:#fde047
+  style EQUIP fill:#713f12,stroke:#eab308,color:#fde047
+  style SOC fill:#3b0764,stroke:#a78bfa,color:#ddd6fe
+  style WOOD fill:#14532d,stroke:#22c55e,color:#86efac
+  style STONE fill:#374151,stroke:#6b7280,color:#d1d5db
+  style COOK fill:#7f1d1d,stroke:#f97316,color:#fed7aa
+  `);
+
+  await renderMermaidBlock(document.getElementById('agentFallbackTree'), `
+flowchart TD
+  FB((Fallback)) --> D60{thirst < 50?}
+  D60 -->|P:60| DRINK["Drink water"]
+  D60 -->|No| D55{hunger < 50?}
+  D55 -->|P:55| EAT["Eat food/forage"]
+  D55 -->|No| D50{corpse nearby?}
+  D50 -->|P:50| HARV["Harvest corpse"]
+  D50 -->|No| D45{stamina < 35 & herb?}
+  D45 -->|P:45| HERB["Consume stamina herb"]
+  D45 -->|No| D40{shelter < 40?}
+  D40 -->|P:40| BUILD["Build structure"]
+  D40 -->|No| D35{wood < 10?}
+  D35 -->|P:35| CHOP["Gather wood"]
+  D35 -->|No| D30a{stone < 5?}
+  D30a -->|P:30| MINE["Mine stone"]
+  D30a -->|No| D30b{prey nearby?}
+  D30b -->|P:30-50| HUNT["Hunt animal"]
+  D30b -->|No| D30c{social < 40?}
+  D30c -->|P:30| TALK["Socialize"]
+  D30c -->|No| D28{iron < 4?}
+  D28 -->|P:28| IRON["Mine iron ore"]
+  D28 -->|No| D25{near station?}
+  D25 -->|P:25-48| CRAFT["Craft at station"]
+  D25 -->|No| D20a{tameable animal?}
+  D20a -->|P:20| TAME["Tame animal"]
+  D20a -->|No| D20b{seeds > 0?}
+  D20b -->|P:20| SEED["Plant seeds"]
+  D20b -->|No| WANDER["Wander randomly, P:10"]
+
+  style DRINK fill:#0c4a6e,stroke:#38bdf8,color:#bae6fd
+  style EAT fill:#14532d,stroke:#22c55e,color:#86efac
+  style HARV fill:#7f1d1d,stroke:#ef4444,color:#fca5a5
+  style HUNT fill:#7f1d1d,stroke:#ef4444,color:#fca5a5
+  style WANDER fill:#374151,stroke:#6b7280,color:#d1d5db
+  style BUILD fill:#713f12,stroke:#eab308,color:#fde047
+  style CRAFT fill:#713f12,stroke:#eab308,color:#fde047
+  style CHOP fill:#14532d,stroke:#22c55e,color:#86efac
+  style MINE fill:#374151,stroke:#6b7280,color:#d1d5db
+  style IRON fill:#374151,stroke:#6b7280,color:#d1d5db
+  style TALK fill:#3b0764,stroke:#a78bfa,color:#ddd6fe
+  style TAME fill:#3b0764,stroke:#a78bfa,color:#ddd6fe
+  style HERB fill:#14532d,stroke:#22c55e,color:#86efac
+  style SEED fill:#14532d,stroke:#22c55e,color:#86efac
+  `);
+
+  await renderMermaidBlock(document.getElementById('agentMetabTree'), `
+flowchart LR
+  MET["metabolism = 1 + skills/500 x activity"] --> HD["Hunger decay: 0.15/tick x met"]
+  MET --> TD["Thirst decay: 0.20/tick x met"]
+  MET --> SD["Stamina decay: 0.05/tick x met"]
+  MET --> SOD["Social decay: 0.03/tick"]
+  MET --> SHD["Shelter decay: 0.02/tick"]
+  HD --> PC{protein < 0?}
+  HD --> PL{plant < 0?}
+  TD --> TC{thirst < 0?}
+  PC -->|Yes| DMG1["0.5 HP/tick"]
+  PL -->|Yes| DMG2["0.5 HP/tick"]
+  PC -->|"Both empty"| DMG3["1.5 HP/tick"]
+  PL -->|"Both empty"| DMG3
+  TC -->|Yes| DMG4["0.8 HP/tick"]
+
+  style MET fill:#1e1b4b,stroke:#818cf8,color:#c7d2fe
+  style DMG1 fill:#7f1d1d,stroke:#ef4444,color:#fca5a5
+  style DMG2 fill:#7f1d1d,stroke:#ef4444,color:#fca5a5
+  style DMG3 fill:#7f1d1d,stroke:#ef4444,color:#fca5a5
+  style DMG4 fill:#7f1d1d,stroke:#ef4444,color:#fca5a5
+  `);
+}
+
+async function renderAnimalTree(ct, speciesId) {
+  const sp = SPECIES.find(s=>s.id===speciesId);
+  if (!sp) { ct.innerHTML = '<p>Species not found</p>'; return; }
+  const tierColor = TIER_COLORS[sp.tier];
+  const hasTamed = sp.tameable;
+  const hasAbility = sp.ability && sp.ability !== '-' && sp.ability !== 'scavenger';
+  const isScavenger = sp.ability === 'scavenger';
+  const isPredator = sp.hunts.length > 0;
+  const isHerb = sp.diet === 'herbivore';
+  const isOmni = sp.diet === 'omnivore';
+  const isCarn = sp.diet === 'carnivore';
+  const sizeMult = ANIMAL_UTILITY.metabolism.sizeScale[sp.size] || 1.0;
+  const memExpiry = {apex:2000,mid_predator:1500,large_herb:1000,medium_herb:1000,small_prey:500}[sp.tier]||500;
+
+  let html = '';
+
+  // Stats bar
+  html += `<div class="dt-stats-bar" style="border-left:4px solid ${tierColor}">
+    <div><span class="badge ${TIER_BADGE[sp.tier]}">${sp.name}</span></div>
+    <div><span>HP</span> <strong>${sp.hp}</strong></div>
+    <div><span>ATK</span> <strong>${sp.atk}</strong></div>
+    <div><span>SPD</span> <strong>${sp.spd}</strong></div>
+    <div><span>Detect</span> <strong>${sp.detect}</strong></div>
+    <div><span>Size</span> <strong>${sp.size} (${sizeMult}x)</strong></div>
+    <div><span>Diet</span> <strong>${sp.diet}</strong></div>
+    <div><span>Flee</span> <strong>${(sp.fleeThresh*100).toFixed(0)}%</strong></div>
+    <div><span>Memory</span> <strong>${memExpiry}t</strong></div>
+    ${hasAbility?`<div><span>Ability</span> <strong>${sp.ability}</strong></div>`:''}
+    ${isScavenger?`<div><span>Trait</span> <strong>scavenger</strong></div>`:''}
+    ${hasTamed?`<div><span>Tameable</span> <strong>yes</strong></div>`:''}
+  </div>`;
+
+  // Main decision tree
+  html += `<div class="dt-mermaid-wrap"><h3>${sp.name} — Decision Tree</h3><div class="mermaid" id="animalMainTree"></div></div>`;
+
+  // Awareness
+  html += `<div class="dt-mermaid-wrap"><h3>Awareness System</h3><div class="mermaid" id="animalAwarenessTree"></div></div>`;
+
+  // Metabolism
+  html += `<div class="dt-mermaid-wrap"><h3>Metabolism & Starvation</h3><div class="mermaid" id="animalMetabTree"></div></div>`;
+
+  // Special ability tree if applicable
+  if (hasAbility || isScavenger) {
+    html += `<div class="dt-mermaid-wrap"><h3>Special: ${sp.ability}${isScavenger?' + Scavenger':''}</h3><div class="mermaid" id="animalSpecialTree"></div></div>`;
+  }
+
+  ct.innerHTML = html;
+
+  // Build species-specific nodes for main tree
+  let tamedNodes = '';
+  if (hasTamed) {
+    tamedNodes = `
+  START --> TAMED{Tamed?}
+  TAMED -->|Yes follow| FOLLOW["Follow owner, S:0.6 x dist/10"]
+  TAMED -->|Yes guard| GUARD["Guard home, S:0.85 if threat else 0.3"]
+  TAMED -->|No| CURL_CHK`;
+  } else {
+    tamedNodes = `START --> CURL_CHK`;
+  }
+
+  let curlNode = '';
+  if (sp.ability === 'curl') {
+    curlNode = `
+  CURL_CHK{Threat & curl?}
+  CURL_CHK -->|Yes| CURL["Curl up, S:0.95, 50 ticks, 0.5x dmg"]
+  CURL_CHK -->|No| RET_CHK`;
+  } else {
+    curlNode = `CURL_CHK --> RET_CHK`;
+    // invisible pass-through
+    curlNode = `
+  CURL_CHK(( )) --> RET_CHK`;
+  }
+
+  let retNode = `
+  RET_CHK{Attacked recently & strong?}
+  RET_CHK -->|"aggr>0.5 atk>15"| RETAL["Retaliate, S:0.95"]
+  RET_CHK -->|No| FLEE_CHK`;
+
+  let fleeTargets = sp.fleesFrom.length > 0 ? sp.fleesFrom.map(f => {
+    const fs = SPECIES.find(x=>x.id===f);
+    return fs ? fs.name : f;
+  }).join(', ') : 'none';
+
+  let fleeNode = `
+  FLEE_CHK{Threat detected?}
+  FLEE_CHK -->|"logistic score"| FLEE["Flee from: ${fleeTargets}"]
+  FLEE_CHK -->|No| NEED_CHK`;
+
+  let needNodes = '';
+  if (isPredator) {
+    let huntList = sp.hunts.map(h=>{const hs=SPECIES.find(x=>x.id===h);return hs?hs.name:h;}).join(', ');
+    needNodes += `
+  NEED_CHK{Hungry?}
+  NEED_CHK -->|"quadratic"| HUNT["Hunt: ${huntList}"]`;
+    if (isScavenger) {
+      needNodes += `
+  NEED_CHK -->|"corpse found"| SCAV["Scavenge corpse, 1.3x bonus"]`;
+    }
+  } else if (isScavenger) {
+    needNodes += `
+  NEED_CHK{Hungry?}
+  NEED_CHK -->|"corpse found"| SCAV["Scavenge corpse, 1.3x bonus"]`;
+  } else {
+    needNodes += `
+  NEED_CHK{Hungry?}`;
+  }
+  if (!isCarn) {
+    needNodes += `
+  NEED_CHK -->|"plant hunger"| GRAZE["Eat plants, quadratic score"]`;
+  }
+  needNodes += `
+  NEED_CHK -->|No| WATER_CHK
+  WATER_CHK{Thirsty?}
+  WATER_CHK -->|"linear x1.2"| DRINK["Drink water"]
+  WATER_CHK -->|No| BREED_CHK
+  BREED_CHK{Breed conditions?}
+  BREED_CHK -->|"cd=0 hunger>60 thirst>50 mate<5"| BREED["Breed, S:0.4, litter ${sp.litterMin}-${sp.litterMax}"]
+  BREED_CHK -->|No| REST_CHK
+  REST_CHK{Tired or wrong time?}
+  REST_CHK -->|"quadratic x0.8 +0.5"| REST["Rest/Sleep"]
+  REST_CHK -->|No| HOME_CHK
+  HOME_CHK{Far from home?}
+  HOME_CHK -->|">15 tiles"| HOME["Travel home, S:0.3+dist"]
+  HOME_CHK -->|No| WANDER["Wander, S:0.12"]`;
+
+  // Style assignments
+  let styles = `
+  style START fill:#374151,stroke:#9ca3af,color:#e5e7eb`;
+  if (hasTamed) styles += `
+  style FOLLOW fill:#3b0764,stroke:#a78bfa,color:#ddd6fe
+  style GUARD fill:#3b0764,stroke:#a78bfa,color:#ddd6fe`;
+  if (sp.ability === 'curl') styles += `
+  style CURL fill:#1e1b4b,stroke:#818cf8,color:#c7d2fe`;
+  styles += `
+  style RETAL fill:#7f1d1d,stroke:#ef4444,color:#fca5a5
+  style FLEE fill:#7f1d1d,stroke:#ef4444,color:#fca5a5`;
+  if (isPredator) styles += `
+  style HUNT fill:#7f1d1d,stroke:#f97316,color:#fed7aa`;
+  if (isScavenger) styles += `
+  style SCAV fill:#713f12,stroke:#eab308,color:#fde047`;
+  if (!isCarn) styles += `
+  style GRAZE fill:#14532d,stroke:#22c55e,color:#86efac`;
+  styles += `
+  style DRINK fill:#0c4a6e,stroke:#38bdf8,color:#bae6fd
+  style BREED fill:#701a75,stroke:#e879f9,color:#f5d0fe
+  style REST fill:#374151,stroke:#6b7280,color:#d1d5db
+  style HOME fill:#374151,stroke:#6b7280,color:#d1d5db
+  style WANDER fill:#374151,stroke:#6b7280,color:#d1d5db`;
+
+  await renderMermaidBlock(document.getElementById('animalMainTree'), `
+flowchart TD
+  START((Tick))
+  ${tamedNodes}
+  ${curlNode}
+  ${retNode}
+  ${fleeNode}
+  ${needNodes}
+  ${styles}
+  `);
+
+  // Awareness tree
+  let smellNode = (isCarn || isOmni)
+    ? `SENSE --> SMELL["Smell: range ${sp.detect}x1.5 = ${(sp.detect*1.5).toFixed(0)}, meat carriers detectable"]`
+    : `SENSE --> SMELL["Smell: inactive, herbivore"]`;
+
+  await renderMermaidBlock(document.getElementById('animalAwarenessTree'), `
+flowchart LR
+  SENSE((3-Sense)) --> SIGHT["Sight: range ${sp.detect} tiles"]
+  ${smellNode}
+  SENSE --> SOUND["Sound: size ${sp.size}, noise = ${sp.size==='large'?'high':sp.size==='medium'?'medium':'low'}"]
+  SIGHT --> MAX["awareness = max of 3 senses"]
+  SMELL --> MAX
+  SOUND --> MAX
+  MAX --> DET{"> 0.1?"}
+  DET -->|Yes| DETECTED["Entity detected, evaluate threat/prey"]
+  DET -->|No| MISS["Entity invisible"]
+
+  style SENSE fill:#0c4a6e,stroke:#38bdf8,color:#bae6fd
+  style SIGHT fill:#1e3a5f,stroke:#60a5fa,color:#bfdbfe
+  style SMELL fill:#1e3a5f,stroke:#60a5fa,color:#bfdbfe
+  style SOUND fill:#1e3a5f,stroke:#60a5fa,color:#bfdbfe
+  style DETECTED fill:#14532d,stroke:#22c55e,color:#86efac
+  style MISS fill:#374151,stroke:#6b7280,color:#d1d5db
+  `);
+
+  // Metabolism tree
+  const pDecay = (sp.hungerDecay * sizeMult * (isCarn?1:isOmni?0.6:0)).toFixed(3);
+  const plDecay = (sp.hungerDecay * sizeMult * (isHerb?1:isOmni?0.6:0)).toFixed(3);
+  const tDecay = (sp.thirstDecay * sizeMult).toFixed(3);
+  const sDecay = (sp.staminaDecay * sizeMult).toFixed(3);
+
+  await renderMermaidBlock(document.getElementById('animalMetabTree'), `
+flowchart TD
+  MET["Metabolism: 1 + skills/500 x activity"]
+  MET --> SZ["Size: ${sp.size} = ${sizeMult}x multiplier"]
+  SZ --> PH["Protein: ${pDecay}/tick ${isHerb?'N/A':''}"]
+  SZ --> PLH["Plant: ${plDecay}/tick ${isCarn?'N/A':''}"]
+  SZ --> TH["Thirst: ${tDecay}/tick"]
+  SZ --> ST["Stamina: ${sDecay}/tick"]
+  PH --> STARVE{Need = 0?}
+  PLH --> STARVE
+  TH --> DEHY{Thirst = 0?}
+  STARVE -->|"one empty"| D1["-0.5 HP/tick"]
+  STARVE -->|"both empty"| D2["-1.5 HP/tick"]
+  DEHY -->|Yes| D3["-0.8 HP/tick"]
+  D1 --> DEATH{HP = 0?}
+  D2 --> DEATH
+  D3 --> DEATH
+  DEATH -->|Yes| DIE["Death: drop corpse, breed cooldown respawn"]
+
+  style MET fill:#1e1b4b,stroke:#818cf8,color:#c7d2fe
+  style SZ fill:#1e1b4b,stroke:#818cf8,color:#c7d2fe
+  style D1 fill:#7f1d1d,stroke:#ef4444,color:#fca5a5
+  style D2 fill:#7f1d1d,stroke:#ef4444,color:#fca5a5
+  style D3 fill:#7f1d1d,stroke:#ef4444,color:#fca5a5
+  style DIE fill:#7f1d1d,stroke:#ef4444,color:#fca5a5
+  `);
+
+  // Special ability tree
+  if (hasAbility || isScavenger) {
+    let specialDiagram = '';
+    const ab = sp.ability;
+    if (ab === 'ambush') {
+      specialDiagram = `
+flowchart TD
+  A((Ambush)) --> D{Prey distance?}
+  D -->|"> 3 tiles"| STALK["Stalk: 0.3x speed, stealth approach"]
+  D -->|"<= 3 tiles"| BURST["Burst attack: 2x damage + accuracy roll"]
+  STALK --> D
+  BURST --> HIT{Hit?}
+  HIT -->|Yes| DMG["Deal attackPower x 2 damage"]
+  HIT -->|No| CHASE["Switch to normal chase"]
+
+  style A fill:#713f12,stroke:#f97316,color:#fed7aa
+  style STALK fill:#713f12,stroke:#eab308,color:#fde047
+  style BURST fill:#7f1d1d,stroke:#ef4444,color:#fca5a5
+  style DMG fill:#7f1d1d,stroke:#ef4444,color:#fca5a5`;
+    } else if (ab === 'curl') {
+      specialDiagram = `
+flowchart TD
+  C((Curl)) --> T{Threat within ${sp.detect} tiles?}
+  T -->|Yes| CURL["Curl up: S=0.95 override"]
+  T -->|No| SKIP["Normal behavior"]
+  CURL --> DUR["Duration: 50 ticks"]
+  DUR --> DEF["All incoming damage x 0.5"]
+  DUR --> UNROLL["Auto-unroll after 50t"]
+
+  style C fill:#1e1b4b,stroke:#818cf8,color:#c7d2fe
+  style CURL fill:#1e1b4b,stroke:#818cf8,color:#c7d2fe
+  style DEF fill:#14532d,stroke:#22c55e,color:#86efac`;
+    } else if (ab === 'howl') {
+      specialDiagram = `
+flowchart TD
+  H((Howl)) --> PK{Has pack?}
+  PK -->|Yes| PR{Prey targeted?}
+  PK -->|No| SOLO["Hunt alone"]
+  PR -->|Yes| HOWL["Howl: alert pack within 15 tiles"]
+  HOWL --> JOIN["All packmates switch to same target"]
+  JOIN --> BONUS["Pack damage: 1 + members x 0.3"]
+
+  style H fill:#713f12,stroke:#f97316,color:#fed7aa
+  style HOWL fill:#713f12,stroke:#eab308,color:#fde047
+  style BONUS fill:#7f1d1d,stroke:#ef4444,color:#fca5a5`;
+    } else if (ab === 'trample') {
+      specialDiagram = `
+flowchart TD
+  TR((Trample)) --> FL{Fleeing?}
+  FL -->|Yes| CT{3+ same species fleeing?}
+  FL -->|No| SKIP["No trample"]
+  CT -->|Yes| TRAMP["Trample: 10 HP to all non-species within 1.5 tiles"]
+  CT -->|No| SKIP
+
+  style TR fill:#713f12,stroke:#f97316,color:#fed7aa
+  style TRAMP fill:#7f1d1d,stroke:#ef4444,color:#fca5a5`;
+    } else if (ab === 'steal_food') {
+      specialDiagram = `
+flowchart TD
+  ST((Steal)) --> R{Within 2 tiles of campfire/workbench?}
+  R -->|Yes| ROLL{"2% chance per tick"}
+  R -->|No| SKIP["No steal"]
+  ROLL -->|Success| GAIN["+10 hunger, diet-appropriate"]
+  ROLL -->|Fail| SKIP
+
+  style ST fill:#713f12,stroke:#eab308,color:#fde047
+  style GAIN fill:#14532d,stroke:#22c55e,color:#86efac`;
+    } else if (ab === 'egg_laying') {
+      specialDiagram = `
+flowchart TD
+  EGG((Egg Laying)) --> FED{plantHunger > 50?}
+  FED -->|Yes| TIMER{"Every eggRate ticks"}
+  FED -->|No| SKIP["Too hungry to lay"]
+  TIMER --> LAY["Place edible flower at current position"]
+  LAY --> FOOD["Creates food source for others"]
+
+  style EGG fill:#701a75,stroke:#e879f9,color:#f5d0fe
+  style LAY fill:#14532d,stroke:#22c55e,color:#86efac`;
+    } else if (ab === 'seed_disperse') {
+      specialDiagram = `
+flowchart TD
+  SD((Seed Disperse)) --> T1{"Every 200 ticks: near tree/plant?"}
+  T1 -->|Yes| BANK["Deposit seed in soil bank within 10 tiles"]
+  T1 -->|No| T2{"0.2% per tick"}
+  T2 -->|Hit| PLANT["Place random plant within 5 tiles"]
+  BANK --> ECO["Keystone: prevents plant extinction"]
+  PLANT --> ECO
+
+  style SD fill:#14532d,stroke:#22c55e,color:#86efac
+  style ECO fill:#14532d,stroke:#22c55e,color:#86efac
+  style BANK fill:#14532d,stroke:#10b981,color:#a7f3d0`;
+    } else if (ab === 'peace_aura') {
+      specialDiagram = `
+flowchart TD
+  PA((Peace Aura)) --> ALWAYS["Passive: always active"]
+  ALWAYS --> RANGE["All animals within 3 tiles"]
+  RANGE --> REDUCE["Danger scores halved: x 0.5"]
+  REDUCE --> EFFECT["Nearby prey less likely to flee, predators less aggressive"]
+
+  style PA fill:#3b0764,stroke:#a78bfa,color:#ddd6fe
+  style REDUCE fill:#14532d,stroke:#22c55e,color:#86efac`;
+    }
+    if (isScavenger && !hasAbility) {
+      specialDiagram = `
+flowchart TD
+  SC((Scavenger)) --> CORPSE{Corpse within ${sp.detect} tiles?}
+  CORPSE -->|Yes| EAT["Eat corpse meat, 1.3x score bonus vs hunting"]
+  CORPSE -->|No| FORAGE["Normal food seeking"]
+
+  style SC fill:#713f12,stroke:#eab308,color:#fde047
+  style EAT fill:#713f12,stroke:#eab308,color:#fde047`;
+    } else if (isScavenger && hasAbility) {
+      specialDiagram += `
+  SCAV_NOTE["Also: Scavenger — eats corpses at 1.3x score bonus"]
+  style SCAV_NOTE fill:#713f12,stroke:#eab308,color:#fde047`;
+    }
+    if (specialDiagram) {
+      await renderMermaidBlock(document.getElementById('animalSpecialTree'), specialDiagram);
+    }
+  }
+}
+
+// ======================== INIT ========================
+buildOverview();
+buildSpecies();
+buildFoodWeb();
+buildResources();
+buildCrafting();
+buildDecisions();
+buildIssues();
+</script>
+</body>
+</html>
