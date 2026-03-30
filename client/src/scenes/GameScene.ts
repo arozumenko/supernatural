@@ -501,7 +501,7 @@ export class GameScene extends Phaser.Scene {
         }
         sprites.crownText.setVisible(true);
         sprites.crownText.x = sprites.sprite.x;
-        sprites.crownText.y = sprites.nameText.y - 2;
+        sprites.crownText.y = sprites.sprite.y - TILE_SIZE - 8; // above the head
       } else if (sprites.crownText) {
         sprites.crownText.setVisible(false);
       }
