@@ -525,18 +525,25 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
 
     if (dist > detectRange && dist > soundRange) continue;
 
-    // Evaluate danger: compare animal's attack to agent's defense
+    // Evaluate danger: compare animal's attack to agent's total power
     const agentDefense = 10 + agent.skills.defense.level * 0.5;
-    const dangerRatio = species.attack / Math.max(1, agentDefense);
+    const agentAttack = agent.baseStats.strength + agent.skills.combat.level * 0.3;
+    const equipBonus = (agent.inventory.equipped.mainHand ? 5 : 0) + (agent.inventory.equipped.body ? 5 : 0);
+    const totalSkills = Object.values(agent.skills).reduce((sum, s) => sum + s.level, 0);
 
-    // High-level combat agents don't flee from weak threats
-    if (dangerRatio < 0.5) continue;
+    // Confidence: higher level = less afraid. A level 30+ agent is confident
+    const confidence = Math.min(1.5, 0.5 + (totalSkills / 100) + (agentAttack / 20) + (equipBonus / 20));
+    const dangerRatio = species.attack / Math.max(1, agentDefense * confidence);
+
+    // Confident agents ignore weak threats entirely
+    if (dangerRatio < 0.4 * confidence) continue;
 
     // Was recently attacked by this animal?
     const wasAttacked = agent.lastAttackedBy?.type === 'animal' && agent.lastAttackedBy.id === animal.id;
 
     const proximityUrgency = 1 - (dist / Math.max(detectRange, soundRange));
-    let fleePriority = Math.floor(genome.interruptWeights.fleeBase + (dangerRatio * proximityUrgency * 35));
+    // Confidence reduces flee urgency — powerful agents stand their ground more
+    let fleePriority = Math.floor(genome.interruptWeights.fleeBase + (dangerRatio * proximityUrgency * 35) - (confidence * 10));
     if (wasAttacked) fleePriority = Math.min(fleePriority + 20, 98);
 
     if (fleePriority > 60) {
