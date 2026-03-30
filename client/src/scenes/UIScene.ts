@@ -57,6 +57,8 @@ export class UIScene extends Phaser.Scene {
   private sidebarContentHeight = 0;
   private llmProviderLabels = new Map<string, string>();
   private lastAgentStructureHash = '';
+  private lastPanelRebuildTime = 0;
+  private panelRebuildQueued = false;
 
   constructor() {
     super({ key: 'UIScene' });
@@ -226,49 +228,69 @@ export class UIScene extends Phaser.Scene {
     this.eventLogText.setText(this.eventLog.join('\n'));
   }
 
-  setSelectedAgent(agent: AgentState | null): void {
+  setSelectedAgent(agent: AgentState | null, immediate = false): void {
+    const changed = this.selectedAgent?.id !== agent?.id;
     this.selectedAgent = agent;
-    this.updateInfoPanel();
+    if (changed || immediate) this.rebuildPanel(); else this.throttledRebuildPanel();
   }
 
   setSelectedTree(tree: TreeState | null): void {
     this.selectedTree = tree;
-    this.updateInfoPanel();
+    this.rebuildPanel();
   }
 
   setSelectedRock(rock: RockState | null): void {
     this.selectedRock = rock;
-    this.updateInfoPanel();
+    this.rebuildPanel();
   }
 
   setSelectedPlant(plant: PlantState | null): void {
     this.selectedPlant = plant;
-    this.updateInfoPanel();
+    this.rebuildPanel();
   }
 
-  setSelectedAnimal(animal: AnimalState | null): void {
+  setSelectedAnimal(animal: AnimalState | null, immediate = false): void {
+    const changed = this.selectedAnimal?.id !== animal?.id;
     this.selectedAnimal = animal;
-    this.updateInfoPanel();
+    if (changed || immediate) this.rebuildPanel(); else this.throttledRebuildPanel();
   }
 
   setSelectedCorpse(corpse: CorpseState | null): void {
     this.selectedCorpse = corpse;
-    this.updateInfoPanel();
+    this.rebuildPanel();
   }
 
   setSelectedStructure(structure: StructureState | null): void {
     this.selectedStructure = structure;
-    this.updateInfoPanel();
+    this.rebuildPanel();
   }
 
   setSelectedWater(pos: { x: number; y: number } | null): void {
     this.selectedWater = pos;
-    this.updateInfoPanel();
+    this.rebuildPanel();
   }
 
   setSelectedIronOre(pos: { x: number; y: number } | null): void {
     this.selectedIronOre = pos;
+    this.rebuildPanel();
+  }
+
+  private rebuildPanel(): void {
+    this.lastPanelRebuildTime = Date.now();
+    this.panelRebuildQueued = false;
     this.updateInfoPanel();
+  }
+
+  private throttledRebuildPanel(): void {
+    const now = Date.now();
+    if (now - this.lastPanelRebuildTime >= 500) {
+      this.rebuildPanel();
+    } else if (!this.panelRebuildQueued) {
+      this.panelRebuildQueued = true;
+      setTimeout(() => {
+        if (this.panelRebuildQueued) this.rebuildPanel();
+      }, 500 - (now - this.lastPanelRebuildTime));
+    }
   }
 
   // ─── Left Sidebar ───
