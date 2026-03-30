@@ -107,6 +107,10 @@ export const WorldConfig = {
   // ─── Structures ───
   structures: {
     maxHp: {
+      [TileType.CAMPFIRE]: 30,
+      [TileType.WORKBENCH]: 50,
+      [TileType.FORGE]: 80,
+      [TileType.BUILT_FLOOR]: 20,
       [TileType.BUILT_WALL]: 50,
       [TileType.STONE_WALL]: 150,
       [TileType.IRON_WALL]: 300,
@@ -114,9 +118,11 @@ export const WorldConfig = {
       [TileType.BONE_FENCE]: 80,
       [TileType.STORAGE]: 60,
       [TileType.TENT]: 40,
+      [TileType.BEDROLL]: 15,
+      [TileType.ANIMAL_PEN]: 60,
     } as Record<number, number>,
     storageCapacity: 200,        // weight units
     woodDecayRate: 600,          // ticks between 1 HP decay for wooden structures
-    woodDecayTiles: [TileType.BUILT_WALL, TileType.WOOD_DOOR, TileType.STORAGE] as number[],
+    woodDecayTiles: [TileType.BUILT_WALL, TileType.WOOD_DOOR, TileType.STORAGE, TileType.CAMPFIRE, TileType.WORKBENCH, TileType.BUILT_FLOOR, TileType.BEDROLL] as number[],
   },
 } as const;
