@@ -543,12 +543,13 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
 
     const dist = distance(agent.x, agent.y, animal.x, animal.y);
 
-    // Perception-based detection range
-    const detectRange = genome.thresholds.threatDetectBase + (agent.skills.survival.level * 0.1);
+    // Perception-based detection range — wider when predator is actively hunting
+    const baseDetect = genome.thresholds.threatDetectBase + (agent.skills.survival.level * 0.1);
+    const detectRange = isActivelyAttacking ? baseDetect * 2 : baseDetect;
 
-    // Sound detection for large moving predators
+    // Sound detection for large moving predators (only when hunting)
     const sizeNum = species.size === 'large' ? 4 : species.size === 'medium' ? 3 : species.size === 'small' ? 2 : 1;
-    const noise = sizeNum * (animal.action === 'hunting' ? 0.5 : 0.3);
+    const noise = sizeNum * (animal.action === 'hunting' ? 0.5 : 0.1);
     const soundRange = 8 * noise;
 
     if (dist > detectRange && dist > soundRange) continue;

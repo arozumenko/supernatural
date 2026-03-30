@@ -47,7 +47,7 @@ export function createDefaultGenome(tick: number = 0): BehaviorGenome {
       plantHungerTrigger: 60,
       woodToKeepBeforePlanting: 5,
 
-      threatDetectBase: 12,     // was 6 — must match predator aggro range
+      threatDetectBase: 5,      // ~half of avg predator aggro — react when predator is hunting
       huntDetectRange: 15,
       socialDetectRange: 15,
       corpseDetectRange: 15,
