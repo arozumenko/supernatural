@@ -1,0 +1,69 @@
+[
+  {
+    "_comment": "Anthropic Claude — uses the Messages API",
+    "id": "claude-sonnet",
+    "label": "Claude Sonnet",
+    "provider": "anthropic",
+    "model": "claude-sonnet-4-5-20250514",
+    "apiKey": "$ANTHROPIC_API_KEY",
+    "maxTokens": 4096,
+    "temperature": 0.7,
+    "timeout": 15000,
+    "maxConcurrent": 3,
+    "rateLimitPerMinute": 20
+  },
+  {
+    "_comment": "OpenAI GPT — uses the Chat Completions API",
+    "id": "gpt-4o",
+    "label": "GPT-4o",
+    "provider": "openai",
+    "model": "gpt-4o",
+    "apiKey": "$OPENAI_API_KEY",
+    "maxTokens": 4096,
+    "temperature": 0.7,
+    "timeout": 15000,
+    "maxConcurrent": 3,
+    "rateLimitPerMinute": 20
+  },
+  {
+    "_comment": "Google Gemini — uses the GenerateContent API",
+    "id": "gemini-flash",
+    "label": "Gemini Flash",
+    "provider": "google",
+    "model": "gemini-2.0-flash",
+    "apiKey": "$GOOGLE_API_KEY",
+    "maxTokens": 4096,
+    "temperature": 0.7,
+    "timeout": 15000,
+    "maxConcurrent": 3,
+    "rateLimitPerMinute": 20
+  },
+  {
+    "_comment": "Ollama — local inference, no API key needed. Install: https://ollama.com",
+    "id": "ollama-llama",
+    "label": "Ollama Llama 3.1",
+    "provider": "ollama",
+    "model": "llama3.1",
+    "apiKey": "",
+    "baseUrl": "http://localhost:11434",
+    "maxTokens": 4096,
+    "temperature": 0.7,
+    "timeout": 30000,
+    "maxConcurrent": 1,
+    "rateLimitPerMinute": 10
+  },
+  {
+    "_comment": "Any OpenAI-compatible API (vLLM, Together, LM Studio, Groq, Mistral, etc.)",
+    "id": "together-mixtral",
+    "label": "Together Mixtral",
+    "provider": "openai_compatible",
+    "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
+    "apiKey": "$TOGETHER_API_KEY",
+    "baseUrl": "https://api.together.xyz/v1",
+    "maxTokens": 4096,
+    "temperature": 0.7,
+    "timeout": 15000,
+    "maxConcurrent": 3,
+    "rateLimitPerMinute": 20
+  }
+]

@@ -17,28 +17,115 @@ npm run install:all
 
 ### 2. Configure LLM Providers (optional)
 
-Edit `server/llm-providers.json` to add your LLM providers:
+Copy the example config and edit it with your API keys:
 
-```json
-[
-  {
-    "id": "claude-sonnet",
-    "label": "Claude Sonnet",
-    "provider": "anthropic",
-    "model": "claude-sonnet-4-5-20250514",
-    "apiKey": "$ANTHROPIC_API_KEY",
-    "maxTokens": 4096,
-    "temperature": 0.7,
-    "timeout": 15000,
-    "maxConcurrent": 3,
-    "rateLimitPerMinute": 20
-  }
-]
+```bash
+cp server/llm-providers.example.json server/llm-providers.json
 ```
 
-- `provider`: `"anthropic"`, `"openai"`, or `"local"` (Ollama/vLLM)
-- `apiKey`: Literal key or `$ENV_VAR_NAME` to read from environment
-- Configure multiple providers to assign different LLMs to different agents
+Then edit `server/llm-providers.json` — keep only the providers you want to use. See below for all supported providers.
+
+#### Supported Providers
+
+**Anthropic Claude** (`"provider": "anthropic"`)
+```json
+{
+  "id": "claude-sonnet",
+  "label": "Claude Sonnet",
+  "provider": "anthropic",
+  "model": "claude-sonnet-4-5-20250514",
+  "apiKey": "$ANTHROPIC_API_KEY",
+  "maxTokens": 4096,
+  "temperature": 0.7,
+  "timeout": 15000,
+  "maxConcurrent": 3,
+  "rateLimitPerMinute": 20
+}
+```
+
+**OpenAI GPT** (`"provider": "openai"`)
+```json
+{
+  "id": "gpt-4o",
+  "label": "GPT-4o",
+  "provider": "openai",
+  "model": "gpt-4o",
+  "apiKey": "$OPENAI_API_KEY",
+  "maxTokens": 4096,
+  "temperature": 0.7,
+  "timeout": 15000,
+  "maxConcurrent": 3,
+  "rateLimitPerMinute": 20
+}
+```
+
+**Google Gemini** (`"provider": "google"`)
+```json
+{
+  "id": "gemini-flash",
+  "label": "Gemini Flash",
+  "provider": "google",
+  "model": "gemini-2.0-flash",
+  "apiKey": "$GOOGLE_API_KEY",
+  "maxTokens": 4096,
+  "temperature": 0.7,
+  "timeout": 15000,
+  "maxConcurrent": 3,
+  "rateLimitPerMinute": 20
+}
+```
+
+**Ollama** (`"provider": "ollama"`) — local inference, no API key needed
+```json
+{
+  "id": "ollama-llama",
+  "label": "Ollama Llama 3.1",
+  "provider": "ollama",
+  "model": "llama3.1",
+  "apiKey": "",
+  "baseUrl": "http://localhost:11434",
+  "maxTokens": 4096,
+  "temperature": 0.7,
+  "timeout": 30000,
+  "maxConcurrent": 1,
+  "rateLimitPerMinute": 10
+}
+```
+
+**Any OpenAI-compatible API** (`"provider": "openai_compatible"`) — works with vLLM, Together, LM Studio, Groq, Mistral, DeepSeek, etc.
+```json
+{
+  "id": "together-mixtral",
+  "label": "Together Mixtral",
+  "provider": "openai_compatible",
+  "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
+  "apiKey": "$TOGETHER_API_KEY",
+  "baseUrl": "https://api.together.xyz/v1",
+  "maxTokens": 4096,
+  "temperature": 0.7,
+  "timeout": 15000,
+  "maxConcurrent": 3,
+  "rateLimitPerMinute": 20
+}
+```
+
+#### Config Fields
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `id` | Yes | Unique identifier used internally |
+| `label` | Yes | Display name shown in the game UI |
+| `provider` | Yes | One of: `anthropic`, `openai`, `google`, `ollama`, `openai_compatible` |
+| `model` | Yes | Model name (provider-specific) |
+| `apiKey` | Yes | API key, or `$ENV_VAR` to read from environment. Empty string for Ollama. |
+| `baseUrl` | No | Custom API endpoint. Required for `ollama` and `openai_compatible`. |
+| `maxTokens` | Yes | Maximum response tokens |
+| `temperature` | Yes | Sampling temperature (0.0-2.0) |
+| `timeout` | Yes | Request timeout in milliseconds |
+| `maxConcurrent` | Yes | Max parallel requests to this provider |
+| `rateLimitPerMinute` | Yes | Max requests per minute |
+
+You can configure multiple providers simultaneously — each agent can be assigned a different LLM on the start screen.
 
 ### 3. Run
 
