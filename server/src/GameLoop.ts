@@ -652,19 +652,12 @@ export class GameLoop {
     const bestAgent = this.agents.find(a => a.name === agentResults[0]?.name);
     const bestGenome = bestAgent ? structuredClone((bestAgent as any).currentGenome) : null;
 
-    // Attach genome summaries to agent results
+    // Attach full genome data to each agent result
     for (const result of agentResults) {
       const agent = this.agents.find(a => a.name === result.name);
       if (agent) {
         const g = (agent as any).currentGenome;
-        (result as any).genomeSummary = g ? {
-          version: g.version,
-          fleeBase: g.interruptWeights?.fleeBase,
-          criticalThirst: g.thresholds?.criticalThirst,
-          criticalHunger: g.thresholds?.criticalHunger,
-          huntAnimal: g.fallbackWeights?.huntAnimal,
-          strategyRuleCount: g.strategyRules?.length ?? 0,
-        } : null;
+        (result as any).genome = g ? structuredClone(g) : null;
       }
     }
 

@@ -60,9 +60,11 @@ export class MainMenuScene extends Phaser.Scene {
     super({ key: 'MainMenuScene' });
   }
 
-  create(): void {
-    // Check if a game is already running on the server — skip menu on page reload
-    this.checkExistingGame();
+  create(data?: { fromResults?: boolean; preloadGenome?: any }): void {
+    // Only auto-rejoin on page reload — not when coming from results screen
+    if (!data?.fromResults) {
+      this.checkExistingGame();
+    }
 
     const { width, height } = this.scale;
     const cx = width / 2;

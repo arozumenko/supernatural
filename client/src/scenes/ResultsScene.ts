@@ -73,13 +73,13 @@ export class ResultsScene extends Phaser.Scene {
     // Bottom buttons
     const btnY = height - 50;
     this.createButton(width / 2 - 250, btnY, 'Play Again', () => {
-      this.scene.start('MainMenuScene');
+      this.scene.start('MainMenuScene', { fromResults: true });
     });
     this.createButton(width / 2, btnY, 'Best Genome', () => {
-      this.scene.start('MainMenuScene', { preloadGenome: this.results.bestGenome });
+      this.scene.start('MainMenuScene', { fromResults: true, preloadGenome: this.results.bestGenome });
     });
     this.createButton(width / 2 + 250, btnY, 'New Game', () => {
-      this.scene.start('MainMenuScene');
+      this.scene.start('MainMenuScene', { fromResults: true });
     });
 
     this.renderContent();
@@ -157,72 +157,106 @@ export class ResultsScene extends Phaser.Scene {
     }
   }
 
-  private renderGenomeTab(startY: number, _width: number): void {
+  private renderGenomeTab(startY: number, width: number): void {
     let y = startY;
     const genome = this.results.bestGenome;
+    const agents = this.results.agents;
 
-    // Genome comparison table — all agents' key genome values
-    this.addText(40, y, 'GENOME COMPARISON', '#556655', '12px'); y += 24;
+    // ─── Comparison Table ───
+    this.addText(40, y, 'GENOME COMPARISON', '#80c080', '12px'); y += 22;
 
-    // Header
-    this.addText(40, y, 'Agent', '#556655', '10px');
-    this.addText(160, y, 'v', '#556655', '10px');
-    this.addText(200, y, 'Flee', '#556655', '10px');
-    this.addText(260, y, 'Thirst', '#556655', '10px');
-    this.addText(340, y, 'Hunger', '#556655', '10px');
-    this.addText(420, y, 'Hunt', '#556655', '10px');
-    this.addText(490, y, 'Rules', '#556655', '10px');
-    this.addText(560, y, 'Score', '#556655', '10px');
-    y += 18;
+    // Comparison rows: show key values per agent side by side
+    const fields: [string, (g: any) => string][] = [
+      ['Version', g => `v${g?.version ?? 1}`],
+      ['Mutations', g => `${(g?.version ?? 1) - 1}`],
+      ['Rules', g => `${g?.strategyRules?.length ?? 0}`],
+      ['Flee', g => `${g?.interruptWeights?.fleeBase ?? '?'}`],
+      ['Fight', g => `${g?.interruptWeights?.fightBack ?? '?'}`],
+      ['Thirst thr.', g => `${g?.thresholds?.criticalThirst ?? '?'}`],
+      ['Hunger thr.', g => `${g?.thresholds?.criticalHunger ?? '?'}`],
+      ['Health thr.', g => `${g?.thresholds?.criticalHealth ?? '?'}`],
+      ['Flee panic', g => `${g?.thresholds?.fleeHealthPanic ?? '?'}`],
+      ['Hunt wt.', g => `${g?.fallbackWeights?.huntAnimal ?? '?'}`],
+      ['Wood wt.', g => `${g?.fallbackWeights?.gatherWood ?? '?'}`],
+      ['Drink prio', g => `${g?.mediumPriorityWeights?.drinkMedium ?? '?'}`],
+      ['Eat prio', g => `${g?.mediumPriorityWeights?.eatMedium ?? '?'}`],
+      ['Thirst goal', g => `${g?.goalWeights?.survive_thirst?.toFixed?.(1) ?? '?'}`],
+      ['Protein goal', g => `${g?.goalWeights?.survive_protein?.toFixed?.(1) ?? '?'}`],
+    ];
 
-    for (const agent of this.results.agents) {
-      const gs = (agent as any).genomeSummary;
-      const isTop = agent.rank === 1;
-      const c = isTop ? '#ffd700' : '#c8d0c8';
-      this.addText(40, y, agent.name, c, '10px');
-      this.addText(160, y, `${gs?.version ?? '?'}`, '#909890', '10px');
-      this.addText(200, y, `${gs?.fleeBase ?? '?'}`, '#909890', '10px');
-      this.addText(260, y, `${gs?.criticalThirst ?? '?'}`, '#909890', '10px');
-      this.addText(340, y, `${gs?.criticalHunger ?? '?'}`, '#909890', '10px');
-      this.addText(420, y, `${gs?.huntAnimal ?? '?'}`, '#909890', '10px');
-      this.addText(490, y, `${gs?.strategyRuleCount ?? 0}`, '#909890', '10px');
-      this.addText(560, y, `${agent.effectiveness}`, c, '10px');
-      y += 18;
+    // Header: field name + agent names
+    const col0 = 40;
+    const colStart = 170;
+    const colW = Math.min(90, (width - colStart - 40) / agents.length);
+    this.addText(col0, y, '', '#556655', '9px');
+    agents.forEach((a, i) => {
+      const c = a.rank === 1 ? '#ffd700' : '#aaaaaa';
+      this.addText(colStart + i * colW, y, a.name, c, '9px');
+    });
+    y += 16;
+
+    for (const [label, getter] of fields) {
+      this.addText(col0, y, label, '#556655', '9px');
+      agents.forEach((a, i) => {
+        const g = (a as any).genome;
+        const val = getter(g);
+        // Highlight if different from default (mutated)
+        const defaultG = { version: 1, interruptWeights: { fleeBase: 75, fightBack: 93 }, thresholds: { criticalThirst: 30, criticalHunger: 30, criticalHealth: 40, fleeHealthPanic: 0.4 }, fallbackWeights: { huntAnimal: 40, gatherWood: 35 }, mediumPriorityWeights: { drinkMedium: 63, eatMedium: 58 }, goalWeights: { survive_thirst: 1.3, survive_protein: 1.2 }, strategyRules: [] };
+        const defVal = getter(defaultG);
+        const color = val !== defVal ? '#ccaa44' : '#909890';
+        this.addText(colStart + i * colW, y, val, color, '9px');
+      });
+      y += 14;
     }
 
+    // ─── Best Genome Detail ───
+    y += 16;
     if (!genome) {
-      y += 20;
-      this.addText(40, y, 'No genome data for export.', '#888888', '12px');
+      this.addText(40, y, 'No genome data.', '#888888', '12px');
       return;
     }
 
-    // Best genome detail
-    y += 20;
-    const winner = this.results.agents[0];
-    this.addText(40, y, `BEST: ${winner?.name ?? '?'}  (Genome v${genome.version})`, '#ffd700', '12px');
-    y += 24;
+    const winner = agents[0];
+    this.addText(40, y, `WINNER: ${winner?.name ?? '?'}`, '#ffd700', '12px'); y += 22;
 
-    // Strategy rules
+    // Strategy rules (full detail)
     if (genome.strategyRules?.length > 0) {
-      this.addText(40, y, 'STRATEGY RULES', '#556655', '11px'); y += 18;
+      this.addText(40, y, `LEARNED RULES (${genome.strategyRules.length})`, '#80c080', '11px'); y += 18;
       for (const rule of genome.strategyRules) {
-        this.addText(60, y, `${rule.enabled ? '\u2705' : '\u274C'} ${rule.name}`, '#ccaa44', '10px'); y += 14;
-        this.addText(80, y, rule.source ?? '', '#888866', '9px'); y += 16;
+        const icon = rule.enabled ? '\u2705' : '\u274C';
+        this.addText(50, y, `${icon} ${rule.name}`, '#ccaa44', '10px');
+        this.addText(400, y, `pri:${rule.priority}`, '#888888', '9px');
+        y += 14;
+        this.addText(70, y, `Source: ${rule.source ?? 'unknown'}`, '#777766', '9px'); y += 14;
+        // Show condition type
+        if (rule.condition) {
+          const condStr = rule.condition.type + (rule.condition.field ? ` ${rule.condition.field}` : '') + (rule.condition.value !== undefined ? ` ${rule.condition.value}` : '');
+          this.addText(70, y, `If: ${condStr}`, '#667766', '9px'); y += 14;
+        }
+        if (rule.effect) {
+          const effStr = rule.effect.type + (rule.effect.action ? ` ${rule.effect.action}` : '') + (rule.effect.amount !== undefined ? ` ${rule.effect.amount}` : '');
+          this.addText(70, y, `Then: ${effStr}`, '#667766', '9px'); y += 14;
+        }
+        y += 4;
       }
-      y += 8;
+    } else {
+      this.addText(40, y, 'No learned strategy rules.', '#888888', '11px'); y += 18;
     }
 
-    // Lineage
+    // Mutation history (lineage)
     if (genome.lineage?.length > 0) {
-      this.addText(40, y, 'MUTATION HISTORY', '#556655', '11px'); y += 18;
-      for (const entry of genome.lineage.slice(-8)) {
-        this.addText(60, y, entry, '#888888', '9px'); y += 14;
-      }
       y += 8;
+      this.addText(40, y, `MUTATION HISTORY (${genome.lineage.length} total)`, '#80c080', '11px'); y += 18;
+      for (const entry of genome.lineage.slice(-12)) {
+        this.addText(50, y, entry, '#888888', '9px'); y += 13;
+      }
+      if (genome.lineage.length > 12) {
+        this.addText(50, y, `... +${genome.lineage.length - 12} earlier mutations`, '#666666', '9px'); y += 13;
+      }
     }
 
-    // Export buttons
-    y += 10;
+    // Export
+    y += 16;
     this.createButton(120, y, 'Copy JSON', () => {
       navigator.clipboard.writeText(JSON.stringify(genome, null, 2));
     });
