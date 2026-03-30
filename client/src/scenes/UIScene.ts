@@ -723,15 +723,59 @@ export class UIScene extends Phaser.Scene {
     y += 4;
     addLine(`Obedience: ${agent.obedience}%`, '#888880', '12px');
 
-    // Evolution summary (compact, inline with other stats)
-    if (agent.genomeVersion !== undefined && agent.genomeVersion > 1) {
-      addLine(`Genome v${agent.genomeVersion}`, '#888880', '12px');
+    // ─── EVOLUTION ───
+    addDivider();
+    addLine('EVOLUTION', '#556655', '12px');
+
+    // Lives + Deaths summary line
+    {
+      const lives = agent.livesRemaining ?? 100;
+      const livesColor = lives > 50 ? '#44cc44' : lives > 20 ? '#cccc44' : '#cc4444';
+      addLine(`\u2764 ${lives} lives   \uD83D\uDC80 ${agent.totalDeaths} deaths`, livesColor, '12px');
     }
+
+    // Current life duration
+    if (agent.currentLifeTicks !== undefined) {
+      const secs = Math.floor((agent.currentLifeTicks ?? 0) / 10);
+      const mins = Math.floor(secs / 60);
+      const durStr = mins > 0 ? `${mins}m ${secs % 60}s` : `${secs}s`;
+      addLine(`This life: ${durStr}`, '#909890', '12px');
+    }
+
+    // Best life
+    if ((agent.lifetimeBestSurvival ?? 0) > 0) {
+      const bestSecs = Math.floor((agent.lifetimeBestSurvival ?? 0) / 10);
+      const bestMins = Math.floor(bestSecs / 60);
+      const bestStr = bestMins > 0 ? `${bestMins}m ${bestSecs % 60}s` : `${bestSecs}s`;
+      addLine(`Best life: ${bestStr}`, '#909890', '12px');
+    }
+
+    // Genome
+    const gv = agent.genomeVersion ?? 1;
+    addLine(`Genome v${gv}  (${gv - 1} mutations)`, '#a0a0b0', '12px');
+
+    // AI controller
     if (agent.llmProviderId && agent.llmRole && agent.llmRole !== 'none') {
-      addLine(`AI: ${agent.llmRole}`, '#80c080', '12px');
+      addLine(`\uD83E\uDD16 ${agent.llmRole} via ${agent.llmProviderId}`, '#80c080', '12px');
+    } else {
+      addLine('\uD83E\uDDE0 Decision Tree (no LLM)', '#777777', '12px');
     }
+
+    // Strategy rules
+    if (agent.activeStrategyRuleNames && agent.activeStrategyRuleNames.length > 0) {
+      addLine('Active rules:', '#888866', '12px');
+      for (const rule of agent.activeStrategyRuleNames.slice(0, 4)) {
+        addLine(`  \u2022 ${rule}`, '#999977', '11px');
+      }
+      if (agent.activeStrategyRuleNames.length > 4) {
+        addLine(`  +${agent.activeStrategyRuleNames.length - 4} more`, '#666655', '11px');
+      }
+    }
+
+    // Highlander
     if (agent.isHighlander) {
-      addLine('HIGHLANDER', '#ffd700', '13px');
+      y += 4;
+      addLine('\u2728 HIGHLANDER \u2728', '#ffd700', '14px');
     }
 
     // Last message
