@@ -976,6 +976,22 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
     }
   }
 
+  // --- Stockpile food: gather berries for inventory when supplies are low ---
+  if (agent.resources.food < 3 && agent.resources.meat < 2) {
+    const berryBush = world.findNearestPlant(ax, ay, [PlantType.BERRY_BUSH, PlantType.EDIBLE_FLOWER], 20);
+    if (berryBush) {
+      // Priority: higher when completely out of food
+      const stockPriority = (agent.resources.food === 0 && agent.resources.meat === 0) ? 45 : 30;
+      decisions.push({
+        action: 'harvesting',
+        priority: stockPriority + gatherBonus,
+        target: { x: berryBush.x, y: berryBush.y },
+        targetPlantId: berryBush.id,
+        reason: 'gathering food for later'
+      });
+    }
+  }
+
   // --- Stamina herb when moderately tired ---
   if (agent.needs.stamina < genome.thresholds.criticalStamina + 20) {
     const herb = world.findNearestPlant(ax, ay, [PlantType.STAMINA_HERB]);
