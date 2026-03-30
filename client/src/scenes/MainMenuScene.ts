@@ -268,7 +268,7 @@ export class MainMenuScene extends Phaser.Scene {
       if (!this.agentAIContainer) return;
       const listAreaY = (this as any)._listAreaY as number;
       const listAreaH = (this as any)._listAreaH as number;
-      const maxScroll = Math.max(0, this.agentAIRows.length * 24 - listAreaH + 8);
+      const maxScroll = Math.max(0, this.agentAIRows.length * 38 - listAreaH + 8);
       const currentY = this.agentAIContainer.y;
       const newY = Phaser.Math.Clamp(currentY - deltaY * 0.5, -maxScroll, 0);
       this.agentAIContainer.y = newY;
@@ -322,19 +322,23 @@ export class MainMenuScene extends Phaser.Scene {
     // Reset scroll
     this.agentAIContainer.y = 0;
 
-    const rowH = 28;
+    const btnH = 30;
+    const rowH = btnH + 8;
     const startY = listAreaY + 6;
     const rightColX = (this as any)._rightColX as number;
     const colW = (this as any)._colW as number;
-    const provBtnW = 120;
-    const roleBtnW = 110;
-    const provBtnX = rightColX + 100;
-    const roleBtnX = provBtnX + provBtnW + 6;
+    const labelW = 100;
+    const gap = 8;
+    const availW = colW - 10 - labelW - gap * 2;
+    const provBtnW = Math.floor(availW * 0.55);
+    const roleBtnW = availW - provBtnW;
+    const provBtnX = rightColX + labelW;
+    const roleBtnX = provBtnX + provBtnW + gap;
 
     for (let i = 0; i < this.config.agentCount; i++) {
       const y = startY + i * rowH;
 
-      const label = this.add.text(rightColX + 10, y + 5, `Agent ${i + 1}`, {
+      const label = this.add.text(rightColX + 10, y + 8, `Agent ${i + 1}`, {
         fontFamily: PIXEL_FONT,
         fontSize: '11px',
         color: '#aaaaaa',
@@ -347,32 +351,32 @@ export class MainMenuScene extends Phaser.Scene {
 
       // Provider button
       const providerBg = this.add.graphics();
-      this.drawSmallButton(providerBg, provBtnX, y, provBtnW, 20, false);
+      this.drawSmallButton(providerBg, provBtnX, y, provBtnW, btnH, false);
       this.agentAIContainer.add(providerBg);
 
-      const providerText = this.add.text(provBtnX + provBtnW / 2, y + 10, provLabel, {
+      const providerText = this.add.text(provBtnX + provBtnW / 2, y + btnH / 2, provLabel, {
         fontFamily: PIXEL_FONT, fontSize: '10px',
         color: assignment ? '#80c080' : '#888888',
       }).setOrigin(0.5);
       this.agentAIContainer.add(providerText);
 
-      const providerZone = this.add.zone(provBtnX + provBtnW / 2, y + 10, provBtnW, 20).setInteractive({ useHandCursor: true });
+      const providerZone = this.add.zone(provBtnX + provBtnW / 2, y + btnH / 2, provBtnW, btnH).setInteractive({ useHandCursor: true });
       this.agentAIContainer.add(providerZone);
       const idx = i;
       providerZone.on('pointerup', () => this.cycleProvider(idx));
 
       // Role button
       const roleBg = this.add.graphics();
-      this.drawSmallButton(roleBg, roleBtnX, y, roleBtnW, 20, false);
+      this.drawSmallButton(roleBg, roleBtnX, y, roleBtnW, btnH, false);
       this.agentAIContainer.add(roleBg);
 
-      const roleText = this.add.text(roleBtnX + roleBtnW / 2, y + 10, roleLabel, {
+      const roleText = this.add.text(roleBtnX + roleBtnW / 2, y + btnH / 2, roleLabel, {
         fontFamily: PIXEL_FONT, fontSize: '10px',
         color: assignment ? '#c0a060' : '#666666',
       }).setOrigin(0.5);
       this.agentAIContainer.add(roleText);
 
-      const roleZone = this.add.zone(roleBtnX + roleBtnW / 2, y + 10, roleBtnW, 20).setInteractive({ useHandCursor: true });
+      const roleZone = this.add.zone(roleBtnX + roleBtnW / 2, y + btnH / 2, roleBtnW, btnH).setInteractive({ useHandCursor: true });
       this.agentAIContainer.add(roleZone);
       roleZone.on('pointerup', () => this.cycleRole(idx));
 
