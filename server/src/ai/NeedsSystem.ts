@@ -696,16 +696,16 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
   }
 
   // === GOAP Layer ===
-  // If an interrupt fired (priority >= 60), skip GOAP and use that decision.
-  // Otherwise, let the GOAP planner drive behavior.
-  const interruptDecision = decisions.find(d => d.priority >= 60);
-  if (interruptDecision) {
-    // Interrupt overrides GOAP — clear any active plan
+  // Only critical interrupts (>= 80) skip GOAP and kill active plans.
+  // Medium priorities (60-79) compete with GOAP but don't destroy plans.
+  const criticalInterrupt = decisions.find(d => d.priority >= 80);
+  if (criticalInterrupt) {
+    // Critical interrupt overrides everything — clear active plan
     agentPlans.delete(agent.id);
     agent.currentPlanGoal = undefined;
     agent.currentPlanSteps = undefined;
     agent.planStepIndex = undefined;
-    return interruptDecision;
+    return criticalInterrupt;
   }
 
   // API Plan: execute pending plan (between interrupts and GOAP)
