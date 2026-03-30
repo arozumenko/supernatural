@@ -660,6 +660,32 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
     }
   }
 
+  // --- Self-defense against agent attackers (lower priority than critical survival) ---
+  if (agent.lastAttackedBy?.type === 'agent') {
+    const attackerAgent = allAgents.find(a => a.id === agent.lastAttackedBy!.id && a.alive);
+    if (attackerAgent) {
+      const distToAttacker = distance(agent.x, agent.y, attackerAgent.x, attackerAgent.y);
+      if (distToAttacker < 3) {
+        // Priority 85: below thirst(95) and hunger(90) so agent disengages to survive
+        decisions.push({
+          action: 'harvesting',
+          priority: 85,
+          target: { x: Math.floor(attackerAgent.x), y: Math.floor(attackerAgent.y) },
+          reason: `fighting ${attackerAgent.name}`
+        });
+      } else if (agent.needs.health < 50) {
+        // Attacker far + injured → flee
+        const fx = Math.floor(agent.x + (agent.x - attackerAgent.x) * 2);
+        const fy = Math.floor(agent.y + (agent.y - attackerAgent.y) * 2);
+        decisions.push({
+          action: 'wandering', priority: 70,
+          target: { x: clamp(fx, 1, WORLD_WIDTH - 2), y: clamp(fy, 1, WORLD_HEIGHT - 2) },
+          reason: `fleeing from ${attackerAgent.name}`
+        });
+      }
+    }
+  }
+
   // --- Group defense: help nearby ally under attack ---
   if (!agent.lastAttackedBy) {
     for (const ally of allAgents) {
