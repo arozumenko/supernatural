@@ -167,6 +167,7 @@ io.on('connection', (socket) => {
     orchestrator.stop();
     game.stop();
     const results = game.computeResults();
+    gameStarted = false; // back to idle — page reload shows menu
     io.emit('game:results', results);
   });
 
@@ -186,7 +187,7 @@ io.on('connection', (socket) => {
 });
 
 // Mount API router (uses getter because game is reassigned on game:configure)
-app.use('/api', createApiRouter(() => game));
+app.use('/api', createApiRouter(() => game, () => gameStarted));
 
 // Start server (game loop starts only on game:configure from client)
 httpServer.listen(PORT, () => {

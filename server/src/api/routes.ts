@@ -11,7 +11,7 @@ import { getPublicProviderList } from '../config/llm-config.ts';
  * Create the API router. Uses a getter for GameLoop because the game
  * instance is reassigned on game:configure.
  */
-export function createApiRouter(getGame: () => GameLoop): Router {
+export function createApiRouter(getGame: () => GameLoop, isGameRunning?: () => boolean): Router {
   const router = Router();
 
   // ─── Public endpoints (no auth) ───
@@ -26,6 +26,7 @@ export function createApiRouter(getGame: () => GameLoop): Router {
       alive: state.agents.filter(a => a.alive).length,
       total: state.agents.length,
       ticks: state.tickCount,
+      running: isGameRunning?.() ?? false,
     });
   });
 
