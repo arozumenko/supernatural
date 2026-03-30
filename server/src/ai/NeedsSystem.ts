@@ -1790,7 +1790,7 @@ export function executeAction(
             // Interaction cooldown: once per second (10 ticks) per pair
             const pairKey = [agent.id, nearbyAgent.id].sort().join(':');
             const lastInteraction = socialCooldowns.get(pairKey) ?? 0;
-            if (agent.age - lastInteraction < 10) break;
+            if (agent.age - lastInteraction < 5) break; // every 0.5s
             socialCooldowns.set(pairKey, agent.age);
 
             // Each agent decides independently: friend or foe (on first meeting, persists until death)
