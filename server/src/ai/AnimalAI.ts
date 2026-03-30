@@ -893,19 +893,22 @@ export function decideAnimalAction(
   // Seek food (herbivores/omnivores)
   // ──────────────────────────────────────────────
   if (species.diet !== 'carnivore') {
+    const isCriticalHunger = animal.plantHunger < 20;
+    const foodSearchRange = isCriticalHunger ? 40 : species.detectionRange;
     const foodScore = quadratic(animal.plantHunger) * species.utilityWeights.food;
-    if (foodScore > 0.05) {
+    const foodUrgency = isCriticalHunger ? Math.max(foodScore, 2.0) : foodScore;
+    if (foodUrgency > 0.05) {
       const foodPlant = world.findNearestPlant(ax, ay, [
         PlantType.BERRY_BUSH, PlantType.MUSHROOM,
         PlantType.EDIBLE_FLOWER, PlantType.HUNGER_HERB,
-      ], species.detectionRange);
+      ], foodSearchRange);
 
       if (foodPlant) {
         candidates.push({
           action: 'grazing',
           target: { x: foodPlant.x, y: foodPlant.y },
           targetEntityId: foodPlant.id,
-          score: foodScore,
+          score: foodUrgency,
         });
       } else if (hasRecentFoodMemory(animal, tickCount)) {
         const foodMem = findMemory(animal, 'food', tickCount);
@@ -913,9 +916,16 @@ export function decideAnimalAction(
           candidates.push({
             action: 'grazing',
             target: { x: foodMem.x, y: foodMem.y },
-            score: foodScore * 0.7,
+            score: foodUrgency * 0.7,
           });
         }
+      } else if (isCriticalHunger) {
+        // Desperate search: wander randomly looking for food
+        candidates.push({
+          action: 'wandering',
+          target: { x: ax + Math.floor(Math.random() * 20) - 10, y: ay + Math.floor(Math.random() * 20) - 10 },
+          score: foodUrgency * 0.5,
+        });
       }
     }
   }
@@ -923,21 +933,33 @@ export function decideAnimalAction(
   // ──────────────────────────────────────────────
   // Seek water
   // ──────────────────────────────────────────────
+  // Critical needs get wider search range (like agents)
+  const isCriticalThirst = animal.thirst < 20;
+  const searchRange = isCriticalThirst ? 40 : species.detectionRange;
   const waterScore = linear(animal.thirst) * 1.2 * species.utilityWeights.water;
-  if (waterScore > 0.05) {
-    const waterTile = world.findNearest(ax, ay, TileType.WATER, species.detectionRange);
+  // Boost score when critically thirsty to override everything else
+  const waterUrgency = isCriticalThirst ? Math.max(waterScore, 2.0) : waterScore;
+  if (waterUrgency > 0.05) {
+    const waterTile = world.findNearest(ax, ay, TileType.WATER, searchRange);
     if (waterTile) {
       const walkable = world.findNearestWalkable(ax, ay, waterTile.x, waterTile.y);
-      candidates.push({ action: 'drinking', target: walkable, score: waterScore });
+      candidates.push({ action: 'drinking', target: walkable, score: waterUrgency });
     } else if (hasRecentWaterMemory(animal, tickCount)) {
       const waterMem = findMemory(animal, 'water', tickCount);
       if (waterMem) {
         candidates.push({
           action: 'drinking',
           target: { x: waterMem.x, y: waterMem.y },
-          score: waterScore * 0.7,
+          score: waterUrgency * 0.7,
         });
       }
+    } else if (isCriticalThirst) {
+      // Desperate: wander randomly looking for water
+      candidates.push({
+        action: 'wandering',
+        target: { x: ax + Math.floor(Math.random() * 20) - 10, y: ay + Math.floor(Math.random() * 20) - 10 },
+        score: waterUrgency * 0.5,
+      });
     }
   }
 
