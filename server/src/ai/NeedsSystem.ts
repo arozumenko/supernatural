@@ -1135,7 +1135,10 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
   decisions.sort((a, b) => b.priority - a.priority);
   const best = decisions[0];
   // Store decision reason + top competing decisions for debugging
-  agent.lastDecisionReason = best?.reason ?? best?.action ?? 'idle';
+  const topDec = decisions.slice(0, 4).map(d =>
+    (d.action as string).slice(0, 6) + ':' + Math.floor(d.priority)
+  ).join(' ');
+  agent.lastDecisionReason = (best?.reason ?? best?.action ?? 'idle') + '\n' + topDec;
   return best;
 }
 

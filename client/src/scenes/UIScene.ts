@@ -989,8 +989,12 @@ export class UIScene extends Phaser.Scene {
         addLine(`${prefix} ${step.actionName}`, color, '12px');
       }
     } else if (agent.alive) {
-      const reason = agent.lastDecisionReason ?? agent.action;
+      const reasonFull = agent.lastDecisionReason ?? agent.action;
+      const [reason, topDec] = reasonFull.split('\n');
       addLine(`\uD83D\uDCAD ${reason}`, '#88aacc', '12px');
+      if (topDec) {
+        addLine(topDec, '#555566', '9px');
+      }
 
       const priorities: [string, string, number][] = [];
       if (agent.needs.thirst < 40) priorities.push(['\uD83D\uDCA7', 'thirsty', agent.needs.thirst]);
