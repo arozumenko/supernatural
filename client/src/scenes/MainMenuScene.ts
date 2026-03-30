@@ -361,9 +361,10 @@ export class MainMenuScene extends Phaser.Scene {
     const labelW = 50;
     const gap = 6;
     const availW = colW - 10 - labelW - gap * 2;
-    const btn1W = Math.floor(availW * 0.35); // provider
-    const btn2W = Math.floor(availW * 0.30); // role
-    const btn3W = availW - btn1W - btn2W;     // archetype
+    const btn3W = 36;                           // archetype — just one emoji
+    const remaining = availW - btn3W - gap;
+    const btn1W = Math.floor(remaining * 0.55); // provider
+    const btn2W = remaining - btn1W;            // role
     const btn1X = rightColX + labelW;
     const btn2X = btn1X + btn1W + gap;
     const btn3X = btn2X + btn2W + gap;
