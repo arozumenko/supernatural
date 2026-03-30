@@ -457,6 +457,20 @@ export function decayNeeds(agent: AgentState): void {
     agent.needs.health = clamp(agent.needs.health + Math.max(0.05, survivalRegen), 0, 100);
   }
 
+  // Skill-driven passive bonuses
+  // Athletics: faster stamina recovery when resting
+  if (agent.action === 'resting') {
+    agent.needs.stamina = clamp(agent.needs.stamina + agent.skills.athletics.level * 0.02, 0, 100);
+  }
+  // Endurance (base stat): slower hunger/thirst decay
+  const enduranceReduction = agent.baseStats.endurance * 0.003; // max ~4.5% at 15 END
+  agent.needs.proteinHunger = clamp(agent.needs.proteinHunger + HUNGER_DECAY * enduranceReduction, 0, 100);
+  agent.needs.thirst = clamp(agent.needs.thirst + THIRST_DECAY * enduranceReduction, 0, 100);
+  // Toughness (base stat): slow passive damage reduction
+  if (agent.needs.health < 100) {
+    agent.needs.health = clamp(agent.needs.health + agent.baseStats.toughness * 0.002, 0, 100);
+  }
+
   // Award survival XP when struggling
   const lowestNeed = Math.min(agent.needs.proteinHunger, agent.needs.plantHunger, agent.needs.thirst, agent.needs.stamina);
   if (lowestNeed < 30) {
@@ -1353,7 +1367,7 @@ export function executeAction(
               if (d2 <= 1.5) {
                 // Attack cooldown check
                 if (agent.attackCooldown > 0) { agent.attackCooldown--; break; }
-                agent.attackCooldown = 10; // 1 second cooldown
+                agent.attackCooldown = Math.max(5, 10 - Math.floor(agent.skills.combat.level / 20)); // 5-10 ticks, faster with combat skill
 
                 // Hit accuracy check
                 const accuracy = getHitAccuracy(agent.skills);
@@ -1709,16 +1723,18 @@ export function executeAction(
     }
 
     case 'wandering': {
-      // Pick a random nearby walkable tile
+      // Pick a random nearby walkable tile — scouts explore further
+      const exploreRange = 5 + Math.floor(agent.skills.survival.level / 20); // 5-10
       if (!agent.actionTarget || distance(agent.x, agent.y, agent.actionTarget.x, agent.actionTarget.y) < 1) {
-        const wx = ax + Math.floor(Math.random() * 10) - 5;
-        const wy = ay + Math.floor(Math.random() * 10) - 5;
+        const wx = ax + Math.floor(Math.random() * exploreRange * 2) - exploreRange;
+        const wy = ay + Math.floor(Math.random() * exploreRange * 2) - exploreRange;
         agent.actionTarget = { x: wx, y: wy };
       }
-      // Flee speed bonus: athletics skill boosts flee speed
+      // Athletics boosts all movement speed; extra boost when fleeing
       const isFleeing = decision.reason?.includes('threatened') || decision.reason?.includes('flee');
-      const fleeSpeedMult = isFleeing ? (1 + agent.skills.athletics.level * 0.01) : 1.0;
-      moveTowards(agent, agent.actionTarget.x, agent.actionTarget.y, world, fleeSpeedMult);
+      const athleticsSpeedMult = 1 + agent.skills.athletics.level * 0.005; // +0.5% per level base
+      const fleeBonus = isFleeing ? (1 + agent.skills.athletics.level * 0.008) : 1.0; // extra when fleeing
+      moveTowards(agent, agent.actionTarget.x, agent.actionTarget.y, world, athleticsSpeedMult * fleeBonus);
       break;
     }
 
