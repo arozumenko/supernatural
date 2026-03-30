@@ -575,47 +575,43 @@ export class UIScene extends Phaser.Scene {
 
     addDivider();
 
-    // Needs — compact 2-column with inline bars
+    // Needs — icon + bar only, no numbers, 2 columns
     addLine('NEEDS', '#556655', '8px');
     const needsList: [string, number, number][] = [
-      ['HP',      agent.needs.health,  0xcc4444],
-      ['Protein', agent.needs.proteinHunger, 0xcc8844],
-      ['Plant',   agent.needs.plantHunger,   0x88cc44],
-      ['Thirst',  agent.needs.thirst,  0x4488cc],
-      ['Stamina', agent.needs.stamina, 0x44aa44],
-      ['Social',  agent.needs.social,  0xaa44aa],
-      ['Shelter', agent.needs.shelter, 0x888844],
+      ['+',  agent.needs.health,         0xcc4444],
+      ['~',  agent.needs.proteinHunger,  0xcc8844],
+      ['*',  agent.needs.plantHunger,    0x88cc44],
+      ['o',  agent.needs.thirst,         0x4488cc],
+      ['>',  agent.needs.stamina,        0x44aa44],
+      ['&',  agent.needs.social,         0xaa44aa],
+      ['^',  agent.needs.shelter,        0x888844],
     ];
-    const colBarW = 100;
+    const iconW = 14;
+    const colBarW = (contentW / 2) - iconW - 8;
     const col1x = 14;
     const col2x = 14 + contentW / 2;
     for (let ni = 0; ni < needsList.length; ni += 2) {
-      // Left column
-      const [lbl1, val1, clr1] = needsList[ni];
-      const t1 = this.add.text(col1x, y, `${lbl1} ${Math.floor(val1)}`, {
-        fontFamily: PIXEL_FONT, fontSize: '10px', color: '#909890',
-      });
-      this.infoPanelContainer.add(t1);
-      const bar1 = this.add.graphics();
-      bar1.fillStyle(0x1a1a2e); bar1.fillRect(col1x + 80, y + 2, colBarW, 8);
-      bar1.fillStyle(clr1); bar1.fillRect(col1x + 80, y + 2, colBarW * Math.max(0, Math.min(1, val1 / 100)), 8);
-      bar1.lineStyle(1, 0x2a3a2a); bar1.strokeRect(col1x + 80, y + 2, colBarW, 8);
-      this.infoPanelContainer.add(bar1);
+      for (let ci = 0; ci < 2; ci++) {
+        const idx = ni + ci;
+        if (idx >= needsList.length) break;
+        const [icon, val, clr] = needsList[idx];
+        const cx = ci === 0 ? col1x : col2x;
 
-      // Right column (if exists)
-      if (ni + 1 < needsList.length) {
-        const [lbl2, val2, clr2] = needsList[ni + 1];
-        const t2 = this.add.text(col2x, y, `${lbl2} ${Math.floor(val2)}`, {
-          fontFamily: PIXEL_FONT, fontSize: '10px', color: '#909890',
-        });
-        this.infoPanelContainer.add(t2);
-        const bar2 = this.add.graphics();
-        bar2.fillStyle(0x1a1a2e); bar2.fillRect(col2x + 80, y + 2, colBarW, 8);
-        bar2.fillStyle(clr2); bar2.fillRect(col2x + 80, y + 2, colBarW * Math.max(0, Math.min(1, val2 / 100)), 8);
-        bar2.lineStyle(1, 0x2a3a2a); bar2.strokeRect(col2x + 80, y + 2, colBarW, 8);
-        this.infoPanelContainer.add(bar2);
+        // Colored icon
+        const ic = this.add.graphics();
+        ic.fillStyle(clr, 1);
+        ic.fillCircle(cx + 6, y + 6, 5);
+        this.infoPanelContainer.add(ic);
+
+        // Bar
+        const bar = this.add.graphics();
+        const bx = cx + iconW + 2;
+        bar.fillStyle(0x1a1a2e); bar.fillRect(bx, y + 1, colBarW, 10);
+        bar.fillStyle(clr); bar.fillRect(bx, y + 1, colBarW * Math.max(0, Math.min(1, val / 100)), 10);
+        bar.lineStyle(1, 0x2a3a2a); bar.strokeRect(bx, y + 1, colBarW, 10);
+        this.infoPanelContainer.add(bar);
       }
-      y += 18;
+      y += 16;
     }
 
     // Metabolism
