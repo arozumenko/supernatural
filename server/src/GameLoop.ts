@@ -320,12 +320,10 @@ export class GameLoop {
     for (let i = this.respawnQueue.length - 1; i >= 0; i--) {
       if (this.tickCount >= this.respawnQueue[i].respawnTick) {
         const agent = this.respawnQueue[i].agent;
-        // Find grass tile near world center for respawn
-        const cx = Math.floor(WORLD_WIDTH / 2);
-        const cy = Math.floor(WORLD_HEIGHT / 2);
-        for (let attempt = 0; attempt < 100; attempt++) {
-          const rx = cx + randomInt(-5, 5);
-          const ry = cy + randomInt(-5, 5);
+        // Respawn at random walkable grass tile anywhere on the map
+        for (let attempt = 0; attempt < 200; attempt++) {
+          const rx = randomInt(0, WORLD_WIDTH - 1);
+          const ry = randomInt(0, WORLD_HEIGHT - 1);
           if (this.world.getTile(rx, ry) === TileType.GRASS && this.world.isWalkable(rx, ry)) {
             agent.x = rx;
             agent.y = ry;
