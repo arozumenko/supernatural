@@ -77,7 +77,7 @@ export class UIScene extends Phaser.Scene {
     // Panel title
     this.panelTitle = this.add.text(0, 10, 'SUPERNATURAL', {
       fontFamily: PIXEL_FONT,
-      fontSize: '11px',
+      fontSize: '12px',
       color: '#80c080',
     }).setDepth(1000);
 
@@ -87,14 +87,14 @@ export class UIScene extends Phaser.Scene {
     // Events label
     this.logLabel = this.add.text(0, 0, 'EVENTS', {
       fontFamily: PIXEL_FONT,
-      fontSize: '9px',
+      fontSize: '12px',
       color: '#556655',
     }).setDepth(1000);
 
     // Event log text
     this.eventLogText = this.add.text(0, 0, '', {
       fontFamily: PIXEL_FONT,
-      fontSize: '9px',
+      fontSize: '12px',
       color: '#a0b0a0',
       lineSpacing: 8,
       wordWrap: { width: PANEL_W - 28 },
@@ -103,7 +103,7 @@ export class UIScene extends Phaser.Scene {
     // Controls hint (bottom-left)
     this.controlsText = this.add.text(12, 0, 'WASD:move  Scroll:zoom  Click:select  M:msg  N:new agent', {
       fontFamily: PIXEL_FONT,
-      fontSize: '9px',
+      fontSize: '12px',
       color: '#667766',
       backgroundColor: '#0a0a14',
       padding: { x: 8, y: 6 },
@@ -313,7 +313,7 @@ export class UIScene extends Phaser.Scene {
         this.sidebarContainer.add(headerBg);
 
         const headerText = this.add.text(12, y + 4, 'NO GOD', {
-          fontFamily: PIXEL_FONT, fontSize: '7px', color: '#666666',
+          fontFamily: PIXEL_FONT, fontSize: '12px', color: '#666666',
         });
         this.sidebarContainer.add(headerText);
         y += 24;
@@ -337,7 +337,7 @@ export class UIScene extends Phaser.Scene {
 
         // Power score
         const powerText = this.add.text(16, y + 4, `${power}`, {
-          fontFamily: PIXEL_FONT, fontSize: '10px', color: '#ffd700',
+          fontFamily: PIXEL_FONT, fontSize: '12px', color: '#ffd700',
         });
         this.sidebarContainer.add(powerText);
 
@@ -348,19 +348,19 @@ export class UIScene extends Phaser.Scene {
         this.sidebarContainer.add(badgeBg);
 
         const badgeText = this.add.text(SIDEBAR_W - 33, y + 7, roleBadge, {
-          fontFamily: PIXEL_FONT, fontSize: '6px', color: '#0a0a0a',
+          fontFamily: PIXEL_FONT, fontSize: '12px', color: '#0a0a0a',
         }).setOrigin(0.5, 0);
         this.sidebarContainer.add(badgeText);
 
         // Provider label
         const provText = this.add.text(16, y + 20, providerLabel, {
-          fontFamily: PIXEL_FONT, fontSize: '6px', color: '#aaaaaa',
+          fontFamily: PIXEL_FONT, fontSize: '12px', color: '#aaaaaa',
         });
         this.sidebarContainer.add(provText);
 
         // Agent count
         const countText = this.add.text(16, y + 32, `${aliveCount} agent${aliveCount !== 1 ? 's' : ''}`, {
-          fontFamily: PIXEL_FONT, fontSize: '6px', color: '#666666',
+          fontFamily: PIXEL_FONT, fontSize: '12px', color: '#666666',
         });
         this.sidebarContainer.add(countText);
 
@@ -393,13 +393,13 @@ export class UIScene extends Phaser.Scene {
 
     // Name
     const nameText = this.add.text(24, y + 1, name, {
-      fontFamily: PIXEL_FONT, fontSize: '6px', color: alive ? '#cccccc' : '#666666',
+      fontFamily: PIXEL_FONT, fontSize: '12px', color: alive ? '#cccccc' : '#666666',
     });
     this.sidebarContainer.add(nameText);
 
     // Level
     const lvText = this.add.text(110, y + 1, `Lv${level}`, {
-      fontFamily: PIXEL_FONT, fontSize: '6px', color: alive ? '#aaaaaa' : '#555555',
+      fontFamily: PIXEL_FONT, fontSize: '12px', color: alive ? '#aaaaaa' : '#555555',
     });
     this.sidebarContainer.add(lvText);
 
@@ -408,7 +408,7 @@ export class UIScene extends Phaser.Scene {
       : agent.action === 'fleeing' ? '#ffaa44'
       : alive ? '#888888' : '#444444';
     const actText = this.add.text(160, y + 1, actionLabel, {
-      fontFamily: PIXEL_FONT, fontSize: '6px', color: actColor,
+      fontFamily: PIXEL_FONT, fontSize: '12px', color: actColor,
     });
     this.sidebarContainer.add(actText);
 
@@ -492,7 +492,7 @@ export class UIScene extends Phaser.Scene {
     if (!agent) {
       const hint = this.add.text(14, 50, 'Click an agent or\ntree to inspect', {
         fontFamily: PIXEL_FONT,
-        fontSize: '10px',
+        fontSize: '12px',
         color: '#445544',
         lineSpacing: 8,
       });

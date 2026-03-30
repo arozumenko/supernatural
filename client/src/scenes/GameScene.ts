@@ -252,7 +252,7 @@ export class GameScene extends Phaser.Scene {
     // Follow mode indicator (fixed to camera, top-center)
     this.followIndicator = this.add.text(0, 0, '[F] FOLLOWING', {
       fontFamily: '"Press Start 2P", monospace',
-      fontSize: '8px',
+      fontSize: '10px',
       color: '#80c080',
       backgroundColor: '#1a1a2e',
       padding: { x: 6, y: 4 },
@@ -600,7 +600,7 @@ export class GameScene extends Phaser.Scene {
       `[${lvl}] ${agent.name}`,
       {
         fontFamily: PIXEL_FONT,
-        fontSize: '7px',
+        fontSize: '9px',
         color: agent.ownerId ? '#ffdd44' : '#ffffff',
         stroke: '#000000',
         strokeThickness: 3,
@@ -616,7 +616,7 @@ export class GameScene extends Phaser.Scene {
       '',
       {
         fontFamily: PIXEL_FONT,
-        fontSize: '6px',
+        fontSize: '10px',
         color: '#c0c0c0',
         stroke: '#000000',
         strokeThickness: 2,
@@ -885,7 +885,7 @@ export class GameScene extends Phaser.Scene {
       `[${lvl}]`,
       {
         fontFamily: PIXEL_FONT,
-        fontSize: '6px',
+        fontSize: '10px',
         color: '#cccccc',
         stroke: '#000000',
         strokeThickness: 2,
@@ -1263,7 +1263,7 @@ export class GameScene extends Phaser.Scene {
 
     const nameText = this.add.text(px, py - TILE_SIZE / 2 - 2, name, {
       fontFamily: PIXEL_FONT,
-      fontSize: '6px',
+      fontSize: '10px',
       color: '#999999',
       stroke: '#000000',
       strokeThickness: 2,

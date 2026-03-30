@@ -87,13 +87,17 @@ export class MainMenuScene extends Phaser.Scene {
       });
     }
 
-    // Panel background
-    this.panelW = 560;
-    const panelH = 620;
+    // Two-column panel
+    this.panelW = 900;
+    const panelH = 560;
     this.panelX = cx - this.panelW / 2;
     this.panelY = cy - panelH / 2;
-    this.labelX = this.panelX + 40;
-    this.controlX = this.panelX + 220;
+
+    const colW = (this.panelW - 30) / 2; // two columns with gap
+    const leftColX = this.panelX + 15;
+    const rightColX = this.panelX + colW + 20;
+    this.labelX = leftColX + 20;
+    this.controlX = leftColX + 180;
 
     const panel = this.add.graphics();
     panel.fillStyle(0x1a1a2e, 0.92);
@@ -104,31 +108,34 @@ export class MainMenuScene extends Phaser.Scene {
     // Title
     this.add.text(cx, this.panelY + 36, 'SUPERNATURAL', {
       fontFamily: PIXEL_FONT,
-      fontSize: '20px',
+      fontSize: '22px',
       color: '#80c080',
     }).setOrigin(0.5);
 
-    this.add.text(cx, this.panelY + 58, '~ civilization simulator ~', {
+    this.add.text(cx, this.panelY + 62, '~ civilization simulator ~', {
       fontFamily: PIXEL_FONT,
-      fontSize: '8px',
+      fontSize: '10px',
       color: '#666666',
     }).setOrigin(0.5);
 
-    // Divider
+    // Divider under title
     const divG = this.add.graphics();
     divG.lineStyle(1, 0x334433, 0.6);
-    divG.lineBetween(this.panelX + 30, this.panelY + 75, this.panelX + this.panelW - 30, this.panelY + 75);
+    divG.lineBetween(this.panelX + 30, this.panelY + 80, this.panelX + this.panelW - 30, this.panelY + 80);
 
-    this.add.text(cx, this.panelY + 90, 'WORLD SETTINGS', {
+    // === LEFT COLUMN: World Settings ===
+    const contentTop = this.panelY + 95;
+
+    this.add.text(leftColX + colW / 2, contentTop, 'WORLD SETTINGS', {
       fontFamily: PIXEL_FONT,
-      fontSize: '9px',
+      fontSize: '11px',
       color: '#80c080',
     }).setOrigin(0.5);
 
-    let rowY = this.panelY + 115;
-    const rowH = 38;
+    let rowY = contentTop + 30;
+    const rowH = 42;
 
-    // === Map Size ===
+    // Map Size
     this.addLabel(this.labelX, rowY, 'Map Size');
     this.addToggleButtons(this.controlX, rowY, MAP_PRESETS.map(p => p.label), this.mapSizeIndex, (i) => {
       this.mapSizeIndex = i;
@@ -137,7 +144,7 @@ export class MainMenuScene extends Phaser.Scene {
     });
     rowY += rowH;
 
-    // === Agents ===
+    // Agents
     this.addLabel(this.labelX, rowY, 'Agents');
     this.addStepper(this.controlX, rowY, this.config.agentCount, 3, 20, 1, (v) => {
       this.config.agentCount = v;
@@ -145,14 +152,14 @@ export class MainMenuScene extends Phaser.Scene {
     });
     rowY += rowH;
 
-    // === Water ===
+    // Water
     this.addLabel(this.labelX, rowY, 'Water');
     this.addStepper(this.controlX, rowY, Math.round(this.config.waterCoverage * 100), 10, 40, 5, (v) => {
       this.config.waterCoverage = v / 100;
     }, '%');
     rowY += rowH;
 
-    // === Trees ===
+    // Trees
     this.addLabel(this.labelX, rowY, 'Trees');
     this.addToggleButtons(this.controlX, rowY, TREE_PRESETS.map(p => p.label), this.treeDensityIndex, (i) => {
       this.treeDensityIndex = i;
@@ -160,35 +167,32 @@ export class MainMenuScene extends Phaser.Scene {
     });
     rowY += rowH;
 
-    // === Animals ===
+    // Animals
     this.addLabel(this.labelX, rowY, 'Animals');
     this.addToggleButtons(this.controlX, rowY, ANIMAL_PRESETS.map(p => p.label), this.animalPopIndex, (i) => {
       this.animalPopIndex = i;
       this.config.maxAnimals = ANIMAL_PRESETS[i].value;
     });
-    rowY += rowH + 8;
 
-    // Divider 2
-    const div2 = this.add.graphics();
-    div2.lineStyle(1, 0x334433, 0.6);
-    div2.lineBetween(this.panelX + 30, rowY, this.panelX + this.panelW - 30, rowY);
-    rowY += 15;
-
-    this.add.text(cx, rowY, 'AGENT AI', {
+    // === RIGHT COLUMN: Agent AI ===
+    this.add.text(rightColX + colW / 2, contentTop, 'AGENT AI', {
       fontFamily: PIXEL_FONT,
-      fontSize: '9px',
+      fontSize: '11px',
       color: '#80c080',
     }).setOrigin(0.5);
-    rowY += 20;
 
-    // Agent AI list container (scrollable area)
-    const listAreaY = rowY;
-    const listAreaH = 150;
+    // Vertical divider between columns
+    const colDiv = this.add.graphics();
+    colDiv.lineStyle(1, 0x334433, 0.4);
+    colDiv.lineBetween(rightColX - 5, contentTop - 5, rightColX - 5, this.panelY + panelH - 80);
 
-    // Background for list area
+    // Agent AI list (scrollable area in right column)
+    const listAreaY = contentTop + 28;
+    const listAreaH = panelH - 200;
+
     const listBg = this.add.graphics();
     listBg.fillStyle(0x111122, 0.6);
-    listBg.fillRoundedRect(this.panelX + 20, listAreaY, this.panelW - 40, listAreaH, 4);
+    listBg.fillRoundedRect(rightColX, listAreaY, colW - 10, listAreaH, 4);
 
     // Create container for agent rows
     this.agentAIContainer = this.add.container(0, 0);
@@ -196,16 +200,16 @@ export class MainMenuScene extends Phaser.Scene {
     // Mask for scrollable area
     const maskShape = this.add.graphics();
     maskShape.fillStyle(0xffffff);
-    maskShape.fillRect(this.panelX + 20, listAreaY, this.panelW - 40, listAreaH);
+    maskShape.fillRect(rightColX, listAreaY, colW - 10, listAreaH);
     maskShape.setVisible(false);
     const mask = maskShape.createGeometryMask();
     this.agentAIContainer.setMask(mask);
 
-    // Store list area info for row building
+    // Store layout info
     (this as any)._listAreaY = listAreaY;
     (this as any)._listAreaH = listAreaH;
-    (this as any)._listBg = listBg;
-    (this as any)._maskShape = maskShape;
+    (this as any)._rightColX = rightColX;
+    (this as any)._colW = colW;
 
     // Initialize assignments
     this.agentAssignments = new Array(this.config.agentCount).fill(null);
@@ -215,20 +219,15 @@ export class MainMenuScene extends Phaser.Scene {
       this.rebuildAgentAIList();
     });
 
-    rowY += listAreaH + 8;
-
-    // Bulk assignment buttons container
+    // Bulk assignment buttons
     this.bulkContainer = this.add.container(0, 0);
-    (this as any)._bulkY = rowY;
-    // Will be populated after providers are fetched
+    (this as any)._bulkY = listAreaY + listAreaH + 8;
 
-    rowY += 30;
-
-    // === START BUTTON ===
-    const btnW = 220;
-    const btnH = 44;
+    // === START BUTTON (centered below both columns) ===
+    const btnW = 260;
+    const btnH = 48;
     const btnX = cx - btnW / 2;
-    const btnY = this.panelY + panelH - 75;
+    const btnY = this.panelY + panelH - 70;
 
     const btnBg = this.add.graphics();
     this.drawButton(btnBg, btnX, btnY, btnW, btnH, 0x80c080, false);
@@ -278,7 +277,7 @@ export class MainMenuScene extends Phaser.Scene {
     // Version
     this.add.text(cx, this.panelY + panelH - 18, 'v0.2.0', {
       fontFamily: PIXEL_FONT,
-      fontSize: '7px',
+      fontSize: '11px',
       color: '#444444',
     }).setOrigin(0.5);
   }
@@ -323,19 +322,21 @@ export class MainMenuScene extends Phaser.Scene {
     // Reset scroll
     this.agentAIContainer.y = 0;
 
-    const rowH = 24;
+    const rowH = 28;
     const startY = listAreaY + 6;
-    const provBtnW = 100;
-    const roleBtnW = 90;
-    const provBtnX = this.panelX + 140;
+    const rightColX = (this as any)._rightColX as number;
+    const colW = (this as any)._colW as number;
+    const provBtnW = 120;
+    const roleBtnW = 110;
+    const provBtnX = rightColX + 100;
     const roleBtnX = provBtnX + provBtnW + 6;
 
     for (let i = 0; i < this.config.agentCount; i++) {
       const y = startY + i * rowH;
 
-      const label = this.add.text(this.panelX + 35, y + 4, `Agent ${i + 1}`, {
+      const label = this.add.text(rightColX + 10, y + 5, `Agent ${i + 1}`, {
         fontFamily: PIXEL_FONT,
-        fontSize: '7px',
+        fontSize: '11px',
         color: '#aaaaaa',
       });
       this.agentAIContainer.add(label);
@@ -350,7 +351,7 @@ export class MainMenuScene extends Phaser.Scene {
       this.agentAIContainer.add(providerBg);
 
       const providerText = this.add.text(provBtnX + provBtnW / 2, y + 10, provLabel, {
-        fontFamily: PIXEL_FONT, fontSize: '5px',
+        fontFamily: PIXEL_FONT, fontSize: '10px',
         color: assignment ? '#80c080' : '#888888',
       }).setOrigin(0.5);
       this.agentAIContainer.add(providerText);
@@ -366,7 +367,7 @@ export class MainMenuScene extends Phaser.Scene {
       this.agentAIContainer.add(roleBg);
 
       const roleText = this.add.text(roleBtnX + roleBtnW / 2, y + 10, roleLabel, {
-        fontFamily: PIXEL_FONT, fontSize: '5px',
+        fontFamily: PIXEL_FONT, fontSize: '10px',
         color: assignment ? '#c0a060' : '#666666',
       }).setOrigin(0.5);
       this.agentAIContainer.add(roleText);
@@ -449,7 +450,7 @@ export class MainMenuScene extends Phaser.Scene {
 
       const text = this.add.text(bx + btnW / 2, bulkY + 11, opt.label, {
         fontFamily: PIXEL_FONT,
-        fontSize: '5px',
+        fontSize: '10px',
         color: '#aaaaaa',
       }).setOrigin(0.5);
       this.bulkContainer!.add(text);
@@ -486,7 +487,7 @@ export class MainMenuScene extends Phaser.Scene {
   private addLabel(x: number, y: number, text: string): void {
     this.add.text(x, y + 6, text, {
       fontFamily: PIXEL_FONT,
-      fontSize: '9px',
+      fontSize: '11px',
       color: '#cccccc',
     });
   }
@@ -507,7 +508,7 @@ export class MainMenuScene extends Phaser.Scene {
 
       const text = this.add.text(bx + btnW / 2, y + 13, label, {
         fontFamily: PIXEL_FONT,
-        fontSize: '7px',
+        fontSize: '11px',
         color: isActive ? '#0a0a0a' : '#aaaaaa',
       }).setOrigin(0.5);
 
