@@ -1071,7 +1071,13 @@ export function decideAnimalAction(
   // Pick highest scoring action
   candidates.sort((a, b) => b.score - a.score);
   const best = candidates[0];
-  return best.score < 0.05 ? { action: 'idle', score: 0 } : best;
+  const chosen = best.score < 0.05 ? { action: 'idle' as AnimalAction, score: 0 } : best;
+
+  // Store decision reason for UI (same as agents)
+  const topDec = candidates.slice(0, 4).map(d => (d.action as string).slice(0, 6) + ':' + Math.floor(d.score * 100)).join(' ');
+  animal.lastDecisionReason = (chosen.action ?? 'idle') + '\n' + topDec;
+
+  return chosen;
 }
 
 // ============================================================

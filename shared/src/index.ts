@@ -516,7 +516,9 @@ export interface AnimalState {
   lastDangerTick?: number;
   lastAttackedBy?: { type: 'animal' | 'agent'; id: string; tick: number };
   attackCooldown: number;         // ticks until next attack allowed
+  lastDecisionReason?: string;
 }
+
 
 export interface AnimalSpecies {
   id: string;

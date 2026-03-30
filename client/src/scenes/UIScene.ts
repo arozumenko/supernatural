@@ -1319,6 +1319,39 @@ export class UIScene extends Phaser.Scene {
 
     y += 8;
     addLine(`Position: ${Math.floor(animal.x)}, ${Math.floor(animal.y)}`, '#445544', '12px');
+
+    // PLAN section (same as agents)
+    addDivider();
+    addLine('PLAN', '#556655', '12px');
+    if (animal.alive && animal.lastDecisionReason) {
+      const [reason, topDec] = (animal.lastDecisionReason ?? animal.action).split('\n');
+      addLine(`\uD83D\uDCAD ${reason}`, '#88aacc', '12px');
+
+      // Show urgent needs
+      const priorities: [string, string, number][] = [];
+      if (animal.thirst < 40) priorities.push(['\uD83D\uDCA7', 'thirsty', animal.thirst]);
+      if (animal.proteinHunger < 40) priorities.push(['\uD83E\uDD69', 'hungry (protein)', animal.proteinHunger]);
+      if (animal.plantHunger < 40) priorities.push(['\uD83C\uDF3F', 'hungry (plant)', animal.plantHunger]);
+      if (animal.stamina < 30) priorities.push(['\u26A1', 'tired', animal.stamina]);
+      if (animal.health < animal.maxHealth * 0.5) priorities.push(['\u2764\uFE0F', 'injured', Math.floor(animal.health / animal.maxHealth * 100)]);
+
+      if (priorities.length > 0) {
+        priorities.sort((a, b) => a[2] - b[2]);
+        for (const [emoji, label, val] of priorities.slice(0, 3)) {
+          const urgency = val < 20 ? '#cc4444' : '#ccaa44';
+          addLine(`${emoji} ${label} (${Math.floor(val)})`, urgency, '12px');
+        }
+      } else {
+        addLine('\u2705 all needs met', '#668866', '12px');
+      }
+
+      if (topDec) {
+        y += 4;
+        addLine(topDec, '#555566', '9px');
+      }
+    } else if (!animal.alive) {
+      addLine('\uD83D\uDC80 dead', '#cc4444', '12px');
+    }
   }
 
   private updateCorpsePanel(): void {
