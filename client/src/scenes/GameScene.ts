@@ -167,7 +167,9 @@ export class GameScene extends Phaser.Scene {
     const { width, height } = this.scale;
     this.cameras.main.setViewport(SIDEBAR_W, 0, width - SIDEBAR_W - PANEL_W, height);
     this.cameras.main.setBounds(0, 0, WORLD_WIDTH * TILE_SIZE, WORLD_HEIGHT * TILE_SIZE);
-    this.cameras.main.setZoom(1);
+    // Start at a comfortable zoom that shows a good chunk of the map
+    const initialZoom = Math.max(this.getMinZoom(), Math.min(0.6, (width - SIDEBAR_W - PANEL_W) / (WORLD_WIDTH * TILE_SIZE) * 1.5));
+    this.cameras.main.setZoom(initialZoom);
     this.cameras.main.centerOn(WORLD_WIDTH * TILE_SIZE / 2, WORLD_HEIGHT * TILE_SIZE / 2);
 
     // Controls
@@ -277,7 +279,8 @@ export class GameScene extends Phaser.Scene {
     const viewH = this.scale.height;
     const worldPxW = WORLD_WIDTH * TILE_SIZE;
     const worldPxH = WORLD_HEIGHT * TILE_SIZE;
-    return Math.max(viewW / worldPxW, viewH / worldPxH);
+    // Allow zooming out enough to see a good portion of the map
+    return Math.max(0.15, Math.min(viewW / worldPxW, viewH / worldPxH));
   }
 
   private tiles: number[][] = [];
