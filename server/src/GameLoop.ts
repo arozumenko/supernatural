@@ -800,10 +800,13 @@ export class GameLoop {
   }
 
   private periodicEvents(): void {
+    // Count alive + respawning as "population" to prevent duplicate spawning
     const aliveCount = this.agents.filter(a => a.alive).length;
+    const respawningCount = this.respawnQueue.length;
+    const effectivePopulation = aliveCount + respawningCount;
 
-    // If population is low, spawn new agents
-    if (aliveCount < WorldConfig.agents.minPopulation) {
+    // If population is low (counting respawning agents), spawn new agents
+    if (effectivePopulation < WorldConfig.agents.minPopulation) {
       const agent = createAgent(undefined, undefined, undefined, this.world);
       this.agents.push(agent);
       this.events.onAgentBorn(agent);
