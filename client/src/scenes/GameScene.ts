@@ -971,9 +971,9 @@ export class GameScene extends Phaser.Scene {
     this.ui.setSelectedRock(null);
     this.ui.setSelectedPlant(null);
     this.ui.setSelectedCorpse(null);
-    // Pan camera to agent
+    // Pan camera to agent (one-shot, no follow)
     this.cameras.main.centerOn(agent.x * TILE_SIZE + TILE_SIZE / 2, agent.y * TILE_SIZE + TILE_SIZE / 2);
-    this.cameraFollow = true;
+    this.cameraFollow = false;
     this.updateFollowIndicator();
   }
 
