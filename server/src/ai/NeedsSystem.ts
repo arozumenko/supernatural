@@ -977,11 +977,12 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
   }
 
   // --- Stockpile food: gather berries for inventory when supplies are low ---
-  if (agent.resources.food < 3 && agent.resources.meat < 2) {
+  const totalFood = agent.resources.food + agent.resources.meat;
+  if (totalFood < 6) {
     const berryBush = world.findNearestPlant(ax, ay, [PlantType.BERRY_BUSH, PlantType.EDIBLE_FLOWER], 20);
     if (berryBush) {
-      // Priority: higher when completely out of food
-      const stockPriority = (agent.resources.food === 0 && agent.resources.meat === 0) ? 45 : 30;
+      // Priority scales with how empty the pantry is
+      const stockPriority = totalFood === 0 ? 50 : totalFood < 3 ? 40 : 30;
       decisions.push({
         action: 'harvesting',
         priority: stockPriority + gatherBonus,
