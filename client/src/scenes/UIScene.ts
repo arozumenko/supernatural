@@ -575,43 +575,41 @@ export class UIScene extends Phaser.Scene {
 
     addDivider();
 
-    // Needs — icon + bar only, no numbers, 2 columns
+    // Needs — emoji + bar, no numbers, 2 columns
     addLine('NEEDS', '#556655', '8px');
     const needsList: [string, number, number][] = [
-      ['+',  agent.needs.health,         0xcc4444],
-      ['~',  agent.needs.proteinHunger,  0xcc8844],
-      ['*',  agent.needs.plantHunger,    0x88cc44],
-      ['o',  agent.needs.thirst,         0x4488cc],
-      ['>',  agent.needs.stamina,        0x44aa44],
-      ['&',  agent.needs.social,         0xaa44aa],
-      ['^',  agent.needs.shelter,        0x888844],
+      ['\u2764\uFE0F',  agent.needs.health,         0xcc4444],   // ❤️
+      ['\uD83E\uDD69',  agent.needs.proteinHunger,  0xcc8844],   // 🥩
+      ['\uD83C\uDF3F',  agent.needs.plantHunger,    0x88cc44],   // 🌿
+      ['\uD83D\uDCA7',  agent.needs.thirst,         0x4488cc],   // 💧
+      ['\u26A1',         agent.needs.stamina,        0x44aa44],   // ⚡
+      ['\uD83D\uDDE3\uFE0F', agent.needs.social,    0xaa44aa],   // 🗣️
+      ['\uD83C\uDFE0',  agent.needs.shelter,        0x888844],   // 🏠
     ];
-    const iconW = 14;
-    const colBarW = (contentW / 2) - iconW - 8;
+    const emojiW = 22;
+    const colBarW = (contentW / 2) - emojiW - 6;
     const col1x = 14;
     const col2x = 14 + contentW / 2;
     for (let ni = 0; ni < needsList.length; ni += 2) {
       for (let ci = 0; ci < 2; ci++) {
         const idx = ni + ci;
         if (idx >= needsList.length) break;
-        const [icon, val, clr] = needsList[idx];
+        const [emoji, val, clr] = needsList[idx];
         const cx = ci === 0 ? col1x : col2x;
 
-        // Colored icon
-        const ic = this.add.graphics();
-        ic.fillStyle(clr, 1);
-        ic.fillCircle(cx + 6, y + 6, 5);
-        this.infoPanelContainer.add(ic);
+        // Emoji icon
+        const et = this.add.text(cx, y - 2, emoji, { fontSize: '14px' });
+        this.infoPanelContainer.add(et);
 
         // Bar
         const bar = this.add.graphics();
-        const bx = cx + iconW + 2;
-        bar.fillStyle(0x1a1a2e); bar.fillRect(bx, y + 1, colBarW, 10);
-        bar.fillStyle(clr); bar.fillRect(bx, y + 1, colBarW * Math.max(0, Math.min(1, val / 100)), 10);
-        bar.lineStyle(1, 0x2a3a2a); bar.strokeRect(bx, y + 1, colBarW, 10);
+        const bx = cx + emojiW;
+        bar.fillStyle(0x1a1a2e); bar.fillRect(bx, y + 2, colBarW, 10);
+        bar.fillStyle(clr); bar.fillRect(bx, y + 2, colBarW * Math.max(0, Math.min(1, val / 100)), 10);
+        bar.lineStyle(1, 0x2a3a2a); bar.strokeRect(bx, y + 2, colBarW, 10);
         this.infoPanelContainer.add(bar);
       }
-      y += 16;
+      y += 20;
     }
 
     // Metabolism
