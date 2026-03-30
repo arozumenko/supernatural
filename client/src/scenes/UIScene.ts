@@ -91,17 +91,17 @@ export class UIScene extends Phaser.Scene {
     // Events label
     this.logLabel = this.add.text(0, 0, 'EVENTS', {
       fontFamily: PIXEL_FONT,
-      fontSize: '14px',
+      fontSize: '11px',
       color: '#556655',
     }).setDepth(1000);
 
     // Event log text
     this.eventLogText = this.add.text(0, 0, '', {
       fontFamily: PIXEL_FONT,
-      fontSize: '14px',
-      color: '#a0b0a0',
-      lineSpacing: 8,
-      wordWrap: { width: PANEL_W - 28 },
+      fontSize: '10px',
+      color: '#8a9a8a',
+      lineSpacing: 6,
+      wordWrap: { width: SIDEBAR_W - 24 },
     }).setDepth(1000);
 
     // Controls hint (bottom-left)
@@ -165,7 +165,7 @@ export class UIScene extends Phaser.Scene {
     // Sidebar scroll mask
     this.sidebarMaskGraphics.clear();
     this.sidebarMaskGraphics.fillStyle(0xffffff);
-    this.sidebarMaskGraphics.fillRect(0, 0, SIDEBAR_W, h);
+    this.sidebarMaskGraphics.fillRect(0, 0, SIDEBAR_W, Math.floor(h / 2) - 10);
 
     // Stats text shift right to avoid sidebar
     this.statsText.setPosition(SIDEBAR_W + 12, 12);
@@ -187,23 +187,22 @@ export class UIScene extends Phaser.Scene {
     // Title
     this.panelTitle.setPosition(panelX + 14, 10);
 
-    // Info panel position
+    // Info panel position — full right panel height (no event log competing)
     this.infoPanelContainer.setPosition(panelX, 0);
 
-    // Mask info panel to not overlap event log
-    const logH = 240;
     this.infoPanelMaskGraphics.clear();
     this.infoPanelMaskGraphics.fillStyle(0xffffff);
-    this.infoPanelMaskGraphics.fillRect(panelX, 0, PANEL_W, h - logH - 50);
+    this.infoPanelMaskGraphics.fillRect(panelX, 0, PANEL_W, h - 10);
 
-    // Event log area
-    // Divider line for events
-    this.rightPanelBg.lineStyle(1, 0x2a3a2a);
-    this.rightPanelBg.lineBetween(panelX + 12, h - logH - 24, w - 12, h - logH - 24);
+    // Event log — positioned in left sidebar, bottom half
+    const eventLogY = Math.floor(h / 2);
+    // Divider
+    this.sidebarBg.lineStyle(1, 0x334433, 0.6);
+    this.sidebarBg.lineBetween(10, eventLogY - 6, SIDEBAR_W - 10, eventLogY - 6);
 
-    this.logLabel.setPosition(panelX + 14, h - logH - 40);
-    this.eventLogText.setPosition(panelX + 14, h - logH - 12);
-    this.eventLogText.setWordWrapWidth(PANEL_W - 28);
+    this.logLabel.setPosition(12, eventLogY - 2);
+    this.eventLogText.setPosition(12, eventLogY + 16);
+    this.eventLogText.setWordWrapWidth(SIDEBAR_W - 24);
 
     // Controls hint
     this.controlsText.setPosition(12, h - 28);
