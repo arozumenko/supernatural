@@ -14,6 +14,7 @@ import {
 } from './GOAPPlanner.ts';
 import { createDefaultGenome } from './BehaviorGenome.ts';
 import { executePendingPlan } from '../api/plan-executor.ts';
+import { evaluateStrategyRules } from './StrategyRules.ts';
 
 // Base decay rates per tick (level 0 agent)
 const HUNGER_DECAY = 0.15;
@@ -447,6 +448,11 @@ export function decayNeeds(agent: AgentState): void {
     envDamage += 0.1;
     agent.needs.health = clamp(agent.needs.health - 0.1, 0, 100);
   }
+  // Exposure damage: no shelter slowly drains health
+  if (agent.needs.shelter <= 0) {
+    envDamage += 0.15;
+    agent.needs.health = clamp(agent.needs.health - 0.15, 0, 100);
+  }
   if (envDamage > 0) {
     awardXP(agent.skills, 'defense', 0.5, envDamage);
   }
@@ -552,12 +558,13 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
     const equipBonus = (agent.inventory.equipped.mainHand ? 5 : 0) + (agent.inventory.equipped.body ? 5 : 0);
     const totalSkills = Object.values(agent.skills).reduce((sum, s) => sum + s.level, 0);
 
-    // Confidence: higher level = less afraid. A level 30+ agent is confident
-    const confidence = Math.min(1.5, 0.5 + (totalSkills / 100) + (agentAttack / 20) + (equipBonus / 20));
+    // Confidence: higher level = less afraid. Reduced when injured.
+    const healthFactor = agent.needs.health > 60 ? 1.0 : agent.needs.health / 60; // confidence drops when hurt
+    const confidence = Math.min(1.5, (0.5 + (totalSkills / 100) + (agentAttack / 20) + (equipBonus / 20)) * healthFactor);
     const dangerRatio = species.attack / Math.max(1, agentDefense * confidence);
 
-    // Confident agents ignore weak threats entirely
-    if (dangerRatio < 0.4 * confidence) continue;
+    // Confident agents ignore weak threats — but never when health is low
+    if (agent.needs.health > 50 && dangerRatio < 0.4 * confidence) continue;
 
     // Was recently attacked by this animal?
     const wasAttacked = agent.lastAttackedBy?.type === 'animal' && agent.lastAttackedBy.id === animal.id;
@@ -566,7 +573,7 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
     // Confidence reduces flee urgency — powerful agents stand their ground more
     let fleePriority = Math.floor(genome.interruptWeights.fleeBase + (dangerRatio * proximityUrgency * 35) - (confidence * 10));
     // Desperate agents don't flee as readily — they'll fight for survival
-    const desperation = (agent.needs.proteinHunger < 15 || agent.needs.thirst < 15) ? 15 : 0;
+    const desperation = (agent.needs.proteinHunger < 15 || agent.needs.thirst < 15) ? 25 : 0;
     fleePriority -= desperation;
     if (wasAttacked) fleePriority = Math.min(fleePriority + 20, 98);
 
@@ -711,8 +718,8 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
   }
 
   if (agent.needs.stamina < genome.thresholds.criticalStamina) {
-    // Check for stamina herb first
-    const herb = world.findNearestPlant(ax, ay, [PlantType.STAMINA_HERB]);
+    // Check for stamina herb — only if close enough (walking drains more stamina)
+    const herb = world.findNearestPlant(ax, ay, [PlantType.STAMINA_HERB], 5);
     if (herb) {
       decisions.push({
         action: 'harvesting',
@@ -722,14 +729,15 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
         reason: 'seeking stamina herb'
       });
     }
-    decisions.push({ action: 'resting', priority: genome.interruptWeights.exhaustionRest, reason: 'exhausted, must rest' });
+    // Rest is always available and slightly higher priority than distant herb
+    decisions.push({ action: 'resting', priority: genome.interruptWeights.exhaustionRest + 3, reason: 'exhausted, must rest' });
   }
 
   // === Action Commitment ===
   // If we're continuing the current action (non-decision tick), only allow critical interrupts (priority >= 85).
   // This prevents flickering between goals every tick.
   if (continueCurrentAction && agent.action !== 'idle' && agent.action !== 'wandering') {
-    const criticalInterrupt = decisions.find(d => d.priority >= 85);
+    const criticalInterrupt = decisions.find(d => d.priority >= 80);
     if (criticalInterrupt) {
       agentPlans.delete(agent.id);
       agent.currentPlanGoal = undefined;
@@ -784,7 +792,7 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
   if (planDecision) {
     decisions.push(planDecision as any);
     // If plan priority is high enough, use it directly
-    if (planDecision.priority >= 50) {
+    if (planDecision.priority >= 60) {
       agent.lastDecisionReason = planDecision.reason;
       return planDecision as any;
     }
@@ -1117,6 +1125,9 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
     priority: genome.fallbackWeights.wander,
     reason: 'exploring'
   });
+
+  // Apply strategy rules (LLM-evolved behavior modifiers)
+  evaluateStrategyRules(agent, decisions as any, world, tickCount);
 
   // Pick highest priority
   decisions.sort((a, b) => b.priority - a.priority);
