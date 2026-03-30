@@ -453,8 +453,9 @@ export function decayNeeds(agent: AgentState): void {
     envDamage += 0.15;
     agent.needs.health = clamp(agent.needs.health - 0.15, 0, 100);
   }
+  // Environmental damage awards survival XP, not defense (defense = combat blocking)
   if (envDamage > 0) {
-    awardXP(agent.skills, 'defense', 0.5, envDamage);
+    awardXP(agent.skills, 'survival', 0.2, envDamage);
   }
 
   // Slow health regen when needs are met — scales with survival level
@@ -1764,10 +1765,10 @@ export function executeAction(
               timestamp: Date.now(),
             });
 
-            // Social recovery: small health + stamina boost from positive interactions
-            if (outcome > 0) {
-              agent.needs.health = clamp(agent.needs.health + 2, 0, 100);
-              agent.needs.stamina = clamp(agent.needs.stamina + 3, 0, 100);
+            // Social recovery: small health + stamina boost — only if basic needs met
+            if (outcome > 0 && agent.needs.thirst > 10 && agent.needs.proteinHunger > 10) {
+              agent.needs.health = clamp(agent.needs.health + 1, 0, 100);
+              agent.needs.stamina = clamp(agent.needs.stamina + 2, 0, 100);
             }
 
             // Trading: charisma-scaled chance to swap surplus resources

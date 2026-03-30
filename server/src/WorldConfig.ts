@@ -107,7 +107,7 @@ export const WorldConfig = {
   // ─── Structures ───
   structures: {
     maxHp: {
-      [TileType.CAMPFIRE]: 30,
+      [TileType.CAMPFIRE]: 1,
       [TileType.WORKBENCH]: 50,
       [TileType.FORGE]: 80,
       [TileType.BUILT_FLOOR]: 20,
