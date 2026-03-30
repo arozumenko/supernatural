@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
-import type { GameResults, AgentResult, AnimalResult } from '@supernatural/shared';
+import { AGENT_ARCHETYPES } from '@supernatural/shared';
+import type { GameResults, AgentResult, AnimalResult, AgentArchetype } from '@supernatural/shared';
 
 const PIXEL_FONT = '"Press Start 2P", monospace';
 
@@ -116,7 +117,8 @@ export class ResultsScene extends Phaser.Scene {
       const color = isTop ? '#ffd700' : '#c8d0c8';
       const prefix = isTop ? '\u2B50 ' : '';
       this.addText(40, y, `${agent.rank}`, color, '12px');
-      this.addText(70, y, prefix + agent.name, color, '12px');
+      const archEmoji = AGENT_ARCHETYPES[(agent.archetype ?? 'random') as AgentArchetype]?.label ?? '';
+      this.addText(70, y, prefix + archEmoji + ' ' + agent.name, color, '12px');
       this.addText(200, y, `${agent.effectiveness}`, color, '12px');
       const bestSecs = Math.floor(agent.bestLifeTicks / 10);
       this.addText(300, y, `${Math.floor(bestSecs / 60)}m${bestSecs % 60}s`, '#909890', '12px');

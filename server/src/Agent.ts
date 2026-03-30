@@ -114,6 +114,7 @@ export function createAgent(
     achievements: [],
     llmProviderId: null,
     llmRole: 'none',
+    archetype: resolvedArchetype,
   };
 
   // Attach non-wire fields (not sent to client via world:update)

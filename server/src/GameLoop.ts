@@ -644,6 +644,7 @@ export class GameLoop {
         totalSkillLevels: totalSkillLevels,
         aiRole: a.llmRole ?? 'none',
         aiProvider: a.llmProviderId ?? null,
+        archetype: a.archetype ?? 'random',
         genomeVersion: a.genomeVersion ?? 1,
       };
     }).sort((a, b) => b.effectiveness - a.effectiveness);

@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
-import { AgentState, TreeState, RockState, PlantState, PlantType, AnimalState, CorpseState, StructureState, TileType, DropTable, WORLD_WIDTH, WORLD_HEIGHT, Season, OrchestratorRole } from '@supernatural/shared';
+import { AgentState, TreeState, RockState, PlantState, PlantType, AnimalState, CorpseState, StructureState, TileType, DropTable, WORLD_WIDTH, WORLD_HEIGHT, Season, OrchestratorRole, AGENT_ARCHETYPES } from '@supernatural/shared';
+import type { AgentArchetype } from '@supernatural/shared';
 
 const PIXEL_FONT = '"Press Start 2P", monospace';
 const PANEL_W = 380;
@@ -65,6 +66,7 @@ export class UIScene extends Phaser.Scene {
   // Persistent sidebar rows — created once, text updated in place
   private sidebarAgentRows: {
     agentId: string;
+    archText: Phaser.GameObjects.Text;
     nameText: Phaser.GameObjects.Text;
     lvText: Phaser.GameObjects.Text;
     livesText: Phaser.GameObjects.Text;
@@ -507,28 +509,32 @@ export class UIScene extends Phaser.Scene {
     const dot = this.add.graphics();
     this.sidebarContainer.add(dot);
 
-    // Name
-    const nameText = this.add.text(22, y + 1, '', {
+    // Archetype emoji
+    const archText = this.add.text(22, y - 1, '', { fontSize: '12px' });
+    this.sidebarContainer.add(archText);
+
+    // Name (shifted right for archetype)
+    const nameText = this.add.text(40, y + 1, '', {
       fontFamily: PIXEL_FONT, fontSize: '12px', color: '#cccccc',
     });
     this.sidebarContainer.add(nameText);
 
     // Level
-    const lvText = this.add.text(95, y + 1, '', {
+    const lvText = this.add.text(110, y + 1, '', {
       fontFamily: PIXEL_FONT, fontSize: '12px', color: '#aaaaaa',
     });
     this.sidebarContainer.add(lvText);
 
     // Lives
-    const livesText = this.add.text(148, y - 1, '', { fontSize: '12px', color: '#44cc44' });
+    const livesText = this.add.text(162, y - 1, '', { fontSize: '12px', color: '#44cc44' });
     this.sidebarContainer.add(livesText);
 
     // Deaths
-    const deathText = this.add.text(210, y - 1, '', { fontSize: '11px', color: '#886666' });
+    const deathText = this.add.text(224, y - 1, '', { fontSize: '11px', color: '#886666' });
     this.sidebarContainer.add(deathText);
 
     // Store references for in-place updates
-    this.sidebarAgentRows.push({ agentId: agent.id, nameText, lvText, livesText, deathText, dot });
+    this.sidebarAgentRows.push({ agentId: agent.id, archText, nameText, lvText, livesText, deathText, dot });
 
     // Click zone — PERMANENT, never destroyed between updates
     const zone = this.add.zone(SIDEBAR_W / 2, y + rowH / 2, SIDEBAR_W, rowH).setInteractive({ useHandCursor: true });
@@ -571,6 +577,8 @@ export class UIScene extends Phaser.Scene {
       const name = agent.name.length > 6 ? agent.name.slice(0, 5) + '.' : agent.name;
 
       row.agentId = agent.id;
+      const archEmoji = AGENT_ARCHETYPES[(agent.archetype ?? 'random') as AgentArchetype]?.label ?? '\uD83C\uDFB2';
+      row.archText.setText(archEmoji);
       row.nameText.setText(name);
       row.nameText.setColor(alive ? '#cccccc' : '#666666');
       row.lvText.setText(`Lv${level}`);
@@ -718,11 +726,12 @@ export class UIScene extends Phaser.Scene {
       y += 8;
     };
 
-    // Agent name + lives + deaths on one line
+    // Agent name + archetype + lives + deaths on one line
     {
       const lives = agent.livesRemaining ?? 100;
       const livesColor = lives > 50 ? '#44cc44' : lives > 20 ? '#cccc44' : '#cc4444';
-      const nameT = this.add.text(14, y, agent.name, {
+      const archEmoji = AGENT_ARCHETYPES[(agent.archetype ?? 'random') as AgentArchetype]?.label ?? '';
+      const nameT = this.add.text(14, y, `${archEmoji} ${agent.name}`, {
         fontFamily: PIXEL_FONT, fontSize: '14px', color: '#80d880',
       });
       this.infoPanelContainer.add(nameT);

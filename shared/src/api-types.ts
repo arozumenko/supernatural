@@ -246,6 +246,7 @@ export interface AgentResult {
   totalSkillLevels: number;
   aiRole: string;
   aiProvider: string | null;
+  archetype: string;
   genomeVersion: number;
 }
 

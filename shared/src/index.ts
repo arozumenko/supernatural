@@ -356,6 +356,7 @@ export interface AgentState {
   achievements?: string[];
   llmProviderId?: string | null;
   llmRole?: OrchestratorRole;
+  archetype?: AgentArchetype;
   lastDecisionReason?: string;
 }
 
