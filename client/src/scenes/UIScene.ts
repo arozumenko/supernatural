@@ -63,6 +63,7 @@ export class UIScene extends Phaser.Scene {
   private lastAgentStructureHash = '';
   private lastPanelRebuildTime = 0;
   private panelRebuildQueued = false;
+  private lastPanelDataHash = '';
   // Persistent sidebar rows — created once, text updated in place
   private sidebarAgentRows: {
     agentId: string;
@@ -320,6 +321,22 @@ export class UIScene extends Phaser.Scene {
   }
 
   private rebuildPanel(): void {
+    // Skip rebuild if data hasn't changed
+    const agent = this.selectedAgent;
+    if (agent) {
+      const hash = agent.id + '|' + agent.action + '|' + Math.floor(agent.needs.health) + '|' +
+        Math.floor(agent.needs.thirst) + '|' + Math.floor(agent.needs.proteinHunger) + '|' +
+        Math.floor(agent.needs.stamina) + '|' + agent.totalDeaths + '|' +
+        (agent.livesRemaining ?? 100) + '|' + (agent.currentPlanGoal ?? '') + '|' +
+        agent.resources.wood + '|' + agent.resources.stone + '|' + agent.resources.food;
+      if (hash === this.lastPanelDataHash) {
+        this.panelRebuildQueued = false;
+        return; // nothing changed, skip rebuild
+      }
+      this.lastPanelDataHash = hash;
+    } else {
+      this.lastPanelDataHash = '';
+    }
     this.lastPanelRebuildTime = Date.now();
     this.panelRebuildQueued = false;
     this.updateInfoPanel();
@@ -327,13 +344,14 @@ export class UIScene extends Phaser.Scene {
 
   private throttledRebuildPanel(): void {
     const now = Date.now();
-    if (now - this.lastPanelRebuildTime >= 500) {
+    const PANEL_THROTTLE_MS = 2000; // rebuild max every 2s for same-entity data refresh
+    if (now - this.lastPanelRebuildTime >= PANEL_THROTTLE_MS) {
       this.rebuildPanel();
     } else if (!this.panelRebuildQueued) {
       this.panelRebuildQueued = true;
       setTimeout(() => {
         if (this.panelRebuildQueued) this.rebuildPanel();
-      }, 500 - (now - this.lastPanelRebuildTime));
+      }, PANEL_THROTTLE_MS - (now - this.lastPanelRebuildTime));
     }
   }
 
