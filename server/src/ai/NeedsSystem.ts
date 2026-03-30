@@ -660,21 +660,39 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
   if (continueCurrentAction && agent.action !== 'idle' && agent.action !== 'wandering') {
     const criticalInterrupt = decisions.find(d => d.priority >= 85);
     if (criticalInterrupt) {
-      // Critical interrupt overrides current action
       agentPlans.delete(agent.id);
       agent.currentPlanGoal = undefined;
       agent.currentPlanSteps = undefined;
       agent.planStepIndex = undefined;
       return criticalInterrupt;
     }
-    // Continue current action — return a decision matching what the agent is already doing
-    const currentTarget = agent.actionTarget;
-    return {
-      action: agent.action,
-      priority: 50,
-      target: currentTarget,
-      reason: 'continuing current action'
-    };
+
+    // Stuck detection: if agent hasn't moved in 30 ticks, force re-evaluation
+    const lastX = (agent as any)._lastPosX ?? agent.x;
+    const lastY = (agent as any)._lastPosY ?? agent.y;
+    const stuckTicks = (agent as any)._stuckTicks ?? 0;
+    if (Math.abs(agent.x - lastX) < 0.1 && Math.abs(agent.y - lastY) < 0.1) {
+      (agent as any)._stuckTicks = stuckTicks + 1;
+    } else {
+      (agent as any)._stuckTicks = 0;
+    }
+    (agent as any)._lastPosX = agent.x;
+    (agent as any)._lastPosY = agent.y;
+
+    if ((agent as any)._stuckTicks >= 30) {
+      // Been stuck for 3 seconds — force full re-evaluation
+      (agent as any)._stuckTicks = 0;
+      // Fall through to full decision logic below
+    } else {
+      // Continue current action
+      const currentTarget = agent.actionTarget;
+      return {
+        action: agent.action,
+        priority: 50,
+        target: currentTarget,
+        reason: 'continuing current action'
+      };
+    }
   }
 
   // === GOAP Layer ===
@@ -1083,6 +1101,14 @@ export function executeAction(
   const interactions: any[] = [];
   const ax = Math.floor(agent.x);
   const ay = Math.floor(agent.y);
+
+  // Guard: if action needs a target but has none, fall back to wandering
+  const needsTarget = ['harvesting', 'drinking', 'building', 'crafting', 'socializing', 'planting', 'moving_to'];
+  if (needsTarget.includes(decision.action) && !decision.target) {
+    agent.action = 'wandering';
+    agent.actionTarget = undefined;
+    return { tileChanges, interactions };
+  }
 
   agent.action = decision.action;
   agent.actionTarget = decision.target;
