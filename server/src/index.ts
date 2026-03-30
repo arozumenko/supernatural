@@ -56,7 +56,9 @@ const gameEvents = {
 };
 
 // Create game (mutable — recreated on game:configure)
+// Don't start yet — wait for client to send game:configure
 let game = new GameLoop(gameEvents);
+let gameStarted = false;
 
 // Orchestrator for LLM-controlled agents
 const llmCaller = new LLMCaller();
@@ -100,6 +102,7 @@ io.on('connection', (socket) => {
 
   socket.on('game:configure', (config: GameConfig) => {
     console.log(`Game configured by ${socket.id}:`, config);
+    gameStarted = true;
     // Apply config to shared constants
     applyGameConfig(config);
     // Stop orchestrator + game
@@ -185,8 +188,8 @@ io.on('connection', (socket) => {
 // Mount API router (uses getter because game is reassigned on game:configure)
 app.use('/api', createApiRouter(() => game));
 
-// Start
+// Start server (game loop starts only on game:configure from client)
 httpServer.listen(PORT, () => {
   console.log(`Supernatural server running on http://localhost:${PORT}`);
-  game.start();
+  console.log('Waiting for client to start a game...');
 });

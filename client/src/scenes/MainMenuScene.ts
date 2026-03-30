@@ -297,7 +297,7 @@ export class MainMenuScene extends Phaser.Scene {
       const res = await fetch('http://localhost:3001/api/status');
       if (res.ok) {
         const status = await res.json();
-        if (status.alive > 0 || status.ticks > 10) {
+        if (status.ticks > 10) {
           // Game already running — skip menu, rejoin directly
           this.scene.start('GameScene', { rejoin: true });
           return;
