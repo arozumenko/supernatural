@@ -580,9 +580,32 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
     if (wasAttacked) fleePriority = Math.min(fleePriority + 20, 98);
 
     if (fleePriority > 60) {
-      const fleeX = Math.floor(agent.x + (agent.x - animal.x) * 2);
-      const fleeY = Math.floor(agent.y + (agent.y - animal.y) * 2);
-      // Remember danger location
+      // Smart flee: try to flee toward a useful resource (water/food) that's away from predator
+      const awayDx = agent.x - animal.x;
+      const awayDy = agent.y - animal.y;
+      const awayLen = Math.sqrt(awayDx * awayDx + awayDy * awayDy) || 1;
+      let fleeX = Math.floor(agent.x + (awayDx / awayLen) * 8);
+      let fleeY = Math.floor(agent.y + (awayDy / awayLen) * 8);
+
+      // Try to find water/food in the flee direction (not back toward predator)
+      const water = world.findNearest(ax, ay, TileType.WATER, 15);
+      if (water) {
+        const toWaterDx = water.x - agent.x;
+        const toWaterDy = water.y - agent.y;
+        // Only flee toward water if it's generally away from predator (dot product > 0)
+        if (toWaterDx * awayDx + toWaterDy * awayDy > 0) {
+          fleeX = water.x;
+          fleeY = water.y;
+        }
+      }
+
+      // Add slight randomization to prevent stuck-in-corner loops
+      fleeX += Math.floor(Math.random() * 6) - 3;
+      fleeY += Math.floor(Math.random() * 6) - 3;
+      // Clamp to map bounds
+      fleeX = Math.max(1, Math.min(fleeX, WORLD_WIDTH - 2));
+      fleeY = Math.max(1, Math.min(fleeY, WORLD_HEIGHT - 2));
+
       rememberLocation(agent, 'danger', Math.floor(animal.x), Math.floor(animal.y), agent.age);
       decisions.push({
         action: 'wandering',
