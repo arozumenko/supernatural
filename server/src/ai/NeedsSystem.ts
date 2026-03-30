@@ -440,8 +440,8 @@ export function decayNeeds(agent: AgentState): void {
     agent.needs.health = clamp(agent.needs.health - 0.5, 0, 100);
   }
   if (agent.needs.thirst <= 0) {
-    envDamage += 0.8;
-    agent.needs.health = clamp(agent.needs.health - 0.8, 0, 100);
+    envDamage += 1.5;  // was 0.8 — dehydration kills faster
+    agent.needs.health = clamp(agent.needs.health - 1.5, 0, 100);
   }
   if (agent.needs.stamina <= 0) {
     envDamage += 0.1;
@@ -528,11 +528,11 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
     if (!animal.alive) continue;
     const species = getSpecies(animal.species);
 
-    // Only consider actual predators as threats — herbivores don't hunt agents
-    const isPredator = species.diet === 'carnivore' || species.diet === 'omnivore';
+    // Only consider animals that actually hunt agents as threats
+    const huntsAgents = species.hunts?.includes('agent') ?? false;
     const isActivelyAttacking = animal.action === 'hunting' || animal.action === 'fighting';
     const wasAttacker = agent.lastAttackedBy?.type === 'animal' && agent.lastAttackedBy.id === animal.id;
-    if (!isPredator && !isActivelyAttacking && !wasAttacker) continue;
+    if (!huntsAgents && !isActivelyAttacking && !wasAttacker) continue;
 
     const dist = distance(agent.x, agent.y, animal.x, animal.y);
 
@@ -643,6 +643,16 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
         target: water,
         reason: 'critically thirsty'
       });
+    } else {
+      // No water found — desperately search: wander in a random direction
+      const searchX = ax + (Math.random() > 0.5 ? 15 : -15);
+      const searchY = ay + (Math.random() > 0.5 ? 15 : -15);
+      decisions.push({
+        action: 'wandering',
+        priority: genome.interruptWeights.criticalThirst - 5,
+        target: { x: searchX, y: searchY },
+        reason: 'searching for water (desperate)'
+      });
     }
   }
 
@@ -666,6 +676,16 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
           target: { x: foodPlant.x, y: foodPlant.y },
           targetPlantId: foodPlant.id,
           reason: 'foraging for food'
+        });
+      } else {
+        // No food anywhere — desperately search
+        const searchX = ax + (Math.random() > 0.5 ? 15 : -15);
+        const searchY = ay + (Math.random() > 0.5 ? 15 : -15);
+        decisions.push({
+          action: 'wandering',
+          priority: genome.interruptWeights.criticalHunger - 5,
+          target: { x: searchX, y: searchY },
+          reason: 'searching for food (desperate)'
         });
       }
     }

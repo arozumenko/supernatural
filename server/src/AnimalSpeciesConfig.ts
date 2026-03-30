@@ -181,7 +181,7 @@ export const ANIMAL_SPECIES: Record<string, AnimalSpecies> = {
     health: 60,
     attack: 15,
     detectionRange: 10,
-    hunts: ['deer', 'rabbit', 'sheep', 'donkey', 'goat', 'capybara', 'agent'],
+    hunts: ['deer', 'rabbit', 'sheep', 'donkey', 'goat', 'capybara'],
     fleeThreshold: 0.30,
     maxPopulation: 15,
     foodDrop: 3,
