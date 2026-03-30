@@ -1613,6 +1613,7 @@ export function executeAction(
             }
           } else if (decision.targetAgentId) {
             // Fighting another agent
+            const isCannibalistic = decision.reason?.includes('for food');
             const targetAgent = allAgents.find(a => a.id === decision.targetAgentId && a.alive);
             if (targetAgent) {
               const d2 = distance(agent.x, agent.y, targetAgent.x, targetAgent.y);
@@ -1634,7 +1635,21 @@ export function executeAction(
 
                 targetAgent.needs.health = clamp(targetAgent.needs.health - damage, 0, 100);
                 targetAgent.lastAttackedBy = { type: 'agent', id: agent.id, tick: agent.age };
-                agent.lastAttackedBy = undefined; // clear own attacked-by since we're fighting back
+                agent.lastAttackedBy = undefined;
+
+                // Cannibalism: all witnesses become permanent enemies
+                if (isCannibalistic) {
+                  for (const witness of allAgents) {
+                    if (witness.id === agent.id || !witness.alive) continue;
+                    const witnessDist = distance(agent.x, agent.y, witness.x, witness.y);
+                    if (witnessDist < 15) {
+                      // Witness marks cannibal as foe permanently
+                      const dispKey = witness.id + '>' + agent.id;
+                      agentDisposition.set(dispKey, 'foe');
+                      witness.relationships[agent.id] = -100;
+                    }
+                  }
+                }
 
                 awardXP(agent.skills, 'combat', 1.5);
                 awardXP(targetAgent.skills, 'defense', 1.0);
