@@ -1773,8 +1773,19 @@ export function executeAction(
             Math.floor(a.x) === decision.target!.x && Math.floor(a.y) === decision.target!.y
           );
           if (nearbyAgent) {
-            // Social interaction
-            const outcome = Math.random() < 0.7 ? randomOutcome(3, 8) : randomOutcome(-3, -1);
+            // Social interaction — outcome depends on personality + relationship
+            const relationship = agent.relationships[nearbyAgent.id] ?? 0;
+            const isSocial = agent.personality.includes('social');
+            const isLoner = agent.personality.includes('loner');
+            const otherLoner = nearbyAgent.personality.includes('loner');
+            // Base 70% positive, modified by personality and relationship
+            let positiveChance = 0.7;
+            if (isSocial) positiveChance += 0.15;           // social agents are friendlier
+            if (isLoner) positiveChance -= 0.25;            // loners conflict more
+            if (otherLoner) positiveChance -= 0.15;         // two loners = trouble
+            positiveChance += relationship * 0.002;          // existing relationship matters
+            positiveChance = Math.max(0.1, Math.min(0.95, positiveChance));
+            const outcome = Math.random() < positiveChance ? randomOutcome(3, 8) : randomOutcome(-3, -1);
             agent.needs.social = clamp(agent.needs.social + SOCIAL_RESTORE, 0, 100);
             nearbyAgent.needs.social = clamp(nearbyAgent.needs.social + SOCIAL_RESTORE * 0.5, 0, 100);
             agent.relationships[nearbyAgent.id] = clamp(
@@ -1786,13 +1797,16 @@ export function executeAction(
             awardXP(agent.skills, 'social', 1.0);
             agent.socialScore += outcome > 0 ? 1 : -1;
 
-            interactions.push({
-              agentA: agent.id,
-              agentB: nearbyAgent.id,
-              type: outcome > 0 ? 'conversation' : 'conflict',
-              outcome,
-              timestamp: Date.now(),
-            });
+            // Only emit social events every ~10 ticks to avoid spam
+            if (Math.random() < 0.1) {
+              interactions.push({
+                agentA: agent.id,
+                agentB: nearbyAgent.id,
+                type: outcome > 0 ? 'conversation' : 'conflict',
+                outcome,
+                timestamp: Date.now(),
+              });
+            }
 
             // Social recovery: small health + stamina boost — only if basic needs met
             if (outcome > 0 && agent.needs.thirst > 10 && agent.needs.proteinHunger > 10) {
