@@ -1613,10 +1613,22 @@ export function executeAction(
                 if (targetAgent.needs.health <= 0) {
                   targetAgent.alive = false;
                   targetAgent.action = 'dying';
-                  // Reward: killing an agent earns lives
+                  // Major reward for killing another agent
                   if (agent.livesRemaining !== undefined) {
                     agent.livesRemaining = Math.min(200, (agent.livesRemaining ?? 100) + 5);
                   }
+                  // Big XP bonus: killing an agent is the hardest combat achievement
+                  const victimLevel = Object.values(targetAgent.skills).reduce((sum, s) => sum + s.level, 0);
+                  const difficultyMod = Math.max(1.0, victimLevel / 20); // harder victim = more XP
+                  awardXP(agent.skills, 'combat', 10.0, difficultyMod);
+                  awardXP(agent.skills, 'defense', 5.0, difficultyMod);
+                  awardXP(agent.skills, 'athletics', 3.0, difficultyMod);
+                  awardXP(agent.skills, 'survival', 3.0, difficultyMod);
+                  // Loot: take some of victim's resources
+                  agent.resources.food += Math.floor(targetAgent.resources.food / 2);
+                  agent.resources.meat += Math.floor(targetAgent.resources.meat / 2);
+                  agent.resources.wood += Math.floor(targetAgent.resources.wood / 4);
+                  agent.resources.stone += Math.floor(targetAgent.resources.stone / 4);
                 }
               } else {
                 moveTowards(agent, targetAgent.x, targetAgent.y, world);
