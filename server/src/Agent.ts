@@ -32,8 +32,15 @@ export function createAgent(
 
   const baseStats = createAgentBaseStats();
 
+  // Resolve archetype: 'random' picks one of the real archetypes
+  let resolvedArchetype = archetype ?? 'random';
+  if (resolvedArchetype === 'random') {
+    const realArchetypes: AgentArchetype[] = ['warrior', 'survivor', 'builder', 'scout', 'social'];
+    resolvedArchetype = realArchetypes[randomInt(0, realArchetypes.length - 1)];
+  }
+
   // Apply archetype stat overrides
-  const arch = archetype && archetype !== 'random' ? AGENT_ARCHETYPES[archetype] : null;
+  const arch = AGENT_ARCHETYPES[resolvedArchetype];
   if (arch) {
     for (const [stat, val] of Object.entries(arch.stats)) {
       (baseStats as any)[stat] = val;
