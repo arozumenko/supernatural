@@ -69,6 +69,7 @@ interface Decision {
   targetRockId?: string;
   targetPlantId?: string;
   targetAnimalId?: string;
+  targetAgentId?: string;
   targetCorpseId?: string;
   reason: string;
 }
@@ -671,6 +672,7 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
           action: 'harvesting',
           priority: 85,
           target: { x: Math.floor(attackerAgent.x), y: Math.floor(attackerAgent.y) },
+          targetAgentId: attackerAgent.id,
           reason: `fighting ${attackerAgent.name}`
         });
       } else if (agent.needs.health < 50) {
@@ -1555,6 +1557,42 @@ export function executeAction(
                 }
               } else {
                 moveTowards(agent, prey.x, prey.y, world);
+              }
+            }
+          } else if (decision.targetAgentId) {
+            // Fighting another agent
+            const targetAgent = allAgents.find(a => a.id === decision.targetAgentId && a.alive);
+            if (targetAgent) {
+              const d2 = distance(agent.x, agent.y, targetAgent.x, targetAgent.y);
+              if (d2 <= 1.5) {
+                // Attack cooldown
+                if (agent.attackCooldown > 0) break;
+                agent.attackCooldown = Math.max(5, 10 - Math.floor(agent.skills.combat.level / 20));
+
+                // Calculate damage
+                let weaponBonus = 0;
+                const weapon = agent.inventory.equipped.mainHand;
+                if (weapon) {
+                  const wDef = getItemDef(weapon.itemId);
+                  weaponBonus = wDef.attackBonus || 0;
+                }
+                const attackPower = agent.baseStats.strength + agent.skills.combat.level * 0.3 + weaponBonus;
+                const targetDefense = targetAgent.baseStats.toughness + targetAgent.skills.defense.level * 0.3;
+                const damage = Math.max(1, Math.floor((attackPower - targetDefense * 0.5) * 0.4));
+
+                targetAgent.needs.health = clamp(targetAgent.needs.health - damage, 0, 100);
+                targetAgent.lastAttackedBy = { type: 'agent', id: agent.id, tick: agent.age };
+                agent.lastAttackedBy = undefined; // clear own attacked-by since we're fighting back
+
+                awardXP(agent.skills, 'combat', 1.5);
+                awardXP(targetAgent.skills, 'defense', 1.0);
+
+                if (targetAgent.needs.health <= 0) {
+                  targetAgent.alive = false;
+                  targetAgent.action = 'dying';
+                }
+              } else {
+                moveTowards(agent, targetAgent.x, targetAgent.y, world);
               }
             }
           } else if (decision.targetCorpseId) {
