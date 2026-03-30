@@ -553,7 +553,7 @@ export class UIScene extends Phaser.Scene {
       y += 8;
     };
 
-    // Agent name + lives
+    // Agent name + lives + deaths on one line
     {
       const lives = agent.livesRemaining ?? 100;
       const livesColor = lives > 50 ? '#44cc44' : lives > 20 ? '#cccc44' : '#cc4444';
@@ -561,23 +561,27 @@ export class UIScene extends Phaser.Scene {
         fontFamily: PIXEL_FONT, fontSize: '14px', color: '#80d880',
       });
       this.infoPanelContainer.add(nameT);
-      const livesT = this.add.text(14 + nameT.width + 12, y, `\u2764${lives}`, {
+      let xOff = 14 + nameT.width + 10;
+      const livesT = this.add.text(xOff, y, `\u2764${lives}`, {
         fontSize: '13px', color: livesColor,
       });
       this.infoPanelContainer.add(livesT);
+      if (agent.totalDeaths > 0) {
+        xOff += livesT.width + 10;
+        const deathT = this.add.text(xOff, y, `\uD83D\uDC80${agent.totalDeaths}`, {
+          fontSize: '13px', color: '#aa8888',
+        });
+        this.infoPanelContainer.add(deathT);
+      }
       y += 22;
     }
     addLine(agent.personality.join(' / '), '#607860', '12px');
 
-    // Status + last death
+    // Status
     if (agent.alive) {
       addLine(formatAction(agent.action), '#88bbdd', '10px', 2);
     } else {
       addLine('DEAD', '#cc4444', '14px', 2);
-    }
-    if (agent.totalDeaths > 0) {
-      const deathIcon = getDeathEmoji(agent);
-      addLine(`Deaths: ${agent.totalDeaths}  ${deathIcon}`, '#aa8888', '12px');
     }
 
     // GOAP Plan
