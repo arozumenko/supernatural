@@ -1061,6 +1061,7 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
   const socialBonus = isSocial ? 20 : 0;
 
   if (agent.needs.social < genome.goalThresholds.socialRelevant) {
+    // Look nearby first
     const nearbyAgent = allAgents.find(
       a => a.id !== agent.id && a.alive && distance(agent.x, agent.y, a.x, a.y) < genome.thresholds.socialDetectRange
     );
@@ -1071,6 +1072,23 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
         target: { x: Math.floor(nearbyAgent.x), y: Math.floor(nearbyAgent.y) },
         reason: `wants to talk to ${nearbyAgent.name}`
       });
+    } else {
+      // No one nearby — find the closest agent anywhere and walk toward them
+      let closestAgent: AgentState | null = null;
+      let closestDist = Infinity;
+      for (const a of allAgents) {
+        if (a.id === agent.id || !a.alive) continue;
+        const d = distance(agent.x, agent.y, a.x, a.y);
+        if (d < closestDist) { closestDist = d; closestAgent = a; }
+      }
+      if (closestAgent) {
+        decisions.push({
+          action: 'wandering',
+          priority: genome.fallbackWeights.socialize + socialBonus - 5,
+          target: { x: Math.floor(closestAgent.x), y: Math.floor(closestAgent.y) },
+          reason: `seeking company (${closestAgent.name})`
+        });
+      }
     }
   }
 
