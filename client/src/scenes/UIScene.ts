@@ -452,7 +452,8 @@ export class UIScene extends Phaser.Scene {
         const best = tierAnimals[0];
         if (best) {
           const secs = Math.floor(best.age / 10);
-          const t = this.add.text(12, y, `${emoji} ${tierLabel}: ${best.species} ${secs}s`, {
+          const lvl = Object.values(best.skills).reduce((sum: number, s: any) => sum + (s.level || 0), 0);
+          const t = this.add.text(12, y, `${emoji} ${tierLabel}: ${best.species} Lv${lvl} ${secs}s`, {
             fontFamily: PIXEL_FONT, fontSize: '11px', color: '#909890',
           });
           this.sidebarContainer.add(t);
