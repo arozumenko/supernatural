@@ -473,8 +473,8 @@ export function decayNeeds(agent: AgentState): void {
   const enduranceReduction = agent.baseStats.endurance * 0.003; // max ~4.5% at 15 END
   agent.needs.proteinHunger = clamp(agent.needs.proteinHunger + HUNGER_DECAY * enduranceReduction, 0, 100);
   agent.needs.thirst = clamp(agent.needs.thirst + THIRST_DECAY * enduranceReduction, 0, 100);
-  // Toughness (base stat): slow passive damage reduction
-  if (agent.needs.health < 100) {
+  // Toughness (base stat): slow passive regen — only when not taking environmental damage
+  if (agent.needs.health < 100 && envDamage === 0) {
     agent.needs.health = clamp(agent.needs.health + agent.baseStats.toughness * 0.002, 0, 100);
   }
 
