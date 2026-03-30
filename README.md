@@ -92,6 +92,24 @@ Then edit `server/llm-providers.json` — keep only the providers you want to us
 }
 ```
 
+**AWS Bedrock** (`"provider": "bedrock"`) — uses the Converse API with SigV4 signing, no AWS SDK needed
+```json
+{
+  "id": "bedrock-claude",
+  "label": "Bedrock Claude",
+  "provider": "bedrock",
+  "model": "anthropic.claude-sonnet-4-5-20250514-v1:0",
+  "apiKey": "$AWS_ACCESS_KEY_ID:$AWS_SECRET_ACCESS_KEY",
+  "baseUrl": "us-east-1",
+  "maxTokens": 4096,
+  "temperature": 0.7,
+  "timeout": 15000,
+  "maxConcurrent": 3,
+  "rateLimitPerMinute": 20
+}
+```
+For Bedrock, `apiKey` is `ACCESS_KEY_ID:SECRET_ACCESS_KEY` (colon-separated) or set `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` env vars. `baseUrl` is the AWS region.
+
 **Any OpenAI-compatible API** (`"provider": "openai_compatible"`) — works with vLLM, Together, LM Studio, Groq, Mistral, DeepSeek, etc.
 ```json
 {
@@ -115,10 +133,10 @@ Then edit `server/llm-providers.json` — keep only the providers you want to us
 |-------|----------|-------------|
 | `id` | Yes | Unique identifier used internally |
 | `label` | Yes | Display name shown in the game UI |
-| `provider` | Yes | One of: `anthropic`, `openai`, `google`, `ollama`, `openai_compatible` |
+| `provider` | Yes | One of: `anthropic`, `openai`, `google`, `ollama`, `bedrock`, `openai_compatible` |
 | `model` | Yes | Model name (provider-specific) |
 | `apiKey` | Yes | API key, or `$ENV_VAR` to read from environment. Empty string for Ollama. |
-| `baseUrl` | No | Custom API endpoint. Required for `ollama` and `openai_compatible`. |
+| `baseUrl` | No | Custom API endpoint. Required for `ollama` and `openai_compatible`. AWS region for `bedrock`. |
 | `maxTokens` | Yes | Maximum response tokens |
 | `temperature` | Yes | Sampling temperature (0.0-2.0) |
 | `timeout` | Yes | Request timeout in milliseconds |

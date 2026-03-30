@@ -53,6 +53,20 @@
     "rateLimitPerMinute": 10
   },
   {
+    "_comment": "AWS Bedrock — uses Converse API with SigV4 signing. apiKey = ACCESS_KEY:SECRET_KEY or use AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY env vars. baseUrl = AWS region.",
+    "id": "bedrock-claude",
+    "label": "Bedrock Claude",
+    "provider": "bedrock",
+    "model": "anthropic.claude-sonnet-4-5-20250514-v1:0",
+    "apiKey": "$AWS_ACCESS_KEY_ID:$AWS_SECRET_ACCESS_KEY",
+    "baseUrl": "us-east-1",
+    "maxTokens": 4096,
+    "temperature": 0.7,
+    "timeout": 15000,
+    "maxConcurrent": 3,
+    "rateLimitPerMinute": 20
+  },
+  {
     "_comment": "Any OpenAI-compatible API (vLLM, Together, LM Studio, Groq, Mistral, etc.)",
     "id": "together-mixtral",
     "label": "Together Mixtral",

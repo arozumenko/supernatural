@@ -1,3 +1,4 @@
+import { createHmac, createHash } from 'crypto';
 import type { LLMProviderConfig } from '../../shared/src/index.ts';
 
 /**
@@ -51,6 +52,7 @@ export class LLMClient {
       case 'ollama': return this.callOllama(prompt, signal);
       case 'openai':
       case 'openai_compatible': return this.callOpenAI(prompt, signal);
+      case 'bedrock': return this.callBedrock(prompt, signal);
       default: throw new Error('Unknown provider: ' + this.config.provider);
     }
   }
@@ -134,4 +136,65 @@ export class LLMClient {
     const data = await res.json();
     return data.message?.content ?? null;
   }
+
+  private async callBedrock(prompt: string, signal: AbortSignal): Promise<string | null> {
+    const region = this.config.baseUrl ?? 'us-east-1';
+    let accessKey: string;
+    let secretKey: string;
+    if (this.config.apiKey.includes(':')) {
+      [accessKey, secretKey] = this.config.apiKey.split(':');
+    } else {
+      accessKey = process.env.AWS_ACCESS_KEY_ID ?? '';
+      secretKey = process.env.AWS_SECRET_ACCESS_KEY ?? '';
+    }
+
+    const host = 'bedrock-runtime.' + region + '.amazonaws.com';
+    const url = 'https://' + host + '/model/' + encodeURIComponent(this.config.model) + '/converse';
+    const body = JSON.stringify({
+      messages: [{ role: 'user', content: [{ text: prompt }] }],
+      inferenceConfig: { maxTokens: this.config.maxTokens, temperature: this.config.temperature },
+    });
+
+    const headers = signAWSRequest('POST', url, host, region, 'bedrock', body, accessKey, secretKey);
+    headers['Content-Type'] = 'application/json';
+
+    const res = await fetch(url, { method: 'POST', headers, body, signal });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.output?.message?.content?.[0]?.text ?? null;
+  }
+}
+
+// ─── AWS SigV4 Signing ───
+
+function signAWSRequest(
+  method: string, url: string, host: string, region: string,
+  service: string, body: string, accessKey: string, secretKey: string,
+): Record<string, string> {
+  const now = new Date();
+  const amzDate = now.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+  const dateStamp = amzDate.slice(0, 8);
+  const parsedUrl = new URL(url);
+
+  const payloadHash = createHash('sha256').update(body, 'utf8').digest('hex');
+  const canonicalHeaders = 'host:' + host + '\n' + 'x-amz-date:' + amzDate + '\n';
+  const signedHeaders = 'host;x-amz-date';
+  const canonicalRequest = [method, parsedUrl.pathname, '', canonicalHeaders, signedHeaders, payloadHash].join('\n');
+
+  const credentialScope = dateStamp + '/' + region + '/' + service + '/aws4_request';
+  const stringToSign = ['AWS4-HMAC-SHA256', amzDate, credentialScope, createHash('sha256').update(canonicalRequest, 'utf8').digest('hex')].join('\n');
+
+  const kDate = createHmac('sha256', 'AWS4' + secretKey).update(dateStamp).digest();
+  const kRegion = createHmac('sha256', kDate).update(region).digest();
+  const kService = createHmac('sha256', kRegion).update(service).digest();
+  const signingKey = createHmac('sha256', kService).update('aws4_request').digest();
+  const signature = createHmac('sha256', signingKey).update(stringToSign, 'utf8').digest('hex');
+
+  return {
+    'Host': host,
+    'X-Amz-Date': amzDate,
+    'Authorization': 'AWS4-HMAC-SHA256 Credential=' + accessKey + '/' + credentialScope
+      + ', SignedHeaders=' + signedHeaders + ', Signature=' + signature,
+    'X-Amz-Content-Sha256': payloadHash,
+  };
 }

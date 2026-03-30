@@ -166,7 +166,7 @@ export const GENOME_BOUNDS = {
 export interface LLMProviderConfig {
   id: string;
   label: string;
-  provider: 'openai' | 'anthropic' | 'google' | 'ollama' | 'openai_compatible';
+  provider: 'openai' | 'anthropic' | 'google' | 'ollama' | 'openai_compatible' | 'bedrock';
   model: string;
   apiKey: string;
   baseUrl?: string;              // custom endpoint for openai_compatible/ollama
