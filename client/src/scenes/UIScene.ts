@@ -762,18 +762,44 @@ export class UIScene extends Phaser.Scene {
       addLine('DEAD', '#cc4444', '14px', 2);
     }
 
-    // GOAP Plan
+    // Plan / Thinking (always visible)
+    addDivider();
+    addLine('PLAN', '#556655', '12px');
     if (agent.alive && agent.currentPlanGoal && agent.currentPlanSteps && agent.currentPlanSteps.length > 0) {
-      addDivider();
-      addLine(`Goal: ${agent.currentPlanGoal}`, '#ccaa44', '13px');
+      addLine(`\uD83C\uDFAF ${agent.currentPlanGoal}`, '#ccaa44', '12px');
       const stepIdx = agent.planStepIndex ?? 0;
-      addLine(`Plan [${stepIdx + 1}/${agent.currentPlanSteps.length}]`, '#888866', '12px');
       for (let i = 0; i < agent.currentPlanSteps.length; i++) {
         const step = agent.currentPlanSteps[i];
         const prefix = i < stepIdx ? '\u2705' : i === stepIdx ? '\u25B6' : '\u25CB';
         const color = i < stepIdx ? '#668866' : i === stepIdx ? '#cccc88' : '#666655';
         addLine(`${prefix} ${step.actionName}`, color, '12px');
       }
+    } else if (agent.alive) {
+      // No active GOAP plan — show what the agent is thinking about
+      const reason = agent.lastDecisionReason ?? agent.action;
+      addLine(`\uD83D\uDCAD ${reason}`, '#88aacc', '12px');
+
+      // Show top priorities based on needs
+      const priorities: [string, string, number][] = [];
+      if (agent.needs.thirst < 40) priorities.push(['\uD83D\uDCA7', 'thirsty', agent.needs.thirst]);
+      if (agent.needs.proteinHunger < 40) priorities.push(['\uD83E\uDD69', 'hungry (protein)', agent.needs.proteinHunger]);
+      if (agent.needs.plantHunger < 40) priorities.push(['\uD83C\uDF3F', 'hungry (plant)', agent.needs.plantHunger]);
+      if (agent.needs.stamina < 30) priorities.push(['\u26A1', 'tired', agent.needs.stamina]);
+      if (agent.needs.health < 50) priorities.push(['\u2764\uFE0F', 'injured', agent.needs.health]);
+      if (agent.needs.social < 25) priorities.push(['\uD83D\uDDE3\uFE0F', 'lonely', agent.needs.social]);
+      if (agent.needs.shelter < 20) priorities.push(['\uD83C\uDFE0', 'exposed', agent.needs.shelter]);
+
+      if (priorities.length > 0) {
+        priorities.sort((a, b) => a[2] - b[2]); // most urgent first
+        for (const [emoji, label, val] of priorities.slice(0, 3)) {
+          const urgency = val < 20 ? '#cc4444' : '#ccaa44';
+          addLine(`${emoji} ${label} (${Math.floor(val)})`, urgency, '12px');
+        }
+      } else {
+        addLine('\u2705 all needs met', '#668866', '12px');
+      }
+    } else {
+      addLine('\uD83D\uDC80 dead', '#cc4444', '12px');
     }
 
     addDivider();
