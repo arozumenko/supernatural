@@ -63,22 +63,23 @@ export const AGENT_ARCHETYPES: Record<AgentArchetype, {
   stats: Record<'strength' | 'toughness' | 'agility' | 'endurance' | 'perception' | 'charisma', number>;
   genomeOverrides?: Record<string, any>;
 }> = {
+  // All archetypes: 66 total, min 10, max 13 — gentle skew, no dump stats
   random:   { label: 'Random', description: 'All stats randomized',
     stats: { strength: 11, toughness: 11, agility: 11, endurance: 11, perception: 11, charisma: 11 } },
   warrior:  { label: 'Warrior', description: 'STR+TGH, combat focus',
-    stats: { strength: 14, toughness: 13, agility: 11, endurance: 10, perception: 10, charisma: 8 },
+    stats: { strength: 13, toughness: 13, agility: 11, endurance: 10, perception: 10, charisma: 9 },
     genomeOverrides: { 'fallbackWeights.huntAnimal': 55, 'interruptWeights.fightBack': 95, 'thresholds.fightBackMinRatio': 0.4 } },
   survivor: { label: 'Survivor', description: 'END+TGH, survival focus',
-    stats: { strength: 9, toughness: 13, agility: 10, endurance: 14, perception: 12, charisma: 8 },
+    stats: { strength: 10, toughness: 13, agility: 10, endurance: 13, perception: 11, charisma: 9 },
     genomeOverrides: { 'interruptWeights.fleeBase': 82, 'thresholds.criticalThirst': 35, 'thresholds.criticalHunger': 35, 'thresholds.fleeHealthPanic': 0.5 } },
   builder:  { label: 'Builder', description: 'STR+END, build focus',
-    stats: { strength: 13, toughness: 10, agility: 9, endurance: 13, perception: 11, charisma: 10 },
+    stats: { strength: 13, toughness: 10, agility: 10, endurance: 13, perception: 11, charisma: 9 },
     genomeOverrides: { 'fallbackWeights.gatherWood': 50, 'fallbackWeights.mineStone': 45, 'goalWeights.get_shelter': 1.8, 'goalWeights.get_equipped': 1.5 } },
   scout:    { label: 'Scout', description: 'AGI+PER, explore focus',
-    stats: { strength: 9, toughness: 9, agility: 14, endurance: 11, perception: 14, charisma: 9 },
+    stats: { strength: 10, toughness: 10, agility: 13, endurance: 11, perception: 13, charisma: 9 },
     genomeOverrides: { 'thresholds.threatDetectBase': 10, 'thresholds.huntDetectRange': 20, 'fallbackWeights.wander': 25 } },
   social:   { label: 'Social', description: 'CHA+PER, social focus',
-    stats: { strength: 8, toughness: 9, agility: 10, endurance: 10, perception: 13, charisma: 16 },
+    stats: { strength: 9, toughness: 10, agility: 10, endurance: 10, perception: 13, charisma: 14 },
     genomeOverrides: { 'fallbackWeights.socialize': 50, 'fallbackWeights.tameAnimal': 35, 'goalWeights.socialize': 1.8 } },
 };
 
