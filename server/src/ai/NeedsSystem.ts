@@ -1590,6 +1590,10 @@ export function executeAction(
                 if (targetAgent.needs.health <= 0) {
                   targetAgent.alive = false;
                   targetAgent.action = 'dying';
+                  // Reward: killing an agent earns lives
+                  if (agent.livesRemaining !== undefined) {
+                    agent.livesRemaining = Math.min(200, (agent.livesRemaining ?? 100) + 5);
+                  }
                 }
               } else {
                 moveTowards(agent, targetAgent.x, targetAgent.y, world);
