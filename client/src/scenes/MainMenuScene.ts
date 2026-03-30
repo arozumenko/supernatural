@@ -89,7 +89,7 @@ export class MainMenuScene extends Phaser.Scene {
 
     // Two-column panel
     this.panelW = 900;
-    const panelH = 560;
+    const panelH = 620;
     this.panelX = cx - this.panelW / 2;
     this.panelY = cy - panelH / 2;
 
@@ -188,7 +188,7 @@ export class MainMenuScene extends Phaser.Scene {
 
     // Agent AI list (scrollable area in right column)
     const listAreaY = contentTop + 28;
-    const listAreaH = panelH - 200;
+    const listAreaH = panelH - 260;
 
     const listBg = this.add.graphics();
     listBg.fillStyle(0x111122, 0.6);
@@ -227,7 +227,7 @@ export class MainMenuScene extends Phaser.Scene {
     const btnW = 260;
     const btnH = 48;
     const btnX = cx - btnW / 2;
-    const btnY = this.panelY + panelH - 70;
+    const btnY = this.panelY + panelH - 65;
 
     const btnBg = this.add.graphics();
     this.drawButton(btnBg, btnX, btnY, btnW, btnH, 0x80c080, false);
