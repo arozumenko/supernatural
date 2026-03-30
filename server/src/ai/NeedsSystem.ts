@@ -1,6 +1,6 @@
 import {
   AgentState, AgentAction, TileType, PlantType, AnimalState, InventoryItem, SpatialMemoryEntry, clamp, distance,
-  BehaviorGenome
+  BehaviorGenome, WORLD_WIDTH, WORLD_HEIGHT
 } from '../../shared/src/index.ts';
 import { World } from '../World.ts';
 import { findPath } from './Pathfinding.ts';
