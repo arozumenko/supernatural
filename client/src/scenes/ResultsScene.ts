@@ -171,6 +171,92 @@ export class ResultsScene extends Phaser.Scene {
     let y = startY;
     const genome = this.results.bestGenome;
     const agents = this.results.agents;
+    const history = (this.results as any).scoreHistory as Record<string, { tick: number; score: number }[]> | undefined;
+    const events = (this.results as any).notableEvents as Record<string, { tick: number; event: string }[]> | undefined;
+
+    // ─── Score Evolution Chart ───
+    if (history && Object.keys(history).length > 0) {
+      this.addText(40, y, 'SCORE EVOLUTION', '#80c080', '12px'); y += 20;
+
+      const chartX = 60;
+      const chartW = width - 140;
+      const chartH = 160;
+      const chartY = y;
+
+      // Find max tick and max score across all agents
+      let maxTick = 1;
+      let maxScore = 1;
+      for (const points of Object.values(history)) {
+        for (const p of points) {
+          if (p.tick > maxTick) maxTick = p.tick;
+          if (p.score > maxScore) maxScore = p.score;
+        }
+      }
+
+      // Draw chart background + axes
+      const chartBg = this.add.graphics();
+      chartBg.fillStyle(0x111122, 0.5);
+      chartBg.fillRect(chartX, chartY, chartW, chartH);
+      chartBg.lineStyle(1, 0x334433);
+      chartBg.strokeRect(chartX, chartY, chartW, chartH);
+      // Y-axis labels
+      this.addText(chartX - 5, chartY, `${maxScore}`, '#555555', '8px').setOrigin(1, 0);
+      this.addText(chartX - 5, chartY + chartH - 8, '0', '#555555', '8px').setOrigin(1, 0);
+      // X-axis labels
+      const maxMin = Math.floor(maxTick / 600);
+      this.addText(chartX, chartY + chartH + 2, '0', '#555555', '8px');
+      this.addText(chartX + chartW, chartY + chartH + 2, `${maxMin}m`, '#555555', '8px').setOrigin(1, 0);
+      this.contentContainer.add(chartBg);
+
+      // Draw lines per agent
+      const colors = [0xffd700, 0x44cc44, 0x4488cc, 0xcc4444, 0xcc88cc, 0x88cccc, 0xccaa44, 0xaa44cc, 0x44ccaa, 0xcccccc];
+      let colorIdx = 0;
+      for (const [name, points] of Object.entries(history)) {
+        if (points.length < 2) { colorIdx++; continue; }
+        const color = colors[colorIdx % colors.length];
+        const line = this.add.graphics();
+        line.lineStyle(2, color, 0.8);
+        line.beginPath();
+        for (let i = 0; i < points.length; i++) {
+          const px = chartX + (points[i].tick / maxTick) * chartW;
+          const py = chartY + chartH - (points[i].score / maxScore) * chartH;
+          if (i === 0) line.moveTo(px, py); else line.lineTo(px, py);
+        }
+        line.strokePath();
+        this.contentContainer.add(line);
+
+        // Legend
+        const legendY = chartY + colorIdx * 12;
+        const legendX = chartX + chartW + 8;
+        const dot = this.add.graphics();
+        dot.fillStyle(color, 1); dot.fillCircle(legendX + 4, legendY + 5, 3);
+        this.contentContainer.add(dot);
+        this.addText(legendX + 12, legendY, name, '#' + color.toString(16).padStart(6, '0'), '8px');
+        colorIdx++;
+      }
+
+      y = chartY + chartH + 20;
+
+      // Notable events timeline (compact)
+      if (events && Object.keys(events).length > 0) {
+        this.addText(40, y, 'KEY EVENTS', '#80c080', '11px'); y += 16;
+        // Merge all events, sort by tick
+        const allEvents: { tick: number; name: string; event: string }[] = [];
+        for (const [name, evts] of Object.entries(events)) {
+          for (const e of evts) allEvents.push({ tick: e.tick, name, event: e.event });
+        }
+        allEvents.sort((a, b) => a.tick - b.tick);
+        for (const e of allEvents.slice(-12)) {
+          const secs = Math.floor(e.tick / 10);
+          const mins = Math.floor(secs / 60);
+          this.addText(50, y, `${mins}m${secs % 60}s`, '#555555', '8px');
+          this.addText(110, y, e.name, '#aaaaaa', '8px');
+          this.addText(190, y, e.event, '#888888', '8px');
+          y += 13;
+        }
+        y += 8;
+      }
+    }
 
     const col0 = 40;
     const colStart = 140;

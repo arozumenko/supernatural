@@ -38,6 +38,9 @@ export class GameLoop {
   private animalRespawnQueue: { species: string; respawnTick: number; skills: SkillSet }[] = [];
   private queuedDeadAnimalIds: Set<string> = new Set();
   private evolutionQueue: EvolutionQueue = new EvolutionQueue();
+  // Track agent score over time for results chart
+  agentScoreHistory: Map<string, { tick: number; score: number }[]> = new Map();
+  agentNotableEvents: Map<string, { tick: number; event: string }[]> = new Map();
   apiEventEmitter: EventEmitter = new EventEmitter();
 
   gameConfig: GameConfig;
@@ -163,6 +166,11 @@ export class GameLoop {
       // Timeline sampling (every 100 ticks)
       if (this.tickCount % 100 === 0) {
         recordTimelineEntry(agent, this.tickCount);
+        // Score history for results chart
+        const totalSkills = Object.values(agent.skills).reduce((sum, s) => sum + s.level, 0);
+        const score = totalSkills * 2 + Math.floor(agent.needs.health);
+        if (!this.agentScoreHistory.has(agent.id)) this.agentScoreHistory.set(agent.id, []);
+        this.agentScoreHistory.get(agent.id)!.push({ tick: this.tickCount, score });
       }
       // Heatmap sampling (every 300 ticks)
       if (this.tickCount % 300 === 0) {
@@ -215,7 +223,8 @@ export class GameLoop {
         // Apply death penalty: 5% XP rust
         applyDeathPenalty(agent.skills, undefined, agent.baseStats);
         agent.totalDeaths++;
-        clearDispositions(agent.id); // reset friend/foe on death
+        clearDispositions(agent.id);
+        this.trackAgentEvent(agent.id, `\uD83D\uDC80 died: ${deathCause.type}`);
 
         // Check Highlander status
         agent.isHighlander = checkHighlander(agent);
@@ -351,6 +360,7 @@ export class GameLoop {
         initJournal(agent, this.tickCount);
 
         this.respawnQueue.splice(i, 1);
+        this.trackAgentEvent(agent.id, `\u2728 respawned (${agent.livesRemaining} lives)`);
         this.events.onAgentBorn(agent);
         this.events.onWorldEvent({
           type: 'respawn',
@@ -645,6 +655,11 @@ export class GameLoop {
     });
   }
 
+  trackAgentEvent(agentId: string, event: string): void {
+    if (!this.agentNotableEvents.has(agentId)) this.agentNotableEvents.set(agentId, []);
+    this.agentNotableEvents.get(agentId)!.push({ tick: this.tickCount, event });
+  }
+
   getAgent(agentId: string): AgentState | undefined {
     return this.agents.find(a => a.id === agentId);
   }
@@ -746,6 +761,19 @@ export class GameLoop {
       season,
       agents: agentResults,
       bestGenome,
+      // Score evolution curves + notable events per agent
+      scoreHistory: Object.fromEntries(
+        agentResults.map(r => {
+          const agent = this.agents.find(a => a.name === r.name);
+          return [r.name, this.agentScoreHistory.get(agent?.id ?? '') ?? []];
+        })
+      ),
+      notableEvents: Object.fromEntries(
+        agentResults.map(r => {
+          const agent = this.agents.find(a => a.name === r.name);
+          return [r.name, this.agentNotableEvents.get(agent?.id ?? '') ?? []];
+        })
+      ),
       topAnimals: {
         apex: topByTier('apex'),
         midPredator: topByTier('midPredator'),

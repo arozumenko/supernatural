@@ -226,6 +226,8 @@ export interface GameResults {
     mediumHerb: AnimalResult | null;
     smallPrey: AnimalResult | null;
   };
+  scoreHistory: Record<string, { tick: number; score: number }[]>;
+  notableEvents: Record<string, { tick: number; event: string }[]>;
   comparison: {
     llmAvgEffectiveness: number;
     dtAvgEffectiveness: number;
