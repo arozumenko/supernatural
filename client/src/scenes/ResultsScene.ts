@@ -162,20 +162,6 @@ export class ResultsScene extends Phaser.Scene {
     const genome = this.results.bestGenome;
     const agents = this.results.agents;
 
-    // ─── Comparison Table ───
-    // ─── End-Game Stats ───
-    this.addText(40, y, 'END-GAME STATS', '#80c080', '12px'); y += 22;
-
-    const statFields: [string, (a: AgentResult) => string, (a: AgentResult) => string][] = [
-      ['Score', a => `${a.effectiveness}`, a => a.rank === 1 ? '#ffd700' : '#c8d0c8'],
-      ['Level', a => `${a.totalSkillLevels}`, _ => '#909890'],
-      ['Deaths', a => `${a.totalDeaths}`, a => a.totalDeaths > 5 ? '#cc6644' : '#909890'],
-      ['Lives', a => `${a.livesRemaining}`, a => a.livesRemaining > 50 ? '#44cc44' : '#cccc44'],
-      ['Best life', a => { const s = Math.floor(a.bestLifeTicks / 10); return `${Math.floor(s/60)}m${s%60}s`; }, _ => '#909890'],
-      ['Genome v', a => `${a.genomeVersion}`, _ => '#909890'],
-      ['AI', a => a.aiRole === 'none' ? 'DT' : a.aiRole, a => a.aiProvider ? '#80c080' : '#888888'],
-    ];
-
     const col0 = 40;
     const colStart = 140;
     const colW = Math.min(90, (width - colStart - 40) / agents.length);
@@ -188,43 +174,67 @@ export class ResultsScene extends Phaser.Scene {
     });
     y += 16;
 
+    // ─── Genome Table ───
+    this.addText(col0, y, 'GENOME', '#80c080', '10px'); y += 16;
+
+    const defaultG = { version: 1, interruptWeights: { fleeBase: 75, fightBack: 93 }, thresholds: { criticalThirst: 30, criticalHunger: 30, criticalHealth: 40, criticalStamina: 20, fleeHealthPanic: 0.4, fightBackMinRatio: 0.6 }, fallbackWeights: { huntAnimal: 40, gatherWood: 35, mineStone: 30, harvestCorpse: 50, socialize: 30, wander: 10 }, mediumPriorityWeights: { drinkMedium: 63, eatMedium: 58 }, goalWeights: { survive_thirst: 1.3, survive_protein: 1.2, survive_plant: 1.2, rest: 1.1 }, strategyRules: [] };
+
+    const genomeFields: [string, (g: any) => string][] = [
+      ['Mutations', g => `${(g?.version ?? 1) - 1}`],
+      ['Rules', g => `${g?.strategyRules?.length ?? 0}`],
+      ['Flee', g => `${g?.interruptWeights?.fleeBase ?? '?'}`],
+      ['Fight', g => `${g?.interruptWeights?.fightBack ?? '?'}`],
+      ['Thirst thr', g => `${g?.thresholds?.criticalThirst ?? '?'}`],
+      ['Hunger thr', g => `${g?.thresholds?.criticalHunger ?? '?'}`],
+      ['Health thr', g => `${g?.thresholds?.criticalHealth ?? '?'}`],
+      ['Stamina thr', g => `${g?.thresholds?.criticalStamina ?? '?'}`],
+      ['Flee panic', g => `${g?.thresholds?.fleeHealthPanic ?? '?'}`],
+      ['Fight ratio', g => `${g?.thresholds?.fightBackMinRatio ?? '?'}`],
+      ['Hunt', g => `${g?.fallbackWeights?.huntAnimal ?? '?'}`],
+      ['Wood', g => `${g?.fallbackWeights?.gatherWood ?? '?'}`],
+      ['Stone', g => `${g?.fallbackWeights?.mineStone ?? '?'}`],
+      ['Corpse', g => `${g?.fallbackWeights?.harvestCorpse ?? '?'}`],
+      ['Social', g => `${g?.fallbackWeights?.socialize ?? '?'}`],
+      ['Wander', g => `${g?.fallbackWeights?.wander ?? '?'}`],
+      ['Drink prio', g => `${g?.mediumPriorityWeights?.drinkMedium ?? '?'}`],
+      ['Eat prio', g => `${g?.mediumPriorityWeights?.eatMedium ?? '?'}`],
+      ['Thirst goal', g => `${g?.goalWeights?.survive_thirst?.toFixed?.(1) ?? '?'}`],
+      ['Protein goal', g => `${g?.goalWeights?.survive_protein?.toFixed?.(1) ?? '?'}`],
+      ['Plant goal', g => `${g?.goalWeights?.survive_plant?.toFixed?.(1) ?? '?'}`],
+      ['Rest goal', g => `${g?.goalWeights?.rest?.toFixed?.(1) ?? '?'}`],
+    ];
+
+    for (const [label, getter] of genomeFields) {
+      this.addText(col0, y, label, '#556655', '9px');
+      agents.forEach((a, i) => {
+        const g = (a as any).genome;
+        const val = getter(g);
+        const defVal = getter(defaultG);
+        const color = val !== defVal ? '#ccaa44' : '#909890';
+        this.addText(colStart + i * colW, y, val, color, '9px');
+      });
+      y += 13;
+    }
+
+    // ─── End-Game Stats ───
+    y += 12;
+    this.addText(col0, y, 'FINAL STATS', '#80c080', '10px'); y += 16;
+
+    const statFields: [string, (a: AgentResult) => string, (a: AgentResult) => string][] = [
+      ['Score', a => `${a.effectiveness}`, a => a.rank === 1 ? '#ffd700' : '#c8d0c8'],
+      ['Level', a => `${a.totalSkillLevels}`, _ => '#909890'],
+      ['Deaths', a => `${a.totalDeaths}`, a => a.totalDeaths > 5 ? '#cc6644' : '#909890'],
+      ['Lives', a => `${a.livesRemaining}`, a => a.livesRemaining > 50 ? '#44cc44' : '#cccc44'],
+      ['Best life', a => { const s = Math.floor(a.bestLifeTicks / 10); return `${Math.floor(s/60)}m${s%60}s`; }, _ => '#909890'],
+      ['AI', a => a.aiRole === 'none' ? 'DT' : a.aiRole, a => a.aiProvider ? '#80c080' : '#888888'],
+    ];
+
     for (const [label, getter, colorFn] of statFields) {
       this.addText(col0, y, label, '#556655', '9px');
       agents.forEach((a, i) => {
         this.addText(colStart + i * colW, y, getter(a), colorFn(a), '9px');
       });
-      y += 14;
-    }
-
-    // ─── Genome Comparison ───
-    y += 12;
-    this.addText(40, y, 'GENOME VALUES', '#80c080', '12px'); y += 22;
-
-    const fields: [string, (g: any) => string][] = [
-      ['Mutations', g => `${(g?.version ?? 1) - 1}`],
-      ['Rules', g => `${g?.strategyRules?.length ?? 0}`],
-      ['Flee', g => `${g?.interruptWeights?.fleeBase ?? '?'}`],
-      ['Thirst thr.', g => `${g?.thresholds?.criticalThirst ?? '?'}`],
-      ['Hunger thr.', g => `${g?.thresholds?.criticalHunger ?? '?'}`],
-      ['Health thr.', g => `${g?.thresholds?.criticalHealth ?? '?'}`],
-      ['Flee panic', g => `${g?.thresholds?.fleeHealthPanic ?? '?'}`],
-      ['Hunt wt.', g => `${g?.fallbackWeights?.huntAnimal ?? '?'}`],
-      ['Drink prio', g => `${g?.mediumPriorityWeights?.drinkMedium ?? '?'}`],
-      ['Thirst goal', g => `${g?.goalWeights?.survive_thirst?.toFixed?.(1) ?? '?'}`],
-    ];
-
-    for (const [label, getter] of fields) {
-      this.addText(col0, y, label, '#556655', '9px');
-      agents.forEach((a, i) => {
-        const g = (a as any).genome;
-        const val = getter(g);
-        // Highlight if different from default (mutated)
-        const defaultG = { version: 1, interruptWeights: { fleeBase: 75, fightBack: 93 }, thresholds: { criticalThirst: 30, criticalHunger: 30, criticalHealth: 40, fleeHealthPanic: 0.4 }, fallbackWeights: { huntAnimal: 40, gatherWood: 35 }, mediumPriorityWeights: { drinkMedium: 63, eatMedium: 58 }, goalWeights: { survive_thirst: 1.3, survive_protein: 1.2 }, strategyRules: [] };
-        const defVal = getter(defaultG);
-        const color = val !== defVal ? '#ccaa44' : '#909890';
-        this.addText(colStart + i * colW, y, val, color, '9px');
-      });
-      y += 14;
+      y += 13;
     }
 
     // ─── Best Genome Detail ───
