@@ -849,9 +849,10 @@ export class GameLoop {
     }
 
     // Announce population stats
+    const aliveAgentsCount = this.agents.filter(a => a.alive).length;
     const avgHunger = this.agents
       .filter(a => a.alive)
-      .reduce((sum, a) => sum + Math.min(a.needs.proteinHunger, a.needs.plantHunger), 0) / Math.max(aliveCount, 1);
+      .reduce((sum, a) => sum + Math.min(a.needs.proteinHunger, a.needs.plantHunger), 0) / Math.max(aliveAgentsCount, 1);
 
     if (avgHunger < 30) {
       this.events.onWorldEvent({
