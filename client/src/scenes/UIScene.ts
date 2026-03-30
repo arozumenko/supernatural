@@ -480,7 +480,9 @@ export class UIScene extends Phaser.Scene {
       const tiers: [string, string, string[]][] = [
         ['Apex', '\uD83D\uDC3B', ['bear', 'tiger', 'alligator']],
         ['Pred', '\uD83E\uDD8A', ['fox', 'cat', 'dog-0']],
-        ['Herb', '\uD83E\uDD8C', ['deer', 'cow-0', 'horse', 'pig', 'goat', 'sheep', 'donkey', 'rabbit', 'chicken', 'duck', 'squirrel', 'hedgehog', 'capybara']],
+        ['LgHb', '\uD83E\uDD8C', ['deer', 'cow-0', 'horse']],
+        ['MdHb', '\uD83D\uDC11', ['pig', 'goat', 'sheep', 'donkey']],
+        ['Prey', '\uD83D\uDC07', ['rabbit', 'chicken', 'duck', 'squirrel', 'hedgehog', 'capybara', 'rat']],
       ];
 
       for (const [tierLabel, emoji, species] of tiers) {
@@ -600,7 +602,9 @@ export class UIScene extends Phaser.Scene {
       const tiers: [string, string[]][] = [
         ['\uD83D\uDC3B', ['bear', 'tiger', 'alligator']],
         ['\uD83E\uDD8A', ['fox', 'cat', 'dog-0']],
-        ['\uD83E\uDD8C', ['deer', 'cow-0', 'horse', 'pig', 'goat', 'sheep', 'donkey', 'rabbit', 'chicken', 'duck', 'squirrel', 'hedgehog', 'capybara']],
+        ['\uD83E\uDD8C', ['deer', 'cow-0', 'horse']],
+        ['\uD83D\uDC11', ['pig', 'goat', 'sheep', 'donkey']],
+        ['\uD83D\uDC07', ['rabbit', 'chicken', 'duck', 'squirrel', 'hedgehog', 'capybara', 'rat']],
       ];
       for (let ti = 0; ti < tiers.length && ti < this.sidebarAnimalTexts.length; ti++) {
         const [emoji, species] = tiers[ti];
