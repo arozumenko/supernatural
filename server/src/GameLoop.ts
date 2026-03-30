@@ -151,10 +151,10 @@ export class GameLoop {
 
       // Passive shelter: nearby structures slowly restore shelter need
       const sax = Math.floor(agent.x), say = Math.floor(agent.y);
-      const shelterTiles = [TileType.CAMPFIRE, TileType.BUILT_WALL, TileType.TENT, TileType.BEDROLL, TileType.STONE_WALL];
+      const shelterTiles: number[] = [TileType.CAMPFIRE, TileType.BUILT_WALL, TileType.TENT, TileType.BEDROLL, TileType.STONE_WALL];
       for (const dt of [{dx:0,dy:0},{dx:1,dy:0},{dx:-1,dy:0},{dx:0,dy:1},{dx:0,dy:-1}]) {
         const t = this.world.getTile(sax + dt.dx, say + dt.dy);
-        if (shelterTiles.includes(t)) {
+        if (shelterTiles.includes(t as number)) {
           agent.needs.shelter = Math.min(100, agent.needs.shelter + 0.5);
           break;
         }
