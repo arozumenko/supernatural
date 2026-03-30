@@ -59,9 +59,18 @@ export class UIScene extends Phaser.Scene {
   private lastAgentStructureHash = '';
   private lastPanelRebuildTime = 0;
   private panelRebuildQueued = false;
-  private lastSidebarRebuildTime = 0;
-  private pendingSidebarAgents: AgentState[] | null = null;
-  private pendingSidebarAnimals: AnimalState[] | null = null;
+  // Persistent sidebar rows — created once, text updated in place
+  private sidebarAgentRows: {
+    agentId: string;
+    nameText: Phaser.GameObjects.Text;
+    lvText: Phaser.GameObjects.Text;
+    livesText: Phaser.GameObjects.Text;
+    deathText: Phaser.GameObjects.Text;
+    dot: Phaser.GameObjects.Graphics;
+  }[] = [];
+  private sidebarAnimalTexts: Phaser.GameObjects.Text[] = [];
+  private sidebarBuilt = false;
+  private sidebarAgentCount = 0;
 
   constructor() {
     super({ key: 'UIScene' });
@@ -319,25 +328,24 @@ export class UIScene extends Phaser.Scene {
   // ─── Left Sidebar ───
 
   updateSidebar(agents: AgentState[], animals?: AnimalState[]): void {
-    // Throttle sidebar rebuilds to max 2Hz to keep click zones stable
-    const now = Date.now();
-    if (now - this.lastSidebarRebuildTime < 500) {
-      this.pendingSidebarAgents = agents;
-      this.pendingSidebarAnimals = animals ?? null;
-      if (!this.pendingSidebarAgents) return;
-      setTimeout(() => {
-        if (this.pendingSidebarAgents) {
-          this._rebuildSidebar(this.pendingSidebarAgents, this.pendingSidebarAnimals ?? undefined);
-          this.pendingSidebarAgents = null;
-        }
-      }, 500 - (now - this.lastSidebarRebuildTime));
-      return;
+    // If agent count changed, we need a full rebuild
+    const needsRebuild = !this.sidebarBuilt || agents.length !== this.sidebarAgentCount;
+
+    if (needsRebuild) {
+      this.sidebarBuilt = false;
+      this.sidebarAgentRows = [];
+      this.sidebarAnimalTexts = [];
+      this.sidebarContainer.removeAll(true);
+      this.sidebarAgentCount = agents.length;
+      this.buildSidebarStructure(agents, animals);
+      this.sidebarBuilt = true;
     }
-    this._rebuildSidebar(agents, animals);
+
+    // Update text values in place (fast — no object creation)
+    this.updateSidebarValues(agents, animals);
   }
 
-  private _rebuildSidebar(agents: AgentState[], animals?: AnimalState[]): void {
-    this.lastSidebarRebuildTime = Date.now();
+  private buildSidebarStructure(agents: AgentState[], animals?: AnimalState[]): void {
     // Check if structural reorder needed (agents die/respawn/assignment change)
     const structureHash = agents.map(a => a.id + ':' + (a.alive ? '1' : '0') + ':' + (a.llmProviderId ?? 'x')).join(',');
     const needsReorder = structureHash !== this.lastAgentStructureHash;
@@ -441,7 +449,7 @@ export class UIScene extends Phaser.Scene {
 
       // Agent rows
       for (const agent of groupAgents) {
-        this.renderAgentRow(agent, y);
+        this.renderAgentRow(agent, y, this.sidebarAgentRows.length);
         y += 18;
       }
 
@@ -489,6 +497,7 @@ export class UIScene extends Phaser.Scene {
             fontFamily: PIXEL_FONT, fontSize: '11px', color: '#909890',
           });
           this.sidebarContainer.add(t);
+          this.sidebarAnimalTexts.push(t);
           y += 18;
         }
       }
@@ -497,58 +506,52 @@ export class UIScene extends Phaser.Scene {
     this.sidebarContentHeight = y;
   }
 
-  private renderAgentRow(agent: AgentState, y: number): void {
-    const alive = agent.alive;
-    const lives = agent.livesRemaining ?? 100;
-    const level = agentLevel(agent);
-    const name = agent.name.length > 6 ? agent.name.slice(0, 5) + '.' : agent.name;
+  private renderAgentRow(agent: AgentState, y: number, index: number): void {
     const rowH = 18;
 
-    // Hover background (rendered first = behind everything)
+    // Hover background (behind everything)
     const hoverBg = this.add.graphics();
     hoverBg.setAlpha(0);
     this.sidebarContainer.add(hoverBg);
 
     // Alive dot
     const dot = this.add.graphics();
-    dot.fillStyle(alive ? 0x44cc44 : 0x666666, 1);
-    dot.fillCircle(14, y + 8, 3);
     this.sidebarContainer.add(dot);
 
     // Name
-    const nameText = this.add.text(22, y + 1, name, {
-      fontFamily: PIXEL_FONT, fontSize: '12px', color: alive ? '#cccccc' : '#666666',
+    const nameText = this.add.text(22, y + 1, '', {
+      fontFamily: PIXEL_FONT, fontSize: '12px', color: '#cccccc',
     });
     this.sidebarContainer.add(nameText);
 
     // Level
-    const lvText = this.add.text(95, y + 1, `Lv${level}`, {
-      fontFamily: PIXEL_FONT, fontSize: '12px', color: alive ? '#aaaaaa' : '#555555',
+    const lvText = this.add.text(95, y + 1, '', {
+      fontFamily: PIXEL_FONT, fontSize: '12px', color: '#aaaaaa',
     });
     this.sidebarContainer.add(lvText);
 
     // Lives
-    const livesColor = !alive ? '#cc4444' : lives > 50 ? '#44cc44' : lives > 20 ? '#cccc44' : '#cc4444';
-    const livesT = this.add.text(148, y - 1, `\u2764${lives}`, {
-      fontSize: '12px', color: livesColor,
-    });
-    this.sidebarContainer.add(livesT);
+    const livesText = this.add.text(148, y - 1, '', { fontSize: '12px', color: '#44cc44' });
+    this.sidebarContainer.add(livesText);
 
     // Deaths
-    if (agent.totalDeaths > 0) {
-      const deathT = this.add.text(210, y - 1, `\uD83D\uDC80${agent.totalDeaths}`, {
-        fontSize: '11px', color: '#886666',
-      });
-      this.sidebarContainer.add(deathT);
-    }
+    const deathText = this.add.text(210, y - 1, '', { fontSize: '11px', color: '#886666' });
+    this.sidebarContainer.add(deathText);
 
-    // Click zone — full row width and height, on top of everything
+    // Store references for in-place updates
+    this.sidebarAgentRows.push({ agentId: agent.id, nameText, lvText, livesText, deathText, dot });
+
+    // Click zone — PERMANENT, never destroyed between updates
     const zone = this.add.zone(SIDEBAR_W / 2, y + rowH / 2, SIDEBAR_W, rowH).setInteractive({ useHandCursor: true });
     this.sidebarContainer.add(zone);
     zone.on('pointerup', () => {
-      const gameScene = this.scene.get('GameScene') as any;
-      if (gameScene?.selectAgentById) {
-        gameScene.selectAgentById(agent.id);
+      // Use stored index to find current agent id
+      const row = this.sidebarAgentRows[index];
+      if (row) {
+        const gameScene = this.scene.get('GameScene') as any;
+        if (gameScene?.selectAgentById) {
+          gameScene.selectAgentById(row.agentId);
+        }
       }
     });
     zone.on('pointerover', () => {
@@ -560,6 +563,68 @@ export class UIScene extends Phaser.Scene {
     zone.on('pointerout', () => {
       hoverBg.setAlpha(0);
     });
+  }
+
+  /** Update sidebar text values without destroying/recreating objects */
+  private updateSidebarValues(agents: AgentState[], animals?: AnimalState[]): void {
+    // Sort agents: alive first, then by level desc
+    const sorted = [...agents].sort((a, b) => {
+      if (a.alive !== b.alive) return a.alive ? -1 : 1;
+      return agentLevel(b) - agentLevel(a);
+    });
+
+    for (let i = 0; i < this.sidebarAgentRows.length && i < sorted.length; i++) {
+      const row = this.sidebarAgentRows[i];
+      const agent = sorted[i];
+      const alive = agent.alive;
+      const lives = agent.livesRemaining ?? 100;
+      const level = agentLevel(agent);
+      const name = agent.name.length > 6 ? agent.name.slice(0, 5) + '.' : agent.name;
+
+      row.agentId = agent.id;
+      row.nameText.setText(name);
+      row.nameText.setColor(alive ? '#cccccc' : '#666666');
+      row.lvText.setText(`Lv${level}`);
+      row.lvText.setColor(alive ? '#aaaaaa' : '#555555');
+
+      const livesColor = !alive ? '#cc4444' : lives > 50 ? '#44cc44' : lives > 20 ? '#cccc44' : '#cc4444';
+      row.livesText.setText(`\u2764${lives}`);
+      row.livesText.setColor(livesColor);
+
+      row.deathText.setText(agent.totalDeaths > 0 ? `\uD83D\uDC80${agent.totalDeaths}` : '');
+
+      row.dot.clear();
+      row.dot.fillStyle(alive ? 0x44cc44 : 0x666666, 1);
+      row.dot.fillCircle(14, row.nameText.y + 7, 3);
+    }
+
+    // Update animal texts
+    if (animals && this.sidebarAnimalTexts.length > 0) {
+      const tiers: [string, string[]][] = [
+        ['\uD83D\uDC3B', ['bear', 'tiger', 'alligator']],
+        ['\uD83E\uDD8A', ['fox', 'cat', 'dog-0']],
+        ['\uD83E\uDD8C', ['deer', 'cow-0', 'horse', 'pig', 'goat', 'sheep', 'donkey', 'rabbit', 'chicken', 'duck', 'squirrel', 'hedgehog', 'capybara']],
+      ];
+      for (let ti = 0; ti < tiers.length && ti < this.sidebarAnimalTexts.length; ti++) {
+        const [emoji, species] = tiers[ti];
+        const tierAnimals = animals.filter((a: any) => species.includes(a.species) && a.alive);
+        tierAnimals.sort((a: any, b: any) => {
+          const aLvl = Object.values(a.skills).reduce((sum: number, s: any) => sum + (s.level || 0), 0);
+          const bLvl = Object.values(b.skills).reduce((sum: number, s: any) => sum + (s.level || 0), 0);
+          if (bLvl !== aLvl) return bLvl - aLvl;
+          return b.age - a.age;
+        });
+        const best = tierAnimals[0];
+        if (best) {
+          const totalSecs = Math.floor(best.age / 10);
+          const mins = Math.floor(totalSecs / 60);
+          const secs = totalSecs % 60;
+          const timeStr = mins > 0 ? `${mins}m${secs}s` : `${totalSecs}s`;
+          const lvl = Object.values(best.skills).reduce((sum: number, s: any) => sum + (s.level || 0), 0);
+          this.sidebarAnimalTexts[ti].setText(`${emoji} ${best.species} Lv${lvl} ${timeStr}`);
+        }
+      }
+    }
   }
 
   private updateInfoPanel(): void {
