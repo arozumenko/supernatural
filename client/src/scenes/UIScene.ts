@@ -426,8 +426,8 @@ export class UIScene extends Phaser.Scene {
       this.sidebarContainer.add(deathT);
     }
 
-    // Click zone for selection
-    const zone = this.add.zone(SIDEBAR_W / 2, y + 7, SIDEBAR_W - 12, 16).setInteractive({ useHandCursor: true });
+    // Click zone for selection (full row height)
+    const zone = this.add.zone(SIDEBAR_W / 2, y + 9, SIDEBAR_W - 12, 20).setInteractive({ useHandCursor: true });
     this.sidebarContainer.add(zone);
     zone.on('pointerup', () => {
       const gameScene = this.scene.get('GameScene') as any;
@@ -442,8 +442,8 @@ export class UIScene extends Phaser.Scene {
     this.sidebarContainer.add(hoverBg);
     zone.on('pointerover', () => {
       hoverBg.clear();
-      hoverBg.fillStyle(0xffffff, 0.05);
-      hoverBg.fillRect(6, y - 1, SIDEBAR_W - 12, 16);
+      hoverBg.fillStyle(0xffffff, 0.08);
+      hoverBg.fillRect(6, y - 2, SIDEBAR_W - 12, 22);
       hoverBg.setAlpha(1);
     });
     zone.on('pointerout', () => {
