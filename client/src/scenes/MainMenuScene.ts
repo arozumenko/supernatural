@@ -274,12 +274,12 @@ export class MainMenuScene extends Phaser.Scene {
       this.agentAIContainer.y = newY;
     });
 
-    // Version
-    this.add.text(cx, this.panelY + panelH - 18, 'v0.2.0', {
+    // Version (top-right corner of panel)
+    this.add.text(this.panelX + this.panelW - 20, this.panelY + 12, 'v0.2.0', {
       fontFamily: PIXEL_FONT,
-      fontSize: '11px',
+      fontSize: '8px',
       color: '#444444',
-    }).setOrigin(0.5);
+    }).setOrigin(1, 0);
   }
 
   private async fetchLLMProviders(): Promise<void> {
@@ -433,29 +433,32 @@ export class MainMenuScene extends Phaser.Scene {
     this.bulkContainer.removeAll(true);
 
     const bulkY = (this as any)._bulkY as number;
+    const rightColX = (this as any)._rightColX as number;
+    const colW = (this as any)._colW as number;
     const options: { label: string; value: string | null }[] = [
-      { label: 'ALL: No LLM', value: null },
-      ...this.llmProviders.map(p => ({ label: `ALL: ${p.label}`, value: p.id })),
+      { label: 'No LLM', value: null },
+      ...this.llmProviders.map(p => ({ label: p.label, value: p.id })),
     ];
 
-    const btnW = Math.min(120, (this.panelW - 60) / options.length - 6);
-    const totalW = options.length * (btnW + 6) - 6;
-    const startX = this.panelX + (this.panelW - totalW) / 2;
+    const gap = 8;
+    const btnW = Math.min(160, (colW - 10 - gap * (options.length - 1)) / options.length);
+    const totalW = options.length * btnW + (options.length - 1) * gap;
+    const startX = rightColX + (colW - 10 - totalW) / 2;
 
     options.forEach((opt, i) => {
-      const bx = startX + i * (btnW + 6);
+      const bx = startX + i * (btnW + gap);
       const bg = this.add.graphics();
-      this.drawSmallButton(bg, bx, bulkY, btnW, 22, false);
+      this.drawSmallButton(bg, bx, bulkY, btnW, 26, false);
       this.bulkContainer!.add(bg);
 
-      const text = this.add.text(bx + btnW / 2, bulkY + 11, opt.label, {
+      const text = this.add.text(bx + btnW / 2, bulkY + 13, 'ALL: ' + opt.label, {
         fontFamily: PIXEL_FONT,
-        fontSize: '10px',
+        fontSize: '8px',
         color: '#aaaaaa',
       }).setOrigin(0.5);
       this.bulkContainer!.add(text);
 
-      const zone = this.add.zone(bx + btnW / 2, bulkY + 11, btnW, 22).setInteractive({ useHandCursor: true });
+      const zone = this.add.zone(bx + btnW / 2, bulkY + 13, btnW, 26).setInteractive({ useHandCursor: true });
       this.bulkContainer!.add(zone);
 
       zone.on('pointerup', () => {
