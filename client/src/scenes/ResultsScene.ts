@@ -16,7 +16,12 @@ export class ResultsScene extends Phaser.Scene {
   }
 
   create(data: { results: GameResults }): void {
-    this.results = data.results;
+    this.results = data?.results ?? {
+      ticksPlayed: 0, season: 'unknown', agents: [], bestGenome: null,
+      topAnimals: { apex: null, midPredator: null, largeHerb: null, mediumHerb: null, smallPrey: null },
+      comparison: { llmAvgEffectiveness: 0, dtAvgEffectiveness: 0, llmAvgSurvival: 0, dtAvgSurvival: 0, bestApproach: 'tie', perRole: {} },
+    };
+    console.log('[ResultsScene] Received results:', JSON.stringify(this.results).slice(0, 200));
     const { width, height } = this.scale;
     this.cameras.main.setBackgroundColor('#0a0a14');
 
@@ -155,44 +160,63 @@ export class ResultsScene extends Phaser.Scene {
   private renderGenomeTab(startY: number, _width: number): void {
     let y = startY;
     const genome = this.results.bestGenome;
+
+    // Genome comparison table — all agents' key genome values
+    this.addText(40, y, 'GENOME COMPARISON', '#556655', '12px'); y += 24;
+
+    // Header
+    this.addText(40, y, 'Agent', '#556655', '10px');
+    this.addText(160, y, 'v', '#556655', '10px');
+    this.addText(200, y, 'Flee', '#556655', '10px');
+    this.addText(260, y, 'Thirst', '#556655', '10px');
+    this.addText(340, y, 'Hunger', '#556655', '10px');
+    this.addText(420, y, 'Hunt', '#556655', '10px');
+    this.addText(490, y, 'Rules', '#556655', '10px');
+    this.addText(560, y, 'Score', '#556655', '10px');
+    y += 18;
+
+    for (const agent of this.results.agents) {
+      const gs = (agent as any).genomeSummary;
+      const isTop = agent.rank === 1;
+      const c = isTop ? '#ffd700' : '#c8d0c8';
+      this.addText(40, y, agent.name, c, '10px');
+      this.addText(160, y, `${gs?.version ?? '?'}`, '#909890', '10px');
+      this.addText(200, y, `${gs?.fleeBase ?? '?'}`, '#909890', '10px');
+      this.addText(260, y, `${gs?.criticalThirst ?? '?'}`, '#909890', '10px');
+      this.addText(340, y, `${gs?.criticalHunger ?? '?'}`, '#909890', '10px');
+      this.addText(420, y, `${gs?.huntAnimal ?? '?'}`, '#909890', '10px');
+      this.addText(490, y, `${gs?.strategyRuleCount ?? 0}`, '#909890', '10px');
+      this.addText(560, y, `${agent.effectiveness}`, c, '10px');
+      y += 18;
+    }
+
     if (!genome) {
-      this.addText(40, y, 'No genome data available.', '#888888', '12px');
+      y += 20;
+      this.addText(40, y, 'No genome data for export.', '#888888', '12px');
       return;
     }
 
+    // Best genome detail
+    y += 20;
     const winner = this.results.agents[0];
-    this.addText(40, y, `Best: ${winner?.name ?? '?'}  (Genome v${genome.version})`, '#ffd700', '13px');
-    y += 28;
-
-    // Interrupt weights
-    this.addText(40, y, 'INTERRUPT WEIGHTS', '#556655', '11px'); y += 20;
-    for (const [k, v] of Object.entries(genome.interruptWeights ?? {})) {
-      this.addText(60, y, `${k}: ${v}`, '#909890', '11px'); y += 16;
-    }
-    y += 8;
-
-    // Thresholds
-    this.addText(40, y, 'THRESHOLDS', '#556655', '11px'); y += 20;
-    for (const [k, v] of Object.entries(genome.thresholds ?? {})) {
-      this.addText(60, y, `${k}: ${typeof v === 'number' ? Math.round(v * 100) / 100 : v}`, '#909890', '11px'); y += 16;
-    }
-    y += 8;
+    this.addText(40, y, `BEST: ${winner?.name ?? '?'}  (Genome v${genome.version})`, '#ffd700', '12px');
+    y += 24;
 
     // Strategy rules
     if (genome.strategyRules?.length > 0) {
-      this.addText(40, y, 'STRATEGY RULES', '#556655', '11px'); y += 20;
+      this.addText(40, y, 'STRATEGY RULES', '#556655', '11px'); y += 18;
       for (const rule of genome.strategyRules) {
-        this.addText(60, y, `${rule.enabled ? '\u2705' : '\u274C'} ${rule.name}`, '#ccaa44', '11px'); y += 16;
-        this.addText(80, y, `Source: ${rule.source}`, '#888866', '10px'); y += 18;
+        this.addText(60, y, `${rule.enabled ? '\u2705' : '\u274C'} ${rule.name}`, '#ccaa44', '10px'); y += 14;
+        this.addText(80, y, rule.source ?? '', '#888866', '9px'); y += 16;
       }
       y += 8;
     }
 
     // Lineage
     if (genome.lineage?.length > 0) {
-      this.addText(40, y, 'LINEAGE', '#556655', '11px'); y += 20;
-      for (const entry of genome.lineage.slice(-10)) {
-        this.addText(60, y, entry, '#888888', '10px'); y += 16;
+      this.addText(40, y, 'MUTATION HISTORY', '#556655', '11px'); y += 18;
+      for (const entry of genome.lineage.slice(-8)) {
+        this.addText(60, y, entry, '#888888', '9px'); y += 14;
       }
       y += 8;
     }
