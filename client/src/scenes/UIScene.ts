@@ -390,36 +390,42 @@ export class UIScene extends Phaser.Scene {
 
   private renderAgentRow(agent: AgentState, y: number): void {
     const alive = agent.alive;
+    const lives = agent.livesRemaining ?? 100;
     const level = agentLevel(agent);
-    const actionLabel = alive ? (ACTION_LABELS[agent.action] ?? agent.action) : 'dead';
-    const name = agent.name.length > 8 ? agent.name.slice(0, 7) + '.' : agent.name;
+    const name = agent.name.length > 6 ? agent.name.slice(0, 5) + '.' : agent.name;
 
     // Alive dot
     const dot = this.add.graphics();
     dot.fillStyle(alive ? 0x44cc44 : 0x666666, 1);
-    dot.fillCircle(16, y + 7, 3);
+    dot.fillCircle(14, y + 8, 3);
     this.sidebarContainer.add(dot);
 
     // Name
-    const nameText = this.add.text(24, y + 1, name, {
-      fontFamily: PIXEL_FONT, fontSize: '14px', color: alive ? '#cccccc' : '#666666',
+    const nameText = this.add.text(22, y + 1, name, {
+      fontFamily: PIXEL_FONT, fontSize: '12px', color: alive ? '#cccccc' : '#666666',
     });
     this.sidebarContainer.add(nameText);
 
     // Level
-    const lvText = this.add.text(110, y + 1, `Lv${level}`, {
-      fontFamily: PIXEL_FONT, fontSize: '14px', color: alive ? '#aaaaaa' : '#555555',
+    const lvText = this.add.text(95, y + 1, `Lv${level}`, {
+      fontFamily: PIXEL_FONT, fontSize: '12px', color: alive ? '#aaaaaa' : '#555555',
     });
     this.sidebarContainer.add(lvText);
 
-    // Action
-    const actColor = agent.action === 'fighting' ? '#ff6666'
-      : agent.action === 'fleeing' ? '#ffaa44'
-      : alive ? '#888888' : '#444444';
-    const actText = this.add.text(160, y + 1, actionLabel, {
-      fontFamily: PIXEL_FONT, fontSize: '14px', color: actColor,
+    // Lives (heart + number, color-coded)
+    const livesColor = !alive ? '#cc4444' : lives > 50 ? '#44cc44' : lives > 20 ? '#cccc44' : '#cc4444';
+    const livesT = this.add.text(148, y - 1, `\u2764${lives}`, {
+      fontSize: '12px', color: livesColor,
     });
-    this.sidebarContainer.add(actText);
+    this.sidebarContainer.add(livesT);
+
+    // Deaths (skull × count, if died before)
+    if (agent.totalDeaths > 0) {
+      const deathT = this.add.text(210, y - 1, `\uD83D\uDC80${agent.totalDeaths}`, {
+        fontSize: '11px', color: '#886666',
+      });
+      this.sidebarContainer.add(deathT);
+    }
 
     // Click zone for selection
     const zone = this.add.zone(SIDEBAR_W / 2, y + 7, SIDEBAR_W - 12, 16).setInteractive({ useHandCursor: true });
@@ -548,15 +554,31 @@ export class UIScene extends Phaser.Scene {
       y += 8;
     };
 
-    // Agent name
-    addLine(agent.name, '#80d880', '12px');
+    // Agent name + lives
+    {
+      const lives = agent.livesRemaining ?? 100;
+      const livesColor = lives > 50 ? '#44cc44' : lives > 20 ? '#cccc44' : '#cc4444';
+      const nameT = this.add.text(14, y, agent.name, {
+        fontFamily: PIXEL_FONT, fontSize: '14px', color: '#80d880',
+      });
+      this.infoPanelContainer.add(nameT);
+      const livesT = this.add.text(14 + nameT.width + 12, y, `\u2764${lives}`, {
+        fontSize: '13px', color: livesColor,
+      });
+      this.infoPanelContainer.add(livesT);
+      y += 22;
+    }
     addLine(agent.personality.join(' / '), '#607860', '12px');
 
-    // Status
+    // Status + last death
     if (agent.alive) {
       addLine(formatAction(agent.action), '#88bbdd', '10px', 2);
     } else {
       addLine('DEAD', '#cc4444', '14px', 2);
+    }
+    if (agent.totalDeaths > 0) {
+      const deathIcon = getDeathEmoji(agent);
+      addLine(`Deaths: ${agent.totalDeaths}  ${deathIcon}`, '#aa8888', '12px');
     }
 
     // GOAP Plan
@@ -702,35 +724,15 @@ export class UIScene extends Phaser.Scene {
     y += 4;
     addLine(`Obedience: ${agent.obedience}%`, '#888880', '12px');
 
-    // Evolution / Lives
-    if (agent.livesRemaining !== undefined) {
-      addDivider();
-      addLine('EVOLUTION', '#556655', '12px');
-      const livesColor = (agent.livesRemaining ?? 100) > 50 ? '#44cc44'
-        : (agent.livesRemaining ?? 100) > 20 ? '#cccc44' : '#cc4444';
-      addLine(`Lives: ${agent.livesRemaining}`, livesColor, '13px');
-      if (agent.genomeVersion !== undefined) {
-        addLine(`Genome v${agent.genomeVersion}`, '#888880', '12px');
-      }
-      if (agent.currentLifeTicks !== undefined) {
-        const secs = Math.floor((agent.currentLifeTicks ?? 0) / 10);
-        addLine(`Life: ${secs}s`, '#888880', '12px');
-      }
-      if (agent.lifetimeBestSurvival !== undefined && (agent.lifetimeBestSurvival ?? 0) > 0) {
-        const bestSecs = Math.floor((agent.lifetimeBestSurvival ?? 0) / 10);
-        addLine(`Best: ${bestSecs}s`, '#888880', '12px');
-      }
-      if (agent.isHighlander) {
-        addLine('HIGHLANDER', '#ffd700', '13px');
-      }
-      if (agent.llmProviderId && agent.llmRole && agent.llmRole !== 'none') {
-        addLine(`AI: ${agent.llmRole} via ${agent.llmProviderId}`, '#80c080', '12px');
-      } else {
-        addLine('AI: Decision Tree', '#666666', '12px');
-      }
-      if (agent.activeStrategyRuleNames && agent.activeStrategyRuleNames.length > 0) {
-        addLine(`Rules: ${agent.activeStrategyRuleNames.join(', ')}`, '#888866', '7px');
-      }
+    // Evolution summary (compact, inline with other stats)
+    if (agent.genomeVersion !== undefined && agent.genomeVersion > 1) {
+      addLine(`Genome v${agent.genomeVersion}`, '#888880', '12px');
+    }
+    if (agent.llmProviderId && agent.llmRole && agent.llmRole !== 'none') {
+      addLine(`AI: ${agent.llmRole}`, '#80c080', '12px');
+    }
+    if (agent.isHighlander) {
+      addLine('HIGHLANDER', '#ffd700', '13px');
     }
 
     // Last message
@@ -1292,6 +1294,20 @@ function formatAction(action: string): string {
 
 function agentLevel(agent: AgentState): number {
   return Object.values(agent.skills).reduce((sum, s: any) => sum + (s.level || 0), 0);
+}
+
+function getDeathEmoji(agent: AgentState): string {
+  // Show emoji for how agent last died (based on lastAttackedBy or needs)
+  if (!agent.alive) {
+    if (agent.needs.thirst <= 0) return '\uD83D\uDCA7'; // 💧 dehydration
+    if (agent.needs.proteinHunger <= 0 || agent.needs.plantHunger <= 0) return '\uD83C\uDF56'; // 🍖 starvation
+    if (agent.lastAttackedBy?.type === 'animal') return '\uD83D\uDC3B'; // 🐻 killed by animal
+    if (agent.lastAttackedBy?.type === 'agent') return '\u2694\uFE0F'; // ⚔️ killed by agent
+    return '\uD83D\uDC80'; // 💀 generic
+  }
+  // Alive but has died before — show most recent cause hint from deaths count
+  if (agent.totalDeaths > 0) return `\uD83D\uDC80\u00D7${agent.totalDeaths}`; // 💀×N
+  return '';
 }
 
 function computeGodPower(agents: AgentState[]): number {
