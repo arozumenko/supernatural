@@ -1323,8 +1323,9 @@ export class UIScene extends Phaser.Scene {
     // PLAN section (same as agents)
     addDivider();
     addLine('PLAN', '#556655', '12px');
-    if (animal.alive && animal.lastDecisionReason) {
-      const [reason, topDec] = (animal.lastDecisionReason ?? animal.action).split('\n');
+    if (animal.alive) {
+      const reasonRaw = animal.lastDecisionReason ?? animal.action;
+      const [reason, topDec] = reasonRaw.split('\n');
       addLine(`\uD83D\uDCAD ${reason}`, '#88aacc', '12px');
 
       // Show urgent needs
