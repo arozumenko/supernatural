@@ -66,7 +66,7 @@ export class UIScene extends Phaser.Scene {
     // Stats (top-left)
     this.statsText = this.add.text(12, 12, '', {
       fontFamily: PIXEL_FONT,
-      fontSize: '12px',
+      fontSize: '14px',
       color: '#e0e0e0',
       backgroundColor: '#1a1a2e',
       padding: { x: 10, y: 8 },
@@ -78,7 +78,7 @@ export class UIScene extends Phaser.Scene {
     // Panel title
     this.panelTitle = this.add.text(0, 10, 'SUPERNATURAL', {
       fontFamily: PIXEL_FONT,
-      fontSize: '12px',
+      fontSize: '14px',
       color: '#80c080',
     }).setDepth(1000);
 
@@ -91,14 +91,14 @@ export class UIScene extends Phaser.Scene {
     // Events label
     this.logLabel = this.add.text(0, 0, 'EVENTS', {
       fontFamily: PIXEL_FONT,
-      fontSize: '12px',
+      fontSize: '14px',
       color: '#556655',
     }).setDepth(1000);
 
     // Event log text
     this.eventLogText = this.add.text(0, 0, '', {
       fontFamily: PIXEL_FONT,
-      fontSize: '12px',
+      fontSize: '14px',
       color: '#a0b0a0',
       lineSpacing: 8,
       wordWrap: { width: PANEL_W - 28 },
@@ -107,7 +107,7 @@ export class UIScene extends Phaser.Scene {
     // Controls hint (bottom-left)
     this.controlsText = this.add.text(12, 0, 'WASD:move  Scroll:zoom  Click:select  M:msg  N:new agent', {
       fontFamily: PIXEL_FONT,
-      fontSize: '12px',
+      fontSize: '14px',
       color: '#667766',
       backgroundColor: '#0a0a14',
       padding: { x: 8, y: 6 },
@@ -322,7 +322,7 @@ export class UIScene extends Phaser.Scene {
         this.sidebarContainer.add(headerBg);
 
         const headerText = this.add.text(12, y + 4, 'NO GOD', {
-          fontFamily: PIXEL_FONT, fontSize: '12px', color: '#666666',
+          fontFamily: PIXEL_FONT, fontSize: '14px', color: '#666666',
         });
         this.sidebarContainer.add(headerText);
         y += 24;
@@ -346,7 +346,7 @@ export class UIScene extends Phaser.Scene {
 
         // Power score
         const powerText = this.add.text(16, y + 4, `${power}`, {
-          fontFamily: PIXEL_FONT, fontSize: '12px', color: '#ffd700',
+          fontFamily: PIXEL_FONT, fontSize: '14px', color: '#ffd700',
         });
         this.sidebarContainer.add(powerText);
 
@@ -357,19 +357,19 @@ export class UIScene extends Phaser.Scene {
         this.sidebarContainer.add(badgeBg);
 
         const badgeText = this.add.text(SIDEBAR_W - 33, y + 7, roleBadge, {
-          fontFamily: PIXEL_FONT, fontSize: '12px', color: '#0a0a0a',
+          fontFamily: PIXEL_FONT, fontSize: '14px', color: '#0a0a0a',
         }).setOrigin(0.5, 0);
         this.sidebarContainer.add(badgeText);
 
         // Provider label
         const provText = this.add.text(16, y + 20, providerLabel, {
-          fontFamily: PIXEL_FONT, fontSize: '12px', color: '#aaaaaa',
+          fontFamily: PIXEL_FONT, fontSize: '14px', color: '#aaaaaa',
         });
         this.sidebarContainer.add(provText);
 
         // Agent count
         const countText = this.add.text(16, y + 32, `${aliveCount} agent${aliveCount !== 1 ? 's' : ''}`, {
-          fontFamily: PIXEL_FONT, fontSize: '12px', color: '#666666',
+          fontFamily: PIXEL_FONT, fontSize: '14px', color: '#666666',
         });
         this.sidebarContainer.add(countText);
 
@@ -402,13 +402,13 @@ export class UIScene extends Phaser.Scene {
 
     // Name
     const nameText = this.add.text(24, y + 1, name, {
-      fontFamily: PIXEL_FONT, fontSize: '12px', color: alive ? '#cccccc' : '#666666',
+      fontFamily: PIXEL_FONT, fontSize: '14px', color: alive ? '#cccccc' : '#666666',
     });
     this.sidebarContainer.add(nameText);
 
     // Level
     const lvText = this.add.text(110, y + 1, `Lv${level}`, {
-      fontFamily: PIXEL_FONT, fontSize: '12px', color: alive ? '#aaaaaa' : '#555555',
+      fontFamily: PIXEL_FONT, fontSize: '14px', color: alive ? '#aaaaaa' : '#555555',
     });
     this.sidebarContainer.add(lvText);
 
@@ -417,7 +417,7 @@ export class UIScene extends Phaser.Scene {
       : agent.action === 'fleeing' ? '#ffaa44'
       : alive ? '#888888' : '#444444';
     const actText = this.add.text(160, y + 1, actionLabel, {
-      fontFamily: PIXEL_FONT, fontSize: '12px', color: actColor,
+      fontFamily: PIXEL_FONT, fontSize: '14px', color: actColor,
     });
     this.sidebarContainer.add(actText);
 
@@ -501,7 +501,7 @@ export class UIScene extends Phaser.Scene {
     if (!agent) {
       const hint = this.add.text(14, 50, 'Click an agent or\ntree to inspect', {
         fontFamily: PIXEL_FONT,
-        fontSize: '12px',
+        fontSize: '14px',
         color: '#445544',
         lineSpacing: 8,
       });
@@ -512,7 +512,7 @@ export class UIScene extends Phaser.Scene {
     let y = 46;
     const contentW = PANEL_W - 28;
 
-    const addLine = (text: string, color = '#c8d0c8', size = '10px', yGap = 0) => {
+    const addLine = (text: string, color = '#c8d0c8', size = '13px', yGap = 0) => {
       y += yGap;
       const t = this.add.text(14, y, text, {
         fontFamily: PIXEL_FONT,
@@ -550,33 +550,33 @@ export class UIScene extends Phaser.Scene {
 
     // Agent name
     addLine(agent.name, '#80d880', '12px');
-    addLine(agent.personality.join(' / '), '#607860', '8px');
+    addLine(agent.personality.join(' / '), '#607860', '12px');
 
     // Status
     if (agent.alive) {
       addLine(formatAction(agent.action), '#88bbdd', '10px', 2);
     } else {
-      addLine('DEAD', '#cc4444', '11px', 2);
+      addLine('DEAD', '#cc4444', '14px', 2);
     }
 
     // GOAP Plan
     if (agent.alive && agent.currentPlanGoal && agent.currentPlanSteps && agent.currentPlanSteps.length > 0) {
       addDivider();
-      addLine(`Goal: ${agent.currentPlanGoal}`, '#ccaa44', '9px');
+      addLine(`Goal: ${agent.currentPlanGoal}`, '#ccaa44', '13px');
       const stepIdx = agent.planStepIndex ?? 0;
-      addLine(`Plan [${stepIdx + 1}/${agent.currentPlanSteps.length}]`, '#888866', '8px');
+      addLine(`Plan [${stepIdx + 1}/${agent.currentPlanSteps.length}]`, '#888866', '12px');
       for (let i = 0; i < agent.currentPlanSteps.length; i++) {
         const step = agent.currentPlanSteps[i];
         const prefix = i < stepIdx ? '\u2705' : i === stepIdx ? '\u25B6' : '\u25CB';
         const color = i < stepIdx ? '#668866' : i === stepIdx ? '#cccc88' : '#666655';
-        addLine(`${prefix} ${step.actionName}`, color, '8px');
+        addLine(`${prefix} ${step.actionName}`, color, '12px');
       }
     }
 
     addDivider();
 
     // Needs — emoji + bar, no numbers, 2 columns
-    addLine('NEEDS', '#556655', '8px');
+    addLine('NEEDS', '#556655', '12px');
     const needsList: [string, number, number][] = [
       ['\u2764\uFE0F',  agent.needs.health,         0xcc4444],   // ❤️
       ['\uD83E\uDD69',  agent.needs.proteinHunger,  0xcc8844],   // 🥩
@@ -615,12 +615,12 @@ export class UIScene extends Phaser.Scene {
     // Metabolism
     const totalLevels = Object.values(agent.skills).reduce((sum: number, s: any) => sum + (s.level || 0), 0);
     const metabolism = (1 + totalLevels / 500).toFixed(1);
-    addLine(`Metabolism: ${metabolism}x`, '#888880', '8px');
+    addLine(`Metabolism: ${metabolism}x`, '#888880', '12px');
 
     addDivider();
 
     // Resources — show all non-zero
-    addLine('INVENTORY', '#556655', '8px');
+    addLine('INVENTORY', '#556655', '12px');
     const resEntries: [string, number, string][] = [
       ['Wood', agent.resources.wood, '#b0a890'],
       ['Stone', agent.resources.stone, '#a0a0a0'],
@@ -644,10 +644,10 @@ export class UIScene extends Phaser.Scene {
       // Show in compact rows of 3
       for (let i = 0; i < nonZeroRes.length; i += 3) {
         const row = nonZeroRes.slice(i, i + 3).map(([n, v]) => `${n}:${v}`).join('  ');
-        addLine(row, '#b0a890', '8px');
+        addLine(row, '#b0a890', '12px');
       }
     } else {
-      addLine('(empty)', '#667766', '8px');
+      addLine('(empty)', '#667766', '12px');
     }
 
     // Inventory - equipped items
@@ -655,31 +655,31 @@ export class UIScene extends Phaser.Scene {
       const eq = agent.inventory.equipped;
       if (eq.mainHand || eq.body || eq.accessory) {
         addDivider();
-        addLine('EQUIPPED', '#556655', '8px');
+        addLine('EQUIPPED', '#556655', '12px');
         if (eq.mainHand) {
           const dur = eq.mainHand.durability !== undefined ? ` (${eq.mainHand.durability})` : '';
-          addLine(`Hand: ${eq.mainHand.itemId.replace(/_/g, ' ')}${dur}`, '#b0a890', '8px');
+          addLine(`Hand: ${eq.mainHand.itemId.replace(/_/g, ' ')}${dur}`, '#b0a890', '12px');
         }
         if (eq.body) {
           const dur = eq.body.durability !== undefined ? ` (${eq.body.durability})` : '';
-          addLine(`Body: ${eq.body.itemId.replace(/_/g, ' ')}${dur}`, '#b0a890', '8px');
+          addLine(`Body: ${eq.body.itemId.replace(/_/g, ' ')}${dur}`, '#b0a890', '12px');
         }
         if (eq.accessory) {
-          addLine(`Acc: ${eq.accessory.itemId.replace(/_/g, ' ')}`, '#b0a890', '8px');
+          addLine(`Acc: ${eq.accessory.itemId.replace(/_/g, ' ')}`, '#b0a890', '12px');
         }
       }
     }
 
     // Inventory - carried items (non-zero)
     if (agent.inventory?.items?.length > 0) {
-      addLine('ITEMS', '#556655', '8px');
+      addLine('ITEMS', '#556655', '12px');
       for (const item of agent.inventory.items.slice(0, 6)) { // show max 6
         const dur = item.durability !== undefined ? ` [${item.durability}]` : '';
         const qty = item.quantity > 1 ? `×${item.quantity}` : '';
-        addLine(`${item.itemId.replace(/_/g, ' ')} ${qty}${dur}`, '#909890', '8px');
+        addLine(`${item.itemId.replace(/_/g, ' ')} ${qty}${dur}`, '#909890', '12px');
       }
       if (agent.inventory.items.length > 6) {
-        addLine(`...+${agent.inventory.items.length - 6} more`, '#667766', '8px');
+        addLine(`...+${agent.inventory.items.length - 6} more`, '#667766', '12px');
       }
     }
 
@@ -687,46 +687,46 @@ export class UIScene extends Phaser.Scene {
     if (agent.carryWeight !== undefined && agent.carryCapacity !== undefined) {
       const weightPct = Math.floor((agent.carryWeight / Math.max(1, agent.carryCapacity)) * 100);
       const weightColor = weightPct > 90 ? '#cc4444' : weightPct > 60 ? '#ccaa44' : '#888880';
-      addLine(`Weight: ${Math.floor(agent.carryWeight)}/${Math.floor(agent.carryCapacity)}`, weightColor, '8px');
+      addLine(`Weight: ${Math.floor(agent.carryWeight)}/${Math.floor(agent.carryCapacity)}`, weightColor, '12px');
     }
 
     // Skills
     y += 4;
-    addLine('SKILLS', '#556655', '8px');
-    addLine(`Combat:${agent.skills.combat.level}  Def:${agent.skills.defense.level}  Ath:${agent.skills.athletics.level}`, '#909890', '8px');
-    addLine(`Wood:${agent.skills.woodcutting.level}  Mine:${agent.skills.mining.level}  For:${agent.skills.foraging.level}`, '#909890', '8px');
-    addLine(`Build:${agent.skills.building.level}  Craft:${agent.skills.crafting.level}`, '#909890', '8px');
-    addLine(`Surv:${agent.skills.survival.level}  Soc:${agent.skills.social.level}`, '#909890', '8px');
+    addLine('SKILLS', '#556655', '12px');
+    addLine(`Combat:${agent.skills.combat.level}  Def:${agent.skills.defense.level}  Ath:${agent.skills.athletics.level}`, '#909890', '12px');
+    addLine(`Wood:${agent.skills.woodcutting.level}  Mine:${agent.skills.mining.level}  For:${agent.skills.foraging.level}`, '#909890', '12px');
+    addLine(`Build:${agent.skills.building.level}  Craft:${agent.skills.crafting.level}`, '#909890', '12px');
+    addLine(`Surv:${agent.skills.survival.level}  Soc:${agent.skills.social.level}`, '#909890', '12px');
 
     // Obedience
     y += 4;
-    addLine(`Obedience: ${agent.obedience}%`, '#888880', '8px');
+    addLine(`Obedience: ${agent.obedience}%`, '#888880', '12px');
 
     // Evolution / Lives
     if (agent.livesRemaining !== undefined) {
       addDivider();
-      addLine('EVOLUTION', '#556655', '8px');
+      addLine('EVOLUTION', '#556655', '12px');
       const livesColor = (agent.livesRemaining ?? 100) > 50 ? '#44cc44'
         : (agent.livesRemaining ?? 100) > 20 ? '#cccc44' : '#cc4444';
-      addLine(`Lives: ${agent.livesRemaining}`, livesColor, '9px');
+      addLine(`Lives: ${agent.livesRemaining}`, livesColor, '13px');
       if (agent.genomeVersion !== undefined) {
-        addLine(`Genome v${agent.genomeVersion}`, '#888880', '8px');
+        addLine(`Genome v${agent.genomeVersion}`, '#888880', '12px');
       }
       if (agent.currentLifeTicks !== undefined) {
         const secs = Math.floor((agent.currentLifeTicks ?? 0) / 10);
-        addLine(`Life: ${secs}s`, '#888880', '8px');
+        addLine(`Life: ${secs}s`, '#888880', '12px');
       }
       if (agent.lifetimeBestSurvival !== undefined && (agent.lifetimeBestSurvival ?? 0) > 0) {
         const bestSecs = Math.floor((agent.lifetimeBestSurvival ?? 0) / 10);
-        addLine(`Best: ${bestSecs}s`, '#888880', '8px');
+        addLine(`Best: ${bestSecs}s`, '#888880', '12px');
       }
       if (agent.isHighlander) {
-        addLine('HIGHLANDER', '#ffd700', '9px');
+        addLine('HIGHLANDER', '#ffd700', '13px');
       }
       if (agent.llmProviderId && agent.llmRole && agent.llmRole !== 'none') {
-        addLine(`AI: ${agent.llmRole} via ${agent.llmProviderId}`, '#80c080', '8px');
+        addLine(`AI: ${agent.llmRole} via ${agent.llmProviderId}`, '#80c080', '12px');
       } else {
-        addLine('AI: Decision Tree', '#666666', '8px');
+        addLine('AI: Decision Tree', '#666666', '12px');
       }
       if (agent.activeStrategyRuleNames && agent.activeStrategyRuleNames.length > 0) {
         addLine(`Rules: ${agent.activeStrategyRuleNames.join(', ')}`, '#888866', '7px');
@@ -736,17 +736,17 @@ export class UIScene extends Phaser.Scene {
     // Last message
     if (agent.lastMessage) {
       addDivider();
-      addLine('LAST MSG', '#556655', '8px');
-      addLine(`"${agent.lastMessage.content}"`, '#d4a860', '8px');
+      addLine('LAST MSG', '#556655', '12px');
+      addLine(`"${agent.lastMessage.content}"`, '#d4a860', '12px');
       addLine(
         agent.lastMessage.followed ? 'Followed' : 'Ignored',
         agent.lastMessage.followed ? '#44cc44' : '#cc4444',
-        '8px'
+        '12px'
       );
     }
 
     y += 8;
-    addLine('[M] Send message', '#445544', '8px');
+    addLine('[M] Send message', '#445544', '12px');
   }
 
   private updateTreePanel(): void {
@@ -754,7 +754,7 @@ export class UIScene extends Phaser.Scene {
     let y = 46;
     const contentW = PANEL_W - 28;
 
-    const addLine = (text: string, color = '#c8d0c8', size = '10px', yGap = 0) => {
+    const addLine = (text: string, color = '#c8d0c8', size = '13px', yGap = 0) => {
       y += yGap;
       const t = this.add.text(14, y, text, {
         fontFamily: PIXEL_FONT,
@@ -783,19 +783,19 @@ export class UIScene extends Phaser.Scene {
 
     if (tree.isStump) {
       addLine('TREE STUMP', '#8b6914', '12px');
-      addLine('Waiting to regrow or decay...', '#607860', '8px');
+      addLine('Waiting to regrow or decay...', '#607860', '12px');
     } else {
       addLine(`TREE`, '#80d880', '12px');
-      addLine(`Type ${tree.type === 0 ? 'A' : 'B'}`, '#607860', '8px');
+      addLine(`Type ${tree.type === 0 ? 'A' : 'B'}`, '#607860', '12px');
 
       y += 4;
-      addLine('WOOD RESOURCE', '#556655', '8px');
-      addLine(`${Math.floor(tree.health)} / ${tree.maxHealth}`, '#b0a890', '8px');
+      addLine('WOOD RESOURCE', '#556655', '12px');
+      addLine(`${Math.floor(tree.health)} / ${tree.maxHealth}`, '#b0a890', '12px');
       addBar(tree.health, tree.maxHealth, 0x8b6914);
     }
 
     y += 8;
-    addLine(`Position: ${tree.x}, ${tree.y}`, '#445544', '8px');
+    addLine(`Position: ${tree.x}, ${tree.y}`, '#445544', '12px');
   }
 
   private updateRockPanel(): void {
@@ -803,7 +803,7 @@ export class UIScene extends Phaser.Scene {
     let y = 46;
     const contentW = PANEL_W - 28;
 
-    const addLine = (text: string, color = '#c8d0c8', size = '10px', yGap = 0) => {
+    const addLine = (text: string, color = '#c8d0c8', size = '13px', yGap = 0) => {
       y += yGap;
       const t = this.add.text(14, y, text, {
         fontFamily: PIXEL_FONT,
@@ -832,18 +832,18 @@ export class UIScene extends Phaser.Scene {
 
     if (rock.isRubble) {
       addLine('ROCK RUBBLE', '#8a8a8a', '12px');
-      addLine('Crumbled remains...', '#607860', '8px');
+      addLine('Crumbled remains...', '#607860', '12px');
     } else {
       addLine(rock.type === 0 ? 'SMALL ROCK' : 'BIG ROCK', '#b0a890', '12px');
 
       y += 4;
-      addLine('STONE RESOURCE', '#556655', '8px');
-      addLine(`${Math.floor(rock.health)} / ${rock.maxHealth}`, '#b0a890', '8px');
+      addLine('STONE RESOURCE', '#556655', '12px');
+      addLine(`${Math.floor(rock.health)} / ${rock.maxHealth}`, '#b0a890', '12px');
       addBar(rock.health, rock.maxHealth, 0x8a8a8a);
     }
 
     y += 8;
-    addLine(`Position: ${rock.x}, ${rock.y}`, '#445544', '8px');
+    addLine(`Position: ${rock.x}, ${rock.y}`, '#445544', '12px');
   }
 
   private updatePlantPanel(): void {
@@ -851,7 +851,7 @@ export class UIScene extends Phaser.Scene {
     let y = 46;
     const contentW = PANEL_W - 28;
 
-    const addLine = (text: string, color = '#c8d0c8', size = '10px', yGap = 0) => {
+    const addLine = (text: string, color = '#c8d0c8', size = '13px', yGap = 0) => {
       y += yGap;
       const t = this.add.text(14, y, text, {
         fontFamily: PIXEL_FONT,
@@ -891,17 +891,17 @@ export class UIScene extends Phaser.Scene {
     const info = plantInfo[plant.type] ?? { name: 'PLANT', color: '#80d880', desc: '' };
 
     addLine(info.name, info.color, '12px');
-    addLine(info.desc, '#607860', '8px');
+    addLine(info.desc, '#607860', '12px');
 
     if (plant.type === PlantType.BERRY_BUSH) {
       y += 4;
-      addLine('FOOD RESOURCE', '#556655', '8px');
-      addLine(`${Math.floor(plant.health)} / ${plant.maxHealth}`, '#b0a890', '8px');
+      addLine('FOOD RESOURCE', '#556655', '12px');
+      addLine(`${Math.floor(plant.health)} / ${plant.maxHealth}`, '#b0a890', '12px');
       addBar(plant.health, plant.maxHealth, 0x44aa44);
     }
 
     y += 8;
-    addLine(`Position: ${plant.x}, ${plant.y}`, '#445544', '8px');
+    addLine(`Position: ${plant.x}, ${plant.y}`, '#445544', '12px');
   }
 
   private updateAnimalPanel(): void {
@@ -909,7 +909,7 @@ export class UIScene extends Phaser.Scene {
     let y = 46;
     const contentW = PANEL_W - 28;
 
-    const addLine = (text: string, color = '#c8d0c8', size = '10px', yGap = 0) => {
+    const addLine = (text: string, color = '#c8d0c8', size = '13px', yGap = 0) => {
       y += yGap;
       const t = this.add.text(14, y, text, {
         fontFamily: PIXEL_FONT,
@@ -956,32 +956,45 @@ export class UIScene extends Phaser.Scene {
     addLine(formatAction(animal.action), '#88bbdd', '10px', 2);
 
     if (!animal.alive) {
-      addLine('DEAD', '#cc4444', '11px', 2);
+      addLine('DEAD', '#cc4444', '14px', 2);
     }
 
     y += 4;
 
-    // Health bar
-    addLine(`Health  ${Math.floor(animal.health)}/${animal.maxHealth}`, '#909890', '8px');
-    addBar(animal.health, animal.maxHealth, 0xcc4444);
-
-    // Hunger bars
-    addLine(`Protein  ${Math.floor(animal.proteinHunger)}`, '#909890', '8px');
-    addBar(animal.proteinHunger, 100, 0xcc8844);
-    addLine(`Plant  ${Math.floor(animal.plantHunger)}`, '#909890', '8px');
-    addBar(animal.plantHunger, 100, 0x88cc44);
-
-    // Thirst bar
-    addLine(`Thirst  ${Math.floor(animal.thirst)}`, '#909890', '8px');
-    addBar(animal.thirst, 100, 0x4488cc);
-
-    // Stamina bar
-    addLine(`Stamina  ${Math.floor(animal.stamina)}`, '#909890', '8px');
-    addBar(animal.stamina, 100, 0x44aa44);
+    // Needs — emoji + bar, 2 columns (same style as agent panel)
+    const animalNeeds: [string, number, number, number][] = [
+      ['\u2764\uFE0F',  animal.health,        animal.maxHealth, 0xcc4444],  // ❤️
+      ['\uD83E\uDD69',  animal.proteinHunger,  100, 0xcc8844],              // 🥩
+      ['\uD83C\uDF3F',  animal.plantHunger,    100, 0x88cc44],              // 🌿
+      ['\uD83D\uDCA7',  animal.thirst,         100, 0x4488cc],              // 💧
+      ['\u26A1',         animal.stamina,        100, 0x44aa44],              // ⚡
+    ];
+    const emojiW = 22;
+    const colBarW = (contentW / 2) - emojiW - 6;
+    const col1x = 14;
+    const col2x = 14 + contentW / 2;
+    for (let ni = 0; ni < animalNeeds.length; ni += 2) {
+      for (let ci = 0; ci < 2; ci++) {
+        const idx = ni + ci;
+        if (idx >= animalNeeds.length) break;
+        const [emoji, val, maxVal, clr] = animalNeeds[idx];
+        const cx = ci === 0 ? col1x : col2x;
+        const et = this.add.text(cx, y - 2, emoji, { fontSize: '14px' });
+        this.infoPanelContainer.add(et);
+        const bar = this.add.graphics();
+        const bx = cx + emojiW;
+        const pct = Math.max(0, Math.min(1, val / maxVal));
+        bar.fillStyle(0x1a1a2e); bar.fillRect(bx, y + 2, colBarW, 10);
+        bar.fillStyle(clr); bar.fillRect(bx, y + 2, colBarW * pct, 10);
+        bar.lineStyle(1, 0x2a3a2a); bar.strokeRect(bx, y + 2, colBarW, 10);
+        this.infoPanelContainer.add(bar);
+      }
+      y += 20;
+    }
 
     // Drops on death
     y += 4;
-    addLine('DROPS ON DEATH', '#556655', '8px');
+    addLine('DROPS ON DEATH', '#556655', '12px');
     if (animal.drops) {
       const dropLabels: [keyof DropTable, string, string][] = [
         ['meat', 'Meat', '#cc8866'],
@@ -996,26 +1009,26 @@ export class UIScene extends Phaser.Scene {
       for (const [key, label, color] of dropLabels) {
         const val = animal.drops[key];
         if (val && val > 0) {
-          addLine(`${label}: ${val}`, color, '8px');
+          addLine(`${label}: ${val}`, color, '12px');
         }
       }
     } else {
-      addLine(`Meat: ${animal.foodDrop}`, '#cc8866', '8px');
+      addLine(`Meat: ${animal.foodDrop}`, '#cc8866', '12px');
     }
 
     // Taming status
     if (animal.tamed) {
       y += 4;
-      addLine('TAMED', '#44cc44', '8px');
+      addLine('TAMED', '#44cc44', '12px');
     }
     if (!animal.tamed && animal.tamingProgress > 0) {
       y += 4;
-      addLine(`Taming: ${animal.tamingProgress}`, '#88aa44', '8px');
+      addLine(`Taming: ${animal.tamingProgress}`, '#88aa44', '12px');
     }
 
     // Breeding cooldown
     if (animal.breedCooldown > 0) {
-      addLine(`Breed cooldown: ${Math.ceil(animal.breedCooldown / 10)}s`, '#666660', '8px');
+      addLine(`Breed cooldown: ${Math.ceil(animal.breedCooldown / 10)}s`, '#666660', '12px');
     }
 
     // Skills (only show non-zero)
@@ -1028,11 +1041,11 @@ export class UIScene extends Phaser.Scene {
     const nonZero = skillEntries.filter(([, lvl]) => lvl > 0);
     if (nonZero.length > 0) {
       y += 4;
-      addLine(nonZero.map(([n, l]) => `${n}:${l}`).join('  '), '#909890', '8px');
+      addLine(nonZero.map(([n, l]) => `${n}:${l}`).join('  '), '#909890', '12px');
     }
 
     y += 8;
-    addLine(`Position: ${Math.floor(animal.x)}, ${Math.floor(animal.y)}`, '#445544', '8px');
+    addLine(`Position: ${Math.floor(animal.x)}, ${Math.floor(animal.y)}`, '#445544', '12px');
   }
 
   private updateCorpsePanel(): void {
@@ -1040,7 +1053,7 @@ export class UIScene extends Phaser.Scene {
     let y = 46;
     const contentW = PANEL_W - 28;
 
-    const addLine = (text: string, color = '#c8d0c8', size = '10px', yGap = 0) => {
+    const addLine = (text: string, color = '#c8d0c8', size = '13px', yGap = 0) => {
       y += yGap;
       const t = this.add.text(14, y, text, {
         fontFamily: PIXEL_FONT,
@@ -1057,12 +1070,12 @@ export class UIScene extends Phaser.Scene {
     // Title
     const sourceName = corpse.sourceName || (corpse.sourceSpecies ? corpse.sourceSpecies.toUpperCase() : 'UNKNOWN');
     addLine(`CORPSE: ${sourceName}`, '#aa7755', '12px');
-    addLine(corpse.sourceType === 'agent' ? 'Fallen agent' : `${corpse.sourceSpecies || 'Animal'} remains`, '#607860', '8px');
+    addLine(corpse.sourceType === 'agent' ? 'Fallen agent' : `${corpse.sourceSpecies || 'Animal'} remains`, '#607860', '12px');
 
     y += 4;
 
     // Materials
-    addLine('MATERIALS', '#556655', '8px');
+    addLine('MATERIALS', '#556655', '12px');
     const materialNames: Record<string, string> = {
       meat: 'Meat', bone: 'Bone', hide: 'Hide', sinew: 'Sinew',
       fat: 'Fat', feathers: 'Feathers', teeth_claws: 'Teeth/Claws', scales: 'Scales',
@@ -1070,10 +1083,10 @@ export class UIScene extends Phaser.Scene {
     const matEntries = Object.entries(corpse.materials).filter(([, v]) => v != null && v > 0);
     if (matEntries.length > 0) {
       for (const [mat, amount] of matEntries) {
-        addLine(`${materialNames[mat] || mat}: ${amount}`, '#cc8866', '8px');
+        addLine(`${materialNames[mat] || mat}: ${amount}`, '#cc8866', '12px');
       }
     } else {
-      addLine('Empty', '#666660', '8px');
+      addLine('Empty', '#666660', '12px');
     }
 
     // Carried resources (agent corpses)
@@ -1081,9 +1094,9 @@ export class UIScene extends Phaser.Scene {
       const carriedEntries = Object.entries(corpse.carriedResources).filter(([, v]) => v != null && v > 0);
       if (carriedEntries.length > 0) {
         y += 4;
-        addLine('CARRIED ITEMS', '#556655', '8px');
+        addLine('CARRIED ITEMS', '#556655', '12px');
         for (const [res, amount] of carriedEntries) {
-          addLine(`${res}: ${amount}`, '#b0a890', '8px');
+          addLine(`${res}: ${amount}`, '#b0a890', '12px');
         }
       }
     }
@@ -1094,11 +1107,11 @@ export class UIScene extends Phaser.Scene {
     const carriedTotal = corpse.carriedResources
       ? Object.values(corpse.carriedResources).reduce((s, v) => s + (v || 0), 0)
       : 0;
-    addLine(`Total items: ${totalMats + carriedTotal}`, '#888880', '8px');
-    addLine('Decaying over time...', '#666660', '8px');
+    addLine(`Total items: ${totalMats + carriedTotal}`, '#888880', '12px');
+    addLine('Decaying over time...', '#666660', '12px');
 
     y += 8;
-    addLine(`Position: ${Math.floor(corpse.x)}, ${Math.floor(corpse.y)}`, '#445544', '8px');
+    addLine(`Position: ${Math.floor(corpse.x)}, ${Math.floor(corpse.y)}`, '#445544', '12px');
   }
 
   private updateStructurePanel(): void {
@@ -1106,7 +1119,7 @@ export class UIScene extends Phaser.Scene {
     let y = 46;
     const contentW = PANEL_W - 28;
 
-    const addLine = (text: string, color = '#c8d0c8', size = '10px', yGap = 0) => {
+    const addLine = (text: string, color = '#c8d0c8', size = '13px', yGap = 0) => {
       y += yGap;
       const t = this.add.text(14, y, text, {
         fontFamily: PIXEL_FONT,
@@ -1146,11 +1159,11 @@ export class UIScene extends Phaser.Scene {
     const info = structureNames[structure.tileType] ?? { name: 'STRUCTURE', color: '#c8d0c8', desc: '' };
 
     addLine(info.name, info.color, '12px');
-    addLine(info.desc, '#607860', '8px');
+    addLine(info.desc, '#607860', '12px');
 
     y += 4;
-    addLine('DURABILITY', '#556655', '8px');
-    addLine(`${Math.floor(structure.hp)} / ${structure.maxHp}`, '#b0a890', '8px');
+    addLine('DURABILITY', '#556655', '12px');
+    addLine(`${Math.floor(structure.hp)} / ${structure.maxHp}`, '#b0a890', '12px');
 
     // Color based on HP percentage
     const hpPct = structure.hp / structure.maxHp;
@@ -1159,24 +1172,24 @@ export class UIScene extends Phaser.Scene {
 
     if (structure.ownerId) {
       y += 4;
-      addLine(`Builder: ${structure.ownerId}`, '#888880', '8px');
+      addLine(`Builder: ${structure.ownerId}`, '#888880', '12px');
     }
 
     // Storage contents
     if (structure.storedItems && structure.storedItems.length > 0) {
       y += 4;
-      addLine('STORED ITEMS', '#556655', '8px');
+      addLine('STORED ITEMS', '#556655', '12px');
       for (const item of structure.storedItems) {
-        addLine(`${item.itemId} x${item.quantity}`, '#b0a890', '8px');
+        addLine(`${item.itemId} x${item.quantity}`, '#b0a890', '12px');
       }
     } else if (structure.tileType === TileType.STORAGE) {
       y += 4;
-      addLine('STORED ITEMS', '#556655', '8px');
-      addLine('Empty', '#666660', '8px');
+      addLine('STORED ITEMS', '#556655', '12px');
+      addLine('Empty', '#666660', '12px');
     }
 
     y += 8;
-    addLine(`Position: ${structure.x}, ${structure.y}`, '#445544', '8px');
+    addLine(`Position: ${structure.x}, ${structure.y}`, '#445544', '12px');
   }
 
   private updateWaterPanel(): void {
@@ -1184,7 +1197,7 @@ export class UIScene extends Phaser.Scene {
     let y = 46;
     const contentW = PANEL_W - 28;
 
-    const addLine = (text: string, color = '#c8d0c8', size = '10px', yGap = 0) => {
+    const addLine = (text: string, color = '#c8d0c8', size = '13px', yGap = 0) => {
       y += yGap;
       const t = this.add.text(14, y, text, {
         fontFamily: PIXEL_FONT,
@@ -1199,15 +1212,15 @@ export class UIScene extends Phaser.Scene {
     };
 
     addLine('WATER', '#4488cc', '12px');
-    addLine('Infinite fresh water source', '#607860', '8px');
+    addLine('Infinite fresh water source', '#607860', '12px');
 
     y += 4;
-    addLine('SUPPLIES', '#556655', '8px');
-    addLine('Drinking water for agents', '#88bbdd', '8px');
-    addLine('Quenches thirst on contact', '#88bbdd', '8px');
+    addLine('SUPPLIES', '#556655', '12px');
+    addLine('Drinking water for agents', '#88bbdd', '12px');
+    addLine('Quenches thirst on contact', '#88bbdd', '12px');
 
     y += 8;
-    addLine(`Position: ${pos.x}, ${pos.y}`, '#445544', '8px');
+    addLine(`Position: ${pos.x}, ${pos.y}`, '#445544', '12px');
   }
 
   private updateIronOrePanel(): void {
@@ -1215,7 +1228,7 @@ export class UIScene extends Phaser.Scene {
     let y = 46;
     const contentW = PANEL_W - 28;
 
-    const addLine = (text: string, color = '#c8d0c8', size = '10px', yGap = 0) => {
+    const addLine = (text: string, color = '#c8d0c8', size = '13px', yGap = 0) => {
       y += yGap;
       const t = this.add.text(14, y, text, {
         fontFamily: PIXEL_FONT,
@@ -1230,19 +1243,19 @@ export class UIScene extends Phaser.Scene {
     };
 
     addLine('IRON ORE DEPOSIT', '#c06030', '12px');
-    addLine('Finite resource — never regrows', '#607860', '8px');
+    addLine('Finite resource — never regrows', '#607860', '12px');
 
     y += 4;
-    addLine('YIELDS', '#556655', '8px');
-    addLine('Iron ore (requires pickaxe)', '#c0a060', '8px');
-    addLine('Smelt at forge → iron ingots', '#c0a060', '8px');
+    addLine('YIELDS', '#556655', '12px');
+    addLine('Iron ore (requires pickaxe)', '#c0a060', '12px');
+    addLine('Smelt at forge → iron ingots', '#c0a060', '12px');
 
     y += 4;
-    addLine('TIER 4 MATERIAL', '#556655', '8px');
-    addLine('Best tools and weapons', '#909890', '8px');
+    addLine('TIER 4 MATERIAL', '#556655', '12px');
+    addLine('Best tools and weapons', '#909890', '12px');
 
     y += 8;
-    addLine(`Position: ${pos.x}, ${pos.y}`, '#445544', '8px');
+    addLine(`Position: ${pos.x}, ${pos.y}`, '#445544', '12px');
   }
 }
 

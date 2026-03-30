@@ -114,9 +114,10 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  create(data?: { gameConfig?: GameConfig }): void {
+  create(data?: { gameConfig?: GameConfig; rejoin?: boolean }): void {
     // Apply game config if passed from menu
     const gameConfig = data?.gameConfig ?? DEFAULT_GAME_CONFIG;
+    const isRejoin = data?.rejoin === true;
     applyGameConfig(gameConfig);
 
     // Launch the UI scene on top of this one
@@ -129,8 +130,10 @@ export class GameScene extends Phaser.Scene {
     // Generate corpse marker texture
     // Network
     this.client = new SocketClient();
-    // Send config to server before init
-    this.client.configure(gameConfig);
+    // Only send config when starting a new game from menu (not on page reload rejoin)
+    if (!isRejoin) {
+      this.client.configure(gameConfig);
+    }
     this.client.on('world:init', (data: WorldInitData) => this.onWorldInit(data));
     this.client.on('world:update', (data: WorldUpdateData) => this.onWorldUpdate(data));
     this.client.on('agent:died', (data: { agentId: string; name: string; cause: string }) => {
@@ -252,7 +255,7 @@ export class GameScene extends Phaser.Scene {
     // Follow mode indicator (fixed to camera, top-center)
     this.followIndicator = this.add.text(0, 0, '[F] FOLLOWING', {
       fontFamily: '"Press Start 2P", monospace',
-      fontSize: '10px',
+      fontSize: '14px',
       color: '#80c080',
       backgroundColor: '#1a1a2e',
       padding: { x: 6, y: 4 },
@@ -482,7 +485,7 @@ export class GameScene extends Phaser.Scene {
       if (id === topAgent?.id && topLevel > 0) {
         if (!sprites.crownText) {
           sprites.crownText = this.add.text(0, 0, '\u{1F451}', {
-            fontSize: '10px',
+            fontSize: '14px',
           });
           sprites.crownText.setOrigin(0.5, 1);
           sprites.crownText.setDepth(103);
@@ -600,7 +603,7 @@ export class GameScene extends Phaser.Scene {
       `[${lvl}] ${agent.name}`,
       {
         fontFamily: PIXEL_FONT,
-        fontSize: '9px',
+        fontSize: '12px',
         color: agent.ownerId ? '#ffdd44' : '#ffffff',
         stroke: '#000000',
         strokeThickness: 3,
@@ -616,7 +619,7 @@ export class GameScene extends Phaser.Scene {
       '',
       {
         fontFamily: PIXEL_FONT,
-        fontSize: '10px',
+        fontSize: '14px',
         color: '#c0c0c0',
         stroke: '#000000',
         strokeThickness: 2,
@@ -885,7 +888,7 @@ export class GameScene extends Phaser.Scene {
       `[${lvl}]`,
       {
         fontFamily: PIXEL_FONT,
-        fontSize: '10px',
+        fontSize: '14px',
         color: '#cccccc',
         stroke: '#000000',
         strokeThickness: 2,
@@ -1263,7 +1266,7 @@ export class GameScene extends Phaser.Scene {
 
     const nameText = this.add.text(px, py - TILE_SIZE / 2 - 2, name, {
       fontFamily: PIXEL_FONT,
-      fontSize: '10px',
+      fontSize: '14px',
       color: '#999999',
       stroke: '#000000',
       strokeThickness: 2,

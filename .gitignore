@@ -33,3 +33,4 @@ client/dist/
 
 # Lock files (use install:all to regenerate)
 package-lock.json
+vite.config.ts.timestamp*

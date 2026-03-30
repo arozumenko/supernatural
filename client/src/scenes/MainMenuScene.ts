@@ -61,6 +61,9 @@ export class MainMenuScene extends Phaser.Scene {
   }
 
   create(): void {
+    // Check if a game is already running on the server — skip menu on page reload
+    this.checkExistingGame();
+
     const { width, height } = this.scale;
     const cx = width / 2;
     const cy = height / 2;
@@ -108,13 +111,13 @@ export class MainMenuScene extends Phaser.Scene {
     // Title
     this.add.text(cx, this.panelY + 36, 'SUPERNATURAL', {
       fontFamily: PIXEL_FONT,
-      fontSize: '22px',
+      fontSize: '28px',
       color: '#80c080',
     }).setOrigin(0.5);
 
     this.add.text(cx, this.panelY + 62, '~ civilization simulator ~', {
       fontFamily: PIXEL_FONT,
-      fontSize: '10px',
+      fontSize: '14px',
       color: '#666666',
     }).setOrigin(0.5);
 
@@ -128,7 +131,7 @@ export class MainMenuScene extends Phaser.Scene {
 
     this.add.text(leftColX + colW / 2, contentTop, 'WORLD SETTINGS', {
       fontFamily: PIXEL_FONT,
-      fontSize: '11px',
+      fontSize: '14px',
       color: '#80c080',
     }).setOrigin(0.5);
 
@@ -177,7 +180,7 @@ export class MainMenuScene extends Phaser.Scene {
     // === RIGHT COLUMN: Agent AI ===
     this.add.text(rightColX + colW / 2, contentTop, 'AGENT AI', {
       fontFamily: PIXEL_FONT,
-      fontSize: '11px',
+      fontSize: '14px',
       color: '#80c080',
     }).setOrigin(0.5);
 
@@ -234,7 +237,7 @@ export class MainMenuScene extends Phaser.Scene {
 
     const btnText = this.add.text(cx, btnY + btnH / 2, 'START GAME', {
       fontFamily: PIXEL_FONT,
-      fontSize: '12px',
+      fontSize: '16px',
       color: '#0a0a0a',
     }).setOrigin(0.5);
 
@@ -268,7 +271,7 @@ export class MainMenuScene extends Phaser.Scene {
       if (!this.agentAIContainer) return;
       const listAreaY = (this as any)._listAreaY as number;
       const listAreaH = (this as any)._listAreaH as number;
-      const maxScroll = Math.max(0, this.agentAIRows.length * 38 - listAreaH + 8);
+      const maxScroll = Math.max(0, this.agentAIRows.length * 42 - listAreaH + 8);
       const currentY = this.agentAIContainer.y;
       const newY = Phaser.Math.Clamp(currentY - deltaY * 0.5, -maxScroll, 0);
       this.agentAIContainer.y = newY;
@@ -277,9 +280,25 @@ export class MainMenuScene extends Phaser.Scene {
     // Version (top-right corner of panel)
     this.add.text(this.panelX + this.panelW - 20, this.panelY + 12, 'v0.2.0', {
       fontFamily: PIXEL_FONT,
-      fontSize: '8px',
+      fontSize: '14px',
       color: '#444444',
     }).setOrigin(1, 0);
+  }
+
+  private async checkExistingGame(): Promise<void> {
+    try {
+      const res = await fetch('http://localhost:3001/api/status');
+      if (res.ok) {
+        const status = await res.json();
+        if (status.alive > 0 || status.ticks > 10) {
+          // Game already running — skip menu, rejoin directly
+          this.scene.start('GameScene', { rejoin: true });
+          return;
+        }
+      }
+    } catch {
+      // Server not available — show menu normally
+    }
   }
 
   private async fetchLLMProviders(): Promise<void> {
@@ -322,25 +341,25 @@ export class MainMenuScene extends Phaser.Scene {
     // Reset scroll
     this.agentAIContainer.y = 0;
 
-    const btnH = 30;
-    const rowH = btnH + 8;
+    const btnH = 32;
+    const rowH = btnH + 10;
     const startY = listAreaY + 6;
     const rightColX = (this as any)._rightColX as number;
     const colW = (this as any)._colW as number;
-    const labelW = 100;
-    const gap = 8;
-    const availW = colW - 10 - labelW - gap * 2;
+    const labelW = 50;
+    const gap = 6;
+    const availW = colW - 10 - labelW - gap;
     const provBtnW = Math.floor(availW * 0.55);
-    const roleBtnW = availW - provBtnW;
+    const roleBtnW = availW - provBtnW - gap;
     const provBtnX = rightColX + labelW;
     const roleBtnX = provBtnX + provBtnW + gap;
 
     for (let i = 0; i < this.config.agentCount; i++) {
       const y = startY + i * rowH;
 
-      const label = this.add.text(rightColX + 10, y + 8, `Agent ${i + 1}`, {
+      const label = this.add.text(rightColX + 8, y + 8, `${i + 1}.`, {
         fontFamily: PIXEL_FONT,
-        fontSize: '11px',
+        fontSize: '14px',
         color: '#aaaaaa',
       });
       this.agentAIContainer.add(label);
@@ -355,7 +374,7 @@ export class MainMenuScene extends Phaser.Scene {
       this.agentAIContainer.add(providerBg);
 
       const providerText = this.add.text(provBtnX + provBtnW / 2, y + btnH / 2, provLabel, {
-        fontFamily: PIXEL_FONT, fontSize: '10px',
+        fontFamily: PIXEL_FONT, fontSize: '14px',
         color: assignment ? '#80c080' : '#888888',
       }).setOrigin(0.5);
       this.agentAIContainer.add(providerText);
@@ -371,7 +390,7 @@ export class MainMenuScene extends Phaser.Scene {
       this.agentAIContainer.add(roleBg);
 
       const roleText = this.add.text(roleBtnX + roleBtnW / 2, y + btnH / 2, roleLabel, {
-        fontFamily: PIXEL_FONT, fontSize: '10px',
+        fontFamily: PIXEL_FONT, fontSize: '14px',
         color: assignment ? '#c0a060' : '#666666',
       }).setOrigin(0.5);
       this.agentAIContainer.add(roleText);
@@ -444,25 +463,27 @@ export class MainMenuScene extends Phaser.Scene {
       ...this.llmProviders.map(p => ({ label: p.label, value: p.id })),
     ];
 
-    const gap = 8;
-    const btnW = Math.min(160, (colW - 10 - gap * (options.length - 1)) / options.length);
+    const gap = 10;
+    const availBulkW = colW - 20;
+    const btnW = Math.floor((availBulkW - gap * (options.length - 1)) / options.length);
     const totalW = options.length * btnW + (options.length - 1) * gap;
     const startX = rightColX + (colW - 10 - totalW) / 2;
+    const bulkBtnH = 30;
 
     options.forEach((opt, i) => {
       const bx = startX + i * (btnW + gap);
       const bg = this.add.graphics();
-      this.drawSmallButton(bg, bx, bulkY, btnW, 26, false);
+      this.drawSmallButton(bg, bx, bulkY, btnW, bulkBtnH, false);
       this.bulkContainer!.add(bg);
 
-      const text = this.add.text(bx + btnW / 2, bulkY + 13, 'ALL: ' + opt.label, {
+      const text = this.add.text(bx + btnW / 2, bulkY + bulkBtnH / 2, 'ALL: ' + opt.label, {
         fontFamily: PIXEL_FONT,
-        fontSize: '8px',
+        fontSize: '11px',
         color: '#aaaaaa',
       }).setOrigin(0.5);
       this.bulkContainer!.add(text);
 
-      const zone = this.add.zone(bx + btnW / 2, bulkY + 13, btnW, 26).setInteractive({ useHandCursor: true });
+      const zone = this.add.zone(bx + btnW / 2, bulkY + bulkBtnH / 2, btnW, bulkBtnH).setInteractive({ useHandCursor: true });
       this.bulkContainer!.add(zone);
 
       zone.on('pointerup', () => {
@@ -494,7 +515,7 @@ export class MainMenuScene extends Phaser.Scene {
   private addLabel(x: number, y: number, text: string): void {
     this.add.text(x, y + 6, text, {
       fontFamily: PIXEL_FONT,
-      fontSize: '11px',
+      fontSize: '14px',
       color: '#cccccc',
     });
   }
@@ -503,8 +524,8 @@ export class MainMenuScene extends Phaser.Scene {
     x: number, y: number, labels: string[], activeIndex: number,
     onChange: (index: number) => void
   ): void {
-    const btnW = 90;
-    const btnH = 30;
+    const btnW = 110;
+    const btnH = 34;
     const gap = 8;
     const buttons: { bg: Phaser.GameObjects.Graphics; text: Phaser.GameObjects.Text; zone: Phaser.GameObjects.Zone }[] = [];
 
@@ -516,7 +537,7 @@ export class MainMenuScene extends Phaser.Scene {
 
       const text = this.add.text(bx + btnW / 2, y + btnH / 2, label, {
         fontFamily: PIXEL_FONT,
-        fontSize: '10px',
+        fontSize: '14px',
         color: isActive ? '#e0ffe0' : '#aaaaaa',
       }).setOrigin(0.5);
       text.setShadow(0, 0, '#000000', isActive ? 2 : 0);
@@ -541,14 +562,14 @@ export class MainMenuScene extends Phaser.Scene {
     onChange: (value: number) => void, suffix: string = ''
   ): void {
     let value = initial;
-    const arrowW = 36;
-    const arrowH = 30;
-    const totalW = 180;
+    const arrowW = 42;
+    const arrowH = 34;
+    const totalW = 240;
     const valueCx = x + totalW / 2;
 
     const valueText = this.add.text(valueCx, y + arrowH / 2, `${value}${suffix}`, {
       fontFamily: PIXEL_FONT,
-      fontSize: '12px',
+      fontSize: '16px',
       color: '#ffffff',
     }).setOrigin(0.5);
 
@@ -556,7 +577,7 @@ export class MainMenuScene extends Phaser.Scene {
     const leftBg = this.add.graphics();
     this.drawSmallButton(leftBg, x, y, arrowW, arrowH, false);
     this.add.text(x + arrowW / 2, y + arrowH / 2, '<', {
-      fontFamily: PIXEL_FONT, fontSize: '12px', color: '#80c080',
+      fontFamily: PIXEL_FONT, fontSize: '16px', color: '#80c080',
     }).setOrigin(0.5);
     const leftZone = this.add.zone(x + arrowW / 2, y + arrowH / 2, arrowW, arrowH).setInteractive({ useHandCursor: true });
     leftZone.on('pointerup', () => {
@@ -570,7 +591,7 @@ export class MainMenuScene extends Phaser.Scene {
     const rightBg = this.add.graphics();
     this.drawSmallButton(rightBg, rightX, y, arrowW, arrowH, false);
     this.add.text(rightX + arrowW / 2, y + arrowH / 2, '>', {
-      fontFamily: PIXEL_FONT, fontSize: '12px', color: '#80c080',
+      fontFamily: PIXEL_FONT, fontSize: '16px', color: '#80c080',
     }).setOrigin(0.5);
     const rightZone = this.add.zone(rightX + arrowW / 2, y + arrowH / 2, arrowW, arrowH).setInteractive({ useHandCursor: true });
     rightZone.on('pointerup', () => {
@@ -589,8 +610,10 @@ export class MainMenuScene extends Phaser.Scene {
   private drawSmallButton(g: Phaser.GameObjects.Graphics, x: number, y: number, w: number, h: number, active: boolean): void {
     g.clear();
     if (active) {
-      g.fillStyle(0x80c080, 1);
+      g.fillStyle(0x2a2a4e, 1);
       g.fillRoundedRect(x, y, w, h, 3);
+      g.lineStyle(2, 0x80c080, 1);
+      g.strokeRoundedRect(x, y, w, h, 3);
     } else {
       g.fillStyle(0x2a2a4e, 1);
       g.fillRoundedRect(x, y, w, h, 3);
