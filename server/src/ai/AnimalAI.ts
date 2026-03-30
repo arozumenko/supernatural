@@ -8,6 +8,7 @@ import { WorldConfig } from '../WorldConfig.ts';
 import { getSpecies } from '../AnimalSpeciesConfig.ts';
 import { findPath } from './Pathfinding.ts';
 import { awardXP, getSpeedBonus, getHarvestSpeedBonus, canIdentifyPoison, getHitAccuracy, getDamageReduction, getDodgeChance, getAnimalAttackPower, getAnimalDefense, getAnimalSpeed, getAgentSpeed, getUnifiedDamageReduction } from '../Progression.ts';
+import { evaluateSurvivalNeeds, evaluateThreats, type SurvivalConfig, type ThreatConfig, type SharedDecision } from './SharedDecisionEngine.ts';
 
 // ============================================================
 // Types
@@ -694,6 +695,57 @@ export function decideAnimalAction(
   const ax = Math.floor(animal.x);
   const ay = Math.floor(animal.y);
   const active = isActiveTime(species.activity, tickCount);
+
+  // ──────────────────────────────────────────────
+  // Shared survival decisions (same engine as agents)
+  // ──────────────────────────────────────────────
+  const survivalConfig: SurvivalConfig = {
+    criticalThirst: 20, criticalHunger: 20, criticalStamina: 15,
+    criticalHealth: 30, mediumThirst: 50, mediumHunger: 50,
+    drinkPriority: 60, eatPriority: 55, restPriority: 80,
+    searchRadius: species.detectionRange, criticalSearchRadius: 40,
+    diet: species.diet,
+  };
+
+  const being = {
+    x: animal.x, y: animal.y,
+    health: animal.health / (animal.maxHealth / 100), // normalize to 0-100
+    proteinHunger: animal.proteinHunger, plantHunger: animal.plantHunger,
+    thirst: animal.thirst, stamina: animal.stamina,
+    baseStats: animal.baseStats, skills: animal.skills as any,
+    alive: animal.alive, action: animal.action,
+    lastAttackedBy: animal.lastAttackedBy, attackCooldown: animal.attackCooldown,
+    spatialMemory: animal.spatialMemory, age: animal.age,
+  };
+
+  const survivalDecisions = evaluateSurvivalNeeds(being, world, survivalConfig);
+  // Convert SharedDecision → AnimalDecision (score = priority / 100)
+  for (const sd of survivalDecisions) {
+    candidates.push({
+      action: (sd.action === 'harvesting' ? 'grazing' : sd.action) as AnimalAction,
+      target: sd.target,
+      targetEntityId: sd.targetId,
+      score: sd.priority / 100, // normalize to 0-1 range
+    });
+  }
+
+  // Shared threat evaluation
+  const totalSkills = Object.values(animal.skills).reduce((sum, s) => sum + s.level, 0);
+  const threatConfig: ThreatConfig = {
+    detectBase: Math.floor(species.detectionRange / 2),
+    fleeBase: Math.floor(species.fleeThreshold * 100),
+    confidence: Math.min(1.5, 0.5 + totalSkills / 100),
+    desperation: (animal.proteinHunger < 15 || animal.thirst < 15) ? 25 : 0,
+    huntsList: species.hunts,
+  };
+  const threatDecisions = evaluateThreats(being, world, threatConfig, 'animal');
+  for (const td of threatDecisions) {
+    candidates.push({
+      action: td.action as AnimalAction,
+      target: td.target,
+      score: td.priority / 100,
+    });
+  }
 
   // ──────────────────────────────────────────────
   // Tamed behaviors
