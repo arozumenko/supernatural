@@ -48,6 +48,9 @@ export class UIScene extends Phaser.Scene {
   private eventLogText!: Phaser.GameObjects.Text;
   private infoPanelContainer!: Phaser.GameObjects.Container;
   private infoPanelMaskGraphics!: Phaser.GameObjects.Graphics;
+  private stopBg!: Phaser.GameObjects.Graphics;
+  private stopText!: Phaser.GameObjects.Text;
+  private stopZone!: Phaser.GameObjects.Zone;
 
   // Left sidebar
   private sidebarBg!: Phaser.GameObjects.Graphics;
@@ -145,19 +148,14 @@ export class UIScene extends Phaser.Scene {
       }
     });
 
-    // STOP GAME button — bottom of right panel
-    const panelX = this.scale.width - PANEL_W;
-    const stopBtnW = PANEL_W - 40;
-    const stopBtnH = 32;
-    const stopBtnY = this.scale.height - 42;
-    const stopBg = this.add.graphics().setDepth(1001);
-    stopBg.fillStyle(0x882222, 0.9); stopBg.fillRoundedRect(panelX + 20, stopBtnY, stopBtnW, stopBtnH, 4);
-    stopBg.lineStyle(1, 0xcc4444, 0.6); stopBg.strokeRoundedRect(panelX + 20, stopBtnY, stopBtnW, stopBtnH, 4);
-    const stopText = this.add.text(panelX + PANEL_W / 2, stopBtnY + stopBtnH / 2, 'STOP GAME', {
+    // STOP GAME button — repositioned in layoutUI
+    this.stopBg = this.add.graphics().setDepth(1001);
+    this.stopText = this.add.text(0, 0, 'STOP GAME', {
       fontFamily: PIXEL_FONT, fontSize: '12px', color: '#ff6666',
     }).setOrigin(0.5).setDepth(1001);
-    const stopZone = this.add.zone(panelX + PANEL_W / 2, stopBtnY + stopBtnH / 2, stopBtnW, stopBtnH)
+    this.stopZone = this.add.zone(0, 0, PANEL_W - 40, 32)
       .setInteractive({ useHandCursor: true }).setDepth(1001);
+    const stopZone = this.stopZone;
     stopZone.on('pointerup', () => {
       const gameScene = this.scene.get('GameScene') as any;
       if (gameScene?.client?.stopGame) {
@@ -239,7 +237,19 @@ export class UIScene extends Phaser.Scene {
     this.eventLogText.setWordWrapWidth(SIDEBAR_W - 24);
 
     // Controls hint
-    this.controlsText.setPosition(12, h - 28);
+    this.controlsText.setPosition(SIDEBAR_W + 12, h - 28);
+
+    // STOP GAME button — anchored to bottom of right panel
+    const stopBtnW = PANEL_W - 40;
+    const stopBtnH = 32;
+    const stopBtnX = panelX + 20;
+    const stopBtnY = h - 42;
+    this.stopBg.clear();
+    this.stopBg.fillStyle(0x882222, 0.9); this.stopBg.fillRoundedRect(stopBtnX, stopBtnY, stopBtnW, stopBtnH, 4);
+    this.stopBg.lineStyle(1, 0xcc4444, 0.6); this.stopBg.strokeRoundedRect(stopBtnX, stopBtnY, stopBtnW, stopBtnH, 4);
+    this.stopText.setPosition(panelX + PANEL_W / 2, stopBtnY + stopBtnH / 2);
+    this.stopZone.setPosition(panelX + PANEL_W / 2, stopBtnY + stopBtnH / 2);
+    this.stopZone.setSize(stopBtnW, stopBtnH);
   }
 
   // ─── Public API called from GameScene ───
@@ -456,20 +466,14 @@ export class UIScene extends Phaser.Scene {
       y += 8; // Gap between groups
     }
 
-    // Top animals by tier
+    // Top animals by tier (compact)
     if (animals && animals.length > 0) {
-      y += 4;
+      y += 2;
       const divA = this.add.graphics();
-      divA.lineStyle(1, 0x334433, 0.4);
+      divA.lineStyle(1, 0x334433, 0.3);
       divA.lineBetween(10, y, SIDEBAR_W - 10, y);
       this.sidebarContainer.add(divA);
-      y += 8;
-
-      const headerT = this.add.text(12, y, 'TOP ANIMALS', {
-        fontFamily: PIXEL_FONT, fontSize: '12px', color: '#556655',
-      });
-      this.sidebarContainer.add(headerT);
-      y += 18;
+      y += 4;
 
       const tiers: [string, string, string[]][] = [
         ['Apex', '\uD83D\uDC3B', ['bear', 'tiger', 'alligator']],
@@ -478,28 +482,13 @@ export class UIScene extends Phaser.Scene {
       ];
 
       for (const [tierLabel, emoji, species] of tiers) {
-        const tierAnimals = animals.filter((a: any) => species.includes(a.species) && a.alive);
-        // Sort by composite: skill levels first, then survival time
-        tierAnimals.sort((a: any, b: any) => {
-          const aLvl = Object.values(a.skills).reduce((sum: number, s: any) => sum + (s.level || 0), 0);
-          const bLvl = Object.values(b.skills).reduce((sum: number, s: any) => sum + (s.level || 0), 0);
-          if (bLvl !== aLvl) return bLvl - aLvl;
-          return b.age - a.age;
+        // Always create the text object — updateSidebarValues will fill it
+        const t = this.add.text(12, y, `${emoji} ---`, {
+          fontFamily: PIXEL_FONT, fontSize: '10px', color: '#909890',
         });
-        const best = tierAnimals[0];
-        if (best) {
-          const totalSecs = Math.floor(best.age / 10);
-          const mins = Math.floor(totalSecs / 60);
-          const secs = totalSecs % 60;
-          const timeStr = mins > 0 ? `${mins}m${secs}s` : `${totalSecs}s`;
-          const lvl = Object.values(best.skills).reduce((sum: number, s: any) => sum + (s.level || 0), 0);
-          const t = this.add.text(12, y, `${emoji} ${best.species} Lv${lvl} ${timeStr}`, {
-            fontFamily: PIXEL_FONT, fontSize: '11px', color: '#909890',
-          });
-          this.sidebarContainer.add(t);
-          this.sidebarAnimalTexts.push(t);
-          y += 18;
-        }
+        this.sidebarContainer.add(t);
+        this.sidebarAnimalTexts.push(t);
+        y += 14;
       }
     }
 
