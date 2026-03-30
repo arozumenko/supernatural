@@ -114,14 +114,26 @@ export function awardXP(
 
 export function applyDeathPenalty(
   skills: SkillSet,
-  caps?: Partial<Record<SkillName, number>>
+  caps?: Partial<Record<SkillName, number>>,
+  baseStats?: import('../shared/src/index.ts').BaseStats
 ): void {
+  // Heavy XP penalty: lose 40% of all skill XP — guarantees level drops
   for (const name of SKILL_NAMES) {
     const state = skills[name];
-    const xpLost = state.xp * 0.15; // 15% XP rust on death (was 5%)
-    state.xp = Math.max(state.xp - xpLost, 0);
+    state.xp = Math.max(Math.floor(state.xp * 0.6), 0); // keep 60%, lose 40%
   }
   recalculateLevels(skills, caps);
+
+  // Stat decay: lose 1 point from a random stat (min 3)
+  if (baseStats) {
+    const statKeys: (keyof import('../shared/src/index.ts').BaseStats)[] = [
+      'strength', 'toughness', 'agility', 'endurance', 'perception', 'charisma'
+    ];
+    const key = statKeys[Math.floor(Math.random() * statKeys.length)];
+    if (baseStats[key] > 3) {
+      baseStats[key]--;
+    }
+  }
 }
 
 // ─── Effective Stats ───

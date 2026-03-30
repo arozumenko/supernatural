@@ -201,7 +201,7 @@ export class GameLoop {
         (agent as any).journalArchive = archive;
 
         // Apply death penalty: 5% XP rust
-        applyDeathPenalty(agent.skills);
+        applyDeathPenalty(agent.skills, undefined, agent.baseStats);
         agent.totalDeaths++;
 
         // Check Highlander status
@@ -515,7 +515,7 @@ export class GameLoop {
         }
         const speciesCount = this.world.animals.filter(a => a.alive && a.species === animal.species).length;
         if (speciesCount < species.maxPopulation) {
-          applyDeathPenalty(animal.skills);
+          applyDeathPenalty(animal.skills, undefined, animal.baseStats);
           const delay = Math.floor(species.breedCooldown * 0.1);
           // Deep copy skills so respawned animal preserves XP-penalized levels
           const skillsCopy: SkillSet = {} as SkillSet;
