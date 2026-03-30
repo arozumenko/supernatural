@@ -210,7 +210,16 @@ export class ResultsScene extends Phaser.Scene {
         const g = (a as any).genome;
         const val = getter(g);
         const defVal = getter(defaultG);
-        const color = val !== defVal ? '#ccaa44' : '#909890';
+        let color = '#909890'; // unchanged
+        if (val !== defVal) {
+          const numVal = parseFloat(val);
+          const numDef = parseFloat(defVal);
+          if (!isNaN(numVal) && !isNaN(numDef)) {
+            color = numVal > numDef ? '#44cc44' : '#cc8844'; // green up, orange down
+          } else {
+            color = '#ccaa44'; // changed but non-numeric
+          }
+        }
         this.addText(colStart + i * colW, y, val, color, '9px');
       });
       y += 13;
