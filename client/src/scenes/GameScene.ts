@@ -137,7 +137,7 @@ export class GameScene extends Phaser.Scene {
     this.client.on('world:init', (data: WorldInitData) => this.onWorldInit(data));
     this.client.on('world:update', (data: WorldUpdateData) => this.onWorldUpdate(data));
     this.client.on('agent:died', (data: { agentId: string; name: string; cause: string }) => {
-      this.ui.addEvent(`\uD83D\uDC80 ${data.name} died: ${data.cause}`);
+      this.ui.addEvent(`\uD83D\uDC80 ${data.name} \u2190 ${data.cause}`);
       // Place tombstone at agent's last position
       const agent = this.agents.find(a => a.id === data.agentId);
       if (agent) {
