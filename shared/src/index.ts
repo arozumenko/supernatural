@@ -52,6 +52,29 @@ export const ROLE_PERMISSIONS: Record<OrchestratorRole, {
   none:         { canMessage: false, canPlan: false, canPatchGenome: false, observeIntervalMs: 0,     description: 'No LLM. Decision tree only.' },
 };
 
+// --- Agent Archetypes ---
+
+export type AgentArchetype = 'random' | 'warrior' | 'survivor' | 'builder' | 'scout' | 'social';
+
+export const AGENT_ARCHETYPES: Record<AgentArchetype, {
+  label: string;
+  description: string;
+  stats: Partial<Record<'strength' | 'toughness' | 'agility' | 'endurance' | 'perception' | 'charisma', number>>;
+  genomeOverrides?: Record<string, any>;
+}> = {
+  random:   { label: 'Random', description: 'All stats randomized', stats: {} },
+  warrior:  { label: 'Warrior', description: 'STR+TGH, combat focus', stats: { strength: 13, toughness: 12, agility: 10 },
+    genomeOverrides: { 'fallbackWeights.huntAnimal': 55, 'interruptWeights.fightBack': 95, 'thresholds.fightBackMinRatio': 0.4 } },
+  survivor: { label: 'Survivor', description: 'END+TGH, survival focus', stats: { endurance: 13, toughness: 12, perception: 11 },
+    genomeOverrides: { 'interruptWeights.fleeBase': 82, 'thresholds.criticalThirst': 35, 'thresholds.criticalHunger': 35, 'thresholds.fleeHealthPanic': 0.5 } },
+  builder:  { label: 'Builder', description: 'STR+END, build focus', stats: { strength: 11, endurance: 11, perception: 10 },
+    genomeOverrides: { 'fallbackWeights.gatherWood': 50, 'fallbackWeights.mineStone': 45, 'goalWeights.get_shelter': 1.8, 'goalWeights.get_equipped': 1.5 } },
+  scout:    { label: 'Scout', description: 'AGI+PER, explore focus', stats: { agility: 13, perception: 13, endurance: 10 },
+    genomeOverrides: { 'thresholds.threatDetectBase': 10, 'thresholds.huntDetectRange': 20, 'fallbackWeights.wander': 25 } },
+  social:   { label: 'Social', description: 'CHA, social focus', stats: { charisma: 14, perception: 10, agility: 10 },
+    genomeOverrides: { 'fallbackWeights.socialize': 50, 'fallbackWeights.tameAnimal': 35, 'goalWeights.socialize': 1.8 } },
+};
+
 // --- World ---
 
 export let WORLD_WIDTH = 120;
@@ -71,6 +94,7 @@ export interface GameConfig {
   maxAnimals: number;         // 100-300
   // LLM assignments: agent slot index -> provider + role (null = no LLM, fallback only)
   agentLLMAssignments?: Record<number, { providerId: string; role: OrchestratorRole } | null>;
+  agentArchetypes?: Record<number, AgentArchetype>;
 }
 
 export const DEFAULT_GAME_CONFIG: GameConfig = {

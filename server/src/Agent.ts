@@ -1,6 +1,7 @@
 import {
   AgentState, AgentNeeds, Resources, PersonalityTrait, TileType,
-  generateId, randomName, randomInt, clamp, WORLD_WIDTH, WORLD_HEIGHT
+  generateId, randomName, randomInt, clamp, WORLD_WIDTH, WORLD_HEIGHT,
+  AgentArchetype, AGENT_ARCHETYPES,
 } from '../shared/src/index.ts';
 import type { World } from './World.ts';
 import { WorldConfig } from './WorldConfig.ts';
@@ -11,7 +12,8 @@ export function createAgent(
   name?: string,
   personality?: PersonalityTrait[],
   ownerId?: string,
-  world?: World
+  world?: World,
+  archetype?: AgentArchetype
 ): AgentState {
   const traits: PersonalityTrait[] = personality ?? pickRandomTraits();
 
@@ -29,6 +31,15 @@ export function createAgent(
   };
 
   const baseStats = createAgentBaseStats();
+
+  // Apply archetype stat overrides
+  const arch = archetype && archetype !== 'random' ? AGENT_ARCHETYPES[archetype] : null;
+  if (arch) {
+    for (const [stat, val] of Object.entries(arch.stats)) {
+      (baseStats as any)[stat] = val;
+    }
+  }
+
   const skills = createSkillSet();
 
   const resources: Resources = {
@@ -99,7 +110,17 @@ export function createAgent(
   };
 
   // Attach non-wire fields (not sent to client via world:update)
-  (agent as any).currentGenome = createDefaultGenome();
+  const genome = createDefaultGenome();
+  // Apply archetype genome overrides
+  if (arch?.genomeOverrides) {
+    for (const [path, val] of Object.entries(arch.genomeOverrides)) {
+      const parts = path.split('.');
+      let obj: any = genome;
+      for (let i = 0; i < parts.length - 1; i++) obj = obj[parts[i]];
+      obj[parts[parts.length - 1]] = val;
+    }
+  }
+  (agent as any).currentGenome = genome;
   (agent as any).journalArchive = [];
   (agent as any).currentJournal = null;
 

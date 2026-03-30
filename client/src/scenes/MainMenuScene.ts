@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
-import { GameConfig, DEFAULT_GAME_CONFIG, ROLE_PERMISSIONS } from '@supernatural/shared';
-import type { OrchestratorRole } from '@supernatural/shared';
+import { GameConfig, DEFAULT_GAME_CONFIG, ROLE_PERMISSIONS, AGENT_ARCHETYPES } from '@supernatural/shared';
+import type { OrchestratorRole, AgentArchetype } from '@supernatural/shared';
 
 const PIXEL_FONT = '"Press Start 2P", monospace';
 
@@ -36,6 +36,7 @@ export class MainMenuScene extends Phaser.Scene {
   // LLM assignment
   private llmProviders: LLMProviderInfo[] = [];
   private agentAssignments: ({ providerId: string; role: OrchestratorRole } | null)[] = [];
+  private agentArchetypes: AgentArchetype[] = [];
   private agentAIContainer?: Phaser.GameObjects.Container;
   private agentAIRows: {
     label: Phaser.GameObjects.Text;
@@ -45,6 +46,9 @@ export class MainMenuScene extends Phaser.Scene {
     roleBg: Phaser.GameObjects.Graphics;
     roleText: Phaser.GameObjects.Text;
     roleZone: Phaser.GameObjects.Zone;
+    archBg: Phaser.GameObjects.Graphics;
+    archText: Phaser.GameObjects.Text;
+    archZone: Phaser.GameObjects.Zone;
     index: number;
   }[] = [];
   private bulkContainer?: Phaser.GameObjects.Container;
@@ -218,6 +222,7 @@ export class MainMenuScene extends Phaser.Scene {
 
     // Initialize assignments
     this.agentAssignments = new Array(this.config.agentCount).fill(null);
+    this.agentArchetypes = new Array(this.config.agentCount).fill('random');
 
     // Fetch LLM providers then build list
     this.fetchLLMProviders().then(() => {
@@ -330,14 +335,19 @@ export class MainMenuScene extends Phaser.Scene {
       row.roleBg.destroy();
       row.roleText.destroy();
       row.roleZone.destroy();
+      row.archBg.destroy();
+      row.archText.destroy();
+      row.archZone.destroy();
     }
     this.agentAIRows = [];
 
     // Resize assignments array
     const oldLen = this.agentAssignments.length;
     this.agentAssignments.length = this.config.agentCount;
+    this.agentArchetypes.length = this.config.agentCount;
     for (let i = oldLen; i < this.config.agentCount; i++) {
       this.agentAssignments[i] = null;
+      this.agentArchetypes[i] = 'random';
     }
 
     // Reset scroll
@@ -350,58 +360,65 @@ export class MainMenuScene extends Phaser.Scene {
     const colW = (this as any)._colW as number;
     const labelW = 50;
     const gap = 6;
-    const availW = colW - 10 - labelW - gap;
-    const provBtnW = Math.floor(availW * 0.55);
-    const roleBtnW = availW - provBtnW - gap;
-    const provBtnX = rightColX + labelW;
-    const roleBtnX = provBtnX + provBtnW + gap;
+    const availW = colW - 10 - labelW - gap * 2;
+    const btn1W = Math.floor(availW * 0.35); // provider
+    const btn2W = Math.floor(availW * 0.30); // role
+    const btn3W = availW - btn1W - btn2W;     // archetype
+    const btn1X = rightColX + labelW;
+    const btn2X = btn1X + btn1W + gap;
+    const btn3X = btn2X + btn2W + gap;
 
     for (let i = 0; i < this.config.agentCount; i++) {
       const y = startY + i * rowH;
 
       const label = this.add.text(rightColX + 8, y + 8, `${i + 1}.`, {
-        fontFamily: PIXEL_FONT,
-        fontSize: '14px',
-        color: '#aaaaaa',
+        fontFamily: PIXEL_FONT, fontSize: '14px', color: '#aaaaaa',
       });
       this.agentAIContainer.add(label);
 
       const assignment = this.agentAssignments[i];
       const provLabel = this.getProviderLabel(assignment?.providerId ?? null);
       const roleLabel = assignment?.role ?? 'none';
+      const archLabel = AGENT_ARCHETYPES[this.agentArchetypes[i] ?? 'random']?.label ?? 'Random';
 
       // Provider button
       const providerBg = this.add.graphics();
-      this.drawSmallButton(providerBg, provBtnX, y, provBtnW, btnH, false);
+      this.drawSmallButton(providerBg, btn1X, y, btn1W, btnH, false);
       this.agentAIContainer.add(providerBg);
-
-      const providerText = this.add.text(provBtnX + provBtnW / 2, y + btnH / 2, provLabel, {
-        fontFamily: PIXEL_FONT, fontSize: '14px',
-        color: assignment ? '#80c080' : '#888888',
+      const providerText = this.add.text(btn1X + btn1W / 2, y + btnH / 2, provLabel, {
+        fontFamily: PIXEL_FONT, fontSize: '10px', color: assignment ? '#80c080' : '#888888',
       }).setOrigin(0.5);
       this.agentAIContainer.add(providerText);
-
-      const providerZone = this.add.zone(provBtnX + provBtnW / 2, y + btnH / 2, provBtnW, btnH).setInteractive({ useHandCursor: true });
+      const providerZone = this.add.zone(btn1X + btn1W / 2, y + btnH / 2, btn1W, btnH).setInteractive({ useHandCursor: true });
       this.agentAIContainer.add(providerZone);
       const idx = i;
       providerZone.on('pointerup', () => this.cycleProvider(idx));
 
       // Role button
       const roleBg = this.add.graphics();
-      this.drawSmallButton(roleBg, roleBtnX, y, roleBtnW, btnH, false);
+      this.drawSmallButton(roleBg, btn2X, y, btn2W, btnH, false);
       this.agentAIContainer.add(roleBg);
-
-      const roleText = this.add.text(roleBtnX + roleBtnW / 2, y + btnH / 2, roleLabel, {
-        fontFamily: PIXEL_FONT, fontSize: '14px',
-        color: assignment ? '#c0a060' : '#666666',
+      const roleText = this.add.text(btn2X + btn2W / 2, y + btnH / 2, roleLabel, {
+        fontFamily: PIXEL_FONT, fontSize: '10px', color: assignment ? '#c0a060' : '#666666',
       }).setOrigin(0.5);
       this.agentAIContainer.add(roleText);
-
-      const roleZone = this.add.zone(roleBtnX + roleBtnW / 2, y + btnH / 2, roleBtnW, btnH).setInteractive({ useHandCursor: true });
+      const roleZone = this.add.zone(btn2X + btn2W / 2, y + btnH / 2, btn2W, btnH).setInteractive({ useHandCursor: true });
       this.agentAIContainer.add(roleZone);
       roleZone.on('pointerup', () => this.cycleRole(idx));
 
-      this.agentAIRows.push({ label, providerBg, providerText, providerZone, roleBg, roleText, roleZone, index: i });
+      // Archetype button
+      const archBg = this.add.graphics();
+      this.drawSmallButton(archBg, btn3X, y, btn3W, btnH, false);
+      this.agentAIContainer.add(archBg);
+      const archText = this.add.text(btn3X + btn3W / 2, y + btnH / 2, archLabel, {
+        fontFamily: PIXEL_FONT, fontSize: '10px', color: '#88aacc',
+      }).setOrigin(0.5);
+      this.agentAIContainer.add(archText);
+      const archZone = this.add.zone(btn3X + btn3W / 2, y + btnH / 2, btn3W, btnH).setInteractive({ useHandCursor: true });
+      this.agentAIContainer.add(archZone);
+      archZone.on('pointerup', () => this.cycleArchetype(idx));
+
+      this.agentAIRows.push({ label, providerBg, providerText, providerZone, roleBg, roleText, roleZone, archBg, archText, archZone, index: i });
     }
   }
 
@@ -435,6 +452,15 @@ export class MainMenuScene extends Phaser.Scene {
     this.updateRowDisplay(agentIndex);
   }
 
+  private cycleArchetype(agentIndex: number): void {
+    const archetypes: AgentArchetype[] = ['random', 'warrior', 'survivor', 'builder', 'scout', 'social'];
+    const current = this.agentArchetypes[agentIndex] ?? 'random';
+    const currentIdx = archetypes.indexOf(current);
+    const nextIdx = (currentIdx + 1) % archetypes.length;
+    this.agentArchetypes[agentIndex] = archetypes[nextIdx];
+    this.updateRowDisplay(agentIndex);
+  }
+
   private updateRowDisplay(agentIndex: number): void {
     const row = this.agentAIRows.find(r => r.index === agentIndex);
     if (!row) return;
@@ -445,6 +471,8 @@ export class MainMenuScene extends Phaser.Scene {
     row.providerText.setColor(assignment ? '#80c080' : '#888888');
     row.roleText.setText(roleLabel);
     row.roleText.setColor(assignment ? '#c0a060' : '#666666');
+    const archLabel = AGENT_ARCHETYPES[this.agentArchetypes[agentIndex] ?? 'random']?.label ?? 'Random';
+    row.archText.setText(archLabel);
   }
 
   private getProviderLabel(providerId: string | null): string {
@@ -508,6 +536,11 @@ export class MainMenuScene extends Phaser.Scene {
       assignments[i] = assignment;
     });
     this.config.agentLLMAssignments = assignments;
+
+    // Build archetype map
+    const archetypes: Record<number, AgentArchetype> = {};
+    this.agentArchetypes.forEach((arch, i) => { archetypes[i] = arch; });
+    this.config.agentArchetypes = archetypes;
 
     this.scene.start('GameScene', { gameConfig: this.config });
   }

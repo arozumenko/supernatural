@@ -77,7 +77,8 @@ export class GameLoop {
     // Spawn initial agents
     const agentCount = this.gameConfig.agentCount;
     for (let i = 0; i < agentCount; i++) {
-      const agent = createAgent(undefined, undefined, undefined, this.world);
+      const archetype = config?.agentArchetypes?.[i] ?? 'random';
+      const agent = createAgent(undefined, undefined, undefined, this.world, archetype as any);
       // Assign LLM provider + role from config
       if (config?.agentLLMAssignments) {
         const assignment = config.agentLLMAssignments[i];
