@@ -56,22 +56,29 @@ export const ROLE_PERMISSIONS: Record<OrchestratorRole, {
 
 export type AgentArchetype = 'random' | 'warrior' | 'survivor' | 'builder' | 'scout' | 'social';
 
+// Each archetype has exactly 66 total stat points (avg 11 per stat), distributed differently
 export const AGENT_ARCHETYPES: Record<AgentArchetype, {
   label: string;
   description: string;
-  stats: Partial<Record<'strength' | 'toughness' | 'agility' | 'endurance' | 'perception' | 'charisma', number>>;
+  stats: Record<'strength' | 'toughness' | 'agility' | 'endurance' | 'perception' | 'charisma', number>;
   genomeOverrides?: Record<string, any>;
 }> = {
-  random:   { label: 'Random', description: 'All stats randomized', stats: {} },
-  warrior:  { label: 'Warrior', description: 'STR+TGH, combat focus', stats: { strength: 13, toughness: 12, agility: 10 },
+  random:   { label: 'Random', description: 'All stats randomized',
+    stats: { strength: 11, toughness: 11, agility: 11, endurance: 11, perception: 11, charisma: 11 } },
+  warrior:  { label: 'Warrior', description: 'STR+TGH, combat focus',
+    stats: { strength: 14, toughness: 13, agility: 11, endurance: 10, perception: 10, charisma: 8 },
     genomeOverrides: { 'fallbackWeights.huntAnimal': 55, 'interruptWeights.fightBack': 95, 'thresholds.fightBackMinRatio': 0.4 } },
-  survivor: { label: 'Survivor', description: 'END+TGH, survival focus', stats: { endurance: 13, toughness: 12, perception: 11 },
+  survivor: { label: 'Survivor', description: 'END+TGH, survival focus',
+    stats: { strength: 9, toughness: 13, agility: 10, endurance: 14, perception: 12, charisma: 8 },
     genomeOverrides: { 'interruptWeights.fleeBase': 82, 'thresholds.criticalThirst': 35, 'thresholds.criticalHunger': 35, 'thresholds.fleeHealthPanic': 0.5 } },
-  builder:  { label: 'Builder', description: 'STR+END, build focus', stats: { strength: 11, endurance: 11, perception: 10 },
+  builder:  { label: 'Builder', description: 'STR+END, build focus',
+    stats: { strength: 13, toughness: 10, agility: 9, endurance: 13, perception: 11, charisma: 10 },
     genomeOverrides: { 'fallbackWeights.gatherWood': 50, 'fallbackWeights.mineStone': 45, 'goalWeights.get_shelter': 1.8, 'goalWeights.get_equipped': 1.5 } },
-  scout:    { label: 'Scout', description: 'AGI+PER, explore focus', stats: { agility: 13, perception: 13, endurance: 10 },
+  scout:    { label: 'Scout', description: 'AGI+PER, explore focus',
+    stats: { strength: 9, toughness: 9, agility: 14, endurance: 11, perception: 14, charisma: 9 },
     genomeOverrides: { 'thresholds.threatDetectBase': 10, 'thresholds.huntDetectRange': 20, 'fallbackWeights.wander': 25 } },
-  social:   { label: 'Social', description: 'CHA, social focus', stats: { charisma: 14, perception: 10, agility: 10 },
+  social:   { label: 'Social', description: 'CHA+PER, social focus',
+    stats: { strength: 8, toughness: 9, agility: 10, endurance: 10, perception: 13, charisma: 16 },
     genomeOverrides: { 'fallbackWeights.socialize': 50, 'fallbackWeights.tameAnimal': 35, 'goalWeights.socialize': 1.8 } },
 };
 
