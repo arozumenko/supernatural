@@ -1858,7 +1858,8 @@ export function executeAction(
             // Interaction cooldown: once per second (10 ticks) per pair
             const pairKey = [agent.id, nearbyAgent.id].sort().join(':');
             const lastInteraction = socialCooldowns.get(pairKey) ?? 0;
-            if (agent.age - lastInteraction < 5) break; // every 0.5s
+            if (agent.age - lastInteraction < 5) { /* cooldown — stay in socializing but skip interaction */ }
+            else {
             socialCooldowns.set(pairKey, agent.age);
 
             // Each agent decides independently: friend or foe (on first meeting, persists until death)
@@ -1930,6 +1931,7 @@ export function executeAction(
                 }
               }
             }
+            } // end else (cooldown passed)
           }
         } else {
           moveTowards(agent, decision.target.x, decision.target.y, world);
