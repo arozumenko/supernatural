@@ -78,7 +78,7 @@ export const AGENT_ARCHETYPES: Record<AgentArchetype, {
   scout:    { label: '\uD83D\uDC41\uFE0F', description: 'AGI+PER, explore focus',
     stats: { strength: 10, toughness: 10, agility: 13, endurance: 11, perception: 13, charisma: 9 },
     genomeOverrides: { 'thresholds.threatDetectBase': 10, 'thresholds.huntDetectRange': 20, 'fallbackWeights.wander': 25 } },
-  social:   { label: '\uD83E\uDD1D', description: 'CHA+PER, social focus',
+  social:   { label: '\uD83E\uDD1D', description: 'CHA+PER, trades to survive',
     stats: { strength: 9, toughness: 10, agility: 10, endurance: 10, perception: 13, charisma: 14 },
     genomeOverrides: { 'fallbackWeights.socialize': 50, 'fallbackWeights.tameAnimal': 35, 'goalWeights.socialize': 1.8 } },
 };

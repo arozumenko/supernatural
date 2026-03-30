@@ -1622,23 +1622,31 @@ export function executeAction(
               timestamp: Date.now(),
             });
 
-            // Basic trading: swap surplus resources (10% chance per social tick)
-            if (Math.random() < 0.1) {
-              if (agent.resources.food > 5 && nearbyAgent.resources.wood > 5) {
-                agent.resources.food -= 2;
-                agent.resources.wood += 2;
-                nearbyAgent.resources.food += 2;
-                nearbyAgent.resources.wood -= 2;
-              } else if (agent.resources.wood > 5 && nearbyAgent.resources.food > 5) {
-                agent.resources.wood -= 2;
-                agent.resources.food += 2;
-                nearbyAgent.resources.wood += 2;
-                nearbyAgent.resources.food -= 2;
-              } else if (agent.resources.food > 5 && nearbyAgent.resources.stone > 5) {
-                agent.resources.food -= 2;
-                agent.resources.stone += 2;
-                nearbyAgent.resources.food += 2;
-                nearbyAgent.resources.stone -= 2;
+            // Social recovery: small health + stamina boost from positive interactions
+            if (outcome > 0) {
+              agent.needs.health = clamp(agent.needs.health + 2, 0, 100);
+              agent.needs.stamina = clamp(agent.needs.stamina + 3, 0, 100);
+            }
+
+            // Trading: charisma-scaled chance to swap surplus resources
+            // High CHA agents trade more often and get better deals
+            const tradeChance = 0.1 + (agent.baseStats.charisma * 0.02); // 10-38% based on CHA
+            if (Math.random() < tradeChance && outcome > 0) {
+              const tradeAmount = 2 + Math.floor(agent.skills.social.level / 10); // 2-12 based on skill
+              // Trade what agent has surplus for what it lacks
+              const trades: [keyof typeof agent.resources, keyof typeof agent.resources][] = [
+                ['food', 'wood'], ['food', 'stone'], ['wood', 'food'],
+                ['wood', 'stone'], ['stone', 'food'], ['stone', 'wood'],
+                ['meat', 'food'], ['meat', 'wood'],
+              ];
+              for (const [give, get] of trades) {
+                if ((agent.resources[give] as number) > 5 && (nearbyAgent.resources[get] as number) > 5) {
+                  (agent.resources[give] as number) -= tradeAmount;
+                  (agent.resources[get] as number) += tradeAmount;
+                  (nearbyAgent.resources[give] as number) += Math.floor(tradeAmount * 0.8); // other gets 80%
+                  (nearbyAgent.resources[get] as number) -= tradeAmount;
+                  break; // one trade per interaction
+                }
               }
             }
           }
