@@ -59,6 +59,9 @@ export class UIScene extends Phaser.Scene {
   private lastAgentStructureHash = '';
   private lastPanelRebuildTime = 0;
   private panelRebuildQueued = false;
+  private lastSidebarRebuildTime = 0;
+  private pendingSidebarAgents: AgentState[] | null = null;
+  private pendingSidebarAnimals: AnimalState[] | null = null;
 
   constructor() {
     super({ key: 'UIScene' });
@@ -133,17 +136,18 @@ export class UIScene extends Phaser.Scene {
       }
     });
 
-    // STOP GAME button (fixed position, not in scrollable container)
-    const stopBtnW = SIDEBAR_W - 24;
-    const stopBtnH = 28;
-    const stopBtnY = this.scale.height - 30;
+    // STOP GAME button — bottom of right panel
+    const panelX = this.scale.width - PANEL_W;
+    const stopBtnW = PANEL_W - 40;
+    const stopBtnH = 32;
+    const stopBtnY = this.scale.height - 42;
     const stopBg = this.add.graphics().setDepth(1001);
-    stopBg.fillStyle(0x882222, 0.9); stopBg.fillRoundedRect(12, stopBtnY, stopBtnW, stopBtnH, 4);
-    stopBg.lineStyle(1, 0xcc4444, 0.6); stopBg.strokeRoundedRect(12, stopBtnY, stopBtnW, stopBtnH, 4);
-    const stopText = this.add.text(SIDEBAR_W / 2, stopBtnY + stopBtnH / 2, 'STOP GAME', {
-      fontFamily: PIXEL_FONT, fontSize: '11px', color: '#ff6666',
+    stopBg.fillStyle(0x882222, 0.9); stopBg.fillRoundedRect(panelX + 20, stopBtnY, stopBtnW, stopBtnH, 4);
+    stopBg.lineStyle(1, 0xcc4444, 0.6); stopBg.strokeRoundedRect(panelX + 20, stopBtnY, stopBtnW, stopBtnH, 4);
+    const stopText = this.add.text(panelX + PANEL_W / 2, stopBtnY + stopBtnH / 2, 'STOP GAME', {
+      fontFamily: PIXEL_FONT, fontSize: '12px', color: '#ff6666',
     }).setOrigin(0.5).setDepth(1001);
-    const stopZone = this.add.zone(SIDEBAR_W / 2, stopBtnY + stopBtnH / 2, stopBtnW, stopBtnH)
+    const stopZone = this.add.zone(panelX + PANEL_W / 2, stopBtnY + stopBtnH / 2, stopBtnW, stopBtnH)
       .setInteractive({ useHandCursor: true }).setDepth(1001);
     stopZone.on('pointerup', () => {
       const gameScene = this.scene.get('GameScene') as any;
@@ -315,6 +319,25 @@ export class UIScene extends Phaser.Scene {
   // ─── Left Sidebar ───
 
   updateSidebar(agents: AgentState[], animals?: AnimalState[]): void {
+    // Throttle sidebar rebuilds to max 2Hz to keep click zones stable
+    const now = Date.now();
+    if (now - this.lastSidebarRebuildTime < 500) {
+      this.pendingSidebarAgents = agents;
+      this.pendingSidebarAnimals = animals ?? null;
+      if (!this.pendingSidebarAgents) return;
+      setTimeout(() => {
+        if (this.pendingSidebarAgents) {
+          this._rebuildSidebar(this.pendingSidebarAgents, this.pendingSidebarAnimals ?? undefined);
+          this.pendingSidebarAgents = null;
+        }
+      }, 500 - (now - this.lastSidebarRebuildTime));
+      return;
+    }
+    this._rebuildSidebar(agents, animals);
+  }
+
+  private _rebuildSidebar(agents: AgentState[], animals?: AnimalState[]): void {
+    this.lastSidebarRebuildTime = Date.now();
     // Check if structural reorder needed (agents die/respawn/assignment change)
     const structureHash = agents.map(a => a.id + ':' + (a.alive ? '1' : '0') + ':' + (a.llmProviderId ?? 'x')).join(',');
     const needsReorder = structureHash !== this.lastAgentStructureHash;
