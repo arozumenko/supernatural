@@ -1717,7 +1717,7 @@ export function executeAction(
   const ay = Math.floor(agent.y);
 
   // Guard: if action needs a target but has none, fall back to wandering
-  const needsTarget = ['harvesting', 'drinking', 'building', 'crafting', 'socializing', 'planting', 'moving_to'];
+  const needsTarget = ['harvesting', 'drinking', 'building', 'socializing', 'planting', 'moving_to'];
   if (needsTarget.includes(decision.action) && !decision.target) {
     agent.action = 'wandering';
     agent.actionTarget = undefined;
