@@ -2206,8 +2206,11 @@ export function executeAction(
       const nearWorkbench = isAdjacentToTile(ax, ay, TileType.WORKBENCH, world);
       const nearForge = isAdjacentToTile(ax, ay, TileType.FORGE, world);
 
-      // Find best recipe the agent can craft
+      // Find best recipe the agent can craft (exclude building recipes — handled by 'building' action)
       const availableRecipes = NEW_RECIPES.filter(recipe => {
+        // Skip building recipes (campfire, workbench, walls, etc.)
+        if (recipe.skillType === 'building' && recipe.produces.type === 'tile') return false;
+
         // Check skill requirement
         const skillLevel = recipe.skillType === 'crafting'
           ? agent.skills.crafting.level
