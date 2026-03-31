@@ -798,8 +798,19 @@ export class UIScene extends Phaser.Scene {
     {
       const lives = agent.livesRemaining ?? 100;
       const livesColor = lives > 50 ? '#44cc44' : lives > 20 ? '#cccc44' : '#cc4444';
-      const archEmoji = (agent as any).archetypeEmoji
-        ?? AGENT_ARCHETYPES[(agent.archetype ?? 'random') as AgentArchetype]?.label ?? '';
+      const WEAPON_ICONS: Record<string, string> = {
+        wooden_spear: '\uD83C\uDF34', stone_knife: '\uD83D\uDD2A', wooden_club: '\uD83E\uDE93',
+        stone_axe: '\uD83E\uDE93', bone_axe: '\uD83E\uDE93', stone_pickaxe: '\u26CF\uFE0F',
+        bone_pickaxe: '\u26CF\uFE0F', iron_pickaxe: '\u26CF\uFE0F', iron_axe: '\uD83E\uDE93',
+        bone_spear: '\uD83C\uDF34', wooden_shovel: '\uD83E\uDEA3', stone_shovel: '\uD83E\uDEA3',
+        bow: '\uD83C\uDFF9', bone_knife: '\uD83D\uDD2A', iron_sword: '\u2694\uFE0F',
+        tooth_club: '\uD83E\uDE93', fat_torch: '\uD83D\uDD25',
+      };
+      const equipped = agent.inventory?.equipped?.mainHand;
+      const weaponEmoji = equipped ? (WEAPON_ICONS[equipped.itemId] ?? '\u2694\uFE0F') : '';
+      const archEmoji = weaponEmoji
+        || (agent as any).archetypeEmoji
+        || AGENT_ARCHETYPES[(agent.archetype ?? 'random') as AgentArchetype]?.label || '';
       const nameT = this.add.text(14, y, `${archEmoji} ${agent.name}`, {
         fontFamily: PIXEL_FONT, fontSize: '14px', color: '#80d880',
       });
