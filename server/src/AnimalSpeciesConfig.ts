@@ -482,7 +482,7 @@ export const ANIMAL_SPECIES: Record<string, AnimalSpecies> = {
     tier: 'small_prey',
     diet: 'herbivore',
     habitat: ['grassland', 'forest'],
-    speed: 0.50,
+    speed: 0.28,
     health: 12,
     attack: 0,
     detectionRange: 8,
