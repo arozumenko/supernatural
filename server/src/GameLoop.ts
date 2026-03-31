@@ -674,6 +674,15 @@ export class GameLoop {
     // Check Highlander status
     agent.isHighlander = checkHighlander(agent);
 
+    // Release tamed animals (before permadeath check — must happen on ALL deaths)
+    for (const animal of this.world.animals) {
+      if (animal.tamedBy === agent.id) {
+        animal.tamed = false;
+        animal.tamedBy = undefined;
+        animal.tamingProgress = 0;
+      }
+    }
+
     // Corpse drops
     const size = (agent.baseStats.strength + agent.baseStats.toughness + agent.baseStats.endurance) / 3;
     const drops = {
@@ -710,15 +719,6 @@ export class GameLoop {
 
     // Create corpse
     this.world.spawnCorpse(agent.x, agent.y, 'agent', drops, this.tickCount, undefined, agent.name, { ...agent.resources });
-
-    // Reset taming for all animals tamed by this agent
-    for (const animal of this.world.animals) {
-      if (animal.tamedBy === agent.id) {
-        animal.tamed = false;
-        animal.tamedBy = undefined;
-        animal.tamingProgress = 0;
-      }
-    }
 
     // Queue for respawn
     this.respawnQueue.push({ agent, respawnTick: this.tickCount + WorldConfig.respawn.agentDelayTicks });

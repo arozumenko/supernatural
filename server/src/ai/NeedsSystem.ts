@@ -392,10 +392,12 @@ export function clearDispositions(agentId: string, allAgents?: AgentState[]): vo
   for (const key of socialCooldowns.keys()) {
     if (key.includes(agentId)) socialCooldowns.delete(key);
   }
-  // Remove from all alliances
+  // Remove from all alliances + clear own allies
   if (allAgents) {
     for (const other of allAgents) {
-      if (other.allies) {
+      if (other.id === agentId) {
+        other.allies = [];
+      } else if (other.allies) {
         other.allies = other.allies.filter(id => id !== agentId);
       }
     }
