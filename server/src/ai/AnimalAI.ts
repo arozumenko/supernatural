@@ -1809,8 +1809,12 @@ function moveAnimalPathfind(
     const d = Math.sqrt(dx * dx + dy * dy);
     if (d > 0) {
       const step = Math.min(speed, d);
-      animal.x += (dx / d) * step;
-      animal.y += (dy / d) * step;
+      const newX = animal.x + (dx / d) * step;
+      const newY = animal.y + (dy / d) * step;
+      if (world.isWalkable(Math.floor(newX), Math.floor(newY))) {
+        animal.x = newX;
+        animal.y = newY;
+      }
     }
   } else if (species && (species.size === 'large' || species.size === 'medium') && animal.action === 'hunting') {
     // Large/medium predators bash adjacent structures when path is blocked
@@ -1825,14 +1829,18 @@ function moveAnimalPathfind(
       }
     }
   } else {
-    // Pathfinding failed — fall back to direct movement toward target
+    // Pathfinding failed — try direct movement toward target on walkable tiles
     const dx = tx - animal.x;
     const dy = ty - animal.y;
     const d = Math.sqrt(dx * dx + dy * dy);
     if (d > 0) {
       const step = Math.min(speed, d);
-      animal.x += (dx / d) * step;
-      animal.y += (dy / d) * step;
+      const newX = animal.x + (dx / d) * step;
+      const newY = animal.y + (dy / d) * step;
+      if (world.isWalkable(Math.floor(newX), Math.floor(newY))) {
+        animal.x = newX;
+        animal.y = newY;
+      }
     }
   }
 
