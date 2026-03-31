@@ -16,6 +16,8 @@ import { createDefaultGenome } from './BehaviorGenome.ts';
 import { executePendingPlan } from '../api/plan-executor.ts';
 import { evaluateStrategyRules } from './StrategyRules.ts';
 import { WorldConfig } from '../WorldConfig.ts';
+import { baseDecayNeeds, baseEvaluateStuckEscape } from './BaseNeedsSystem.ts';
+import type { Being } from './SharedDecisionEngine.ts';
 
 const cfg = WorldConfig;
 
@@ -407,106 +409,66 @@ export function clearDispositions(agentId: string, allAgents?: AgentState[]): vo
 export function decayNeeds(agent: AgentState): void {
   if (!agent.alive) return;
 
+  // Build a Being adapter so baseDecayNeeds can mutate flat fields
   const survivalReduction = 1 - getNeedDecayReduction(agent.skills);
-  const metabolism = getMetabolismMultiplier(agent);
+  const being: Being = {
+    x: agent.x,
+    y: agent.y,
+    health: agent.needs.health,
+    proteinHunger: agent.needs.proteinHunger,
+    plantHunger: agent.needs.plantHunger,
+    thirst: agent.needs.thirst,
+    stamina: agent.needs.stamina,
+    baseStats: agent.baseStats,
+    skills: agent.skills as unknown as Record<string, { xp: number; level: number }>,
+    alive: agent.alive,
+    action: agent.action,
+    lastAttackedBy: agent.lastAttackedBy,
+    attackCooldown: agent.attackCooldown,
+    age: agent.age,
+  };
 
-  // Hunger & thirst scale with metabolism (level + activity)
-  agent.needs.proteinHunger = clamp(agent.needs.proteinHunger - HUNGER_DECAY * 0.6 * survivalReduction * metabolism, 0, 100);
-  agent.needs.plantHunger = clamp(agent.needs.plantHunger - HUNGER_DECAY * 0.6 * survivalReduction * metabolism, 0, 100);
-  agent.needs.thirst = clamp(agent.needs.thirst - THIRST_DECAY * survivalReduction * metabolism, 0, 100);
+  const rh = cfg.needs.healthRegen;
+  const envDamage = baseDecayNeeds(being, 'agent', {
+    diet: 'omnivore',
+    size: 'medium',
+    hungerDecayRate: HUNGER_DECAY * survivalReduction,
+    thirstDecayRate: THIRST_DECAY * survivalReduction,
+    staminaDecayRate: STAMINA_DECAY,
+    maxHealth: 100,
+    starvationDamage: {
+      both: cfg.needs.starvationDamage.both,
+      single: cfg.needs.starvationDamage.single,
+      dehydration: cfg.needs.starvationDamage.dehydration,
+      exhaustion: cfg.needs.starvationDamage.exhaustion,
+    },
+    healthRegen: {
+      restInterval: rh.restInterval,
+      restBase: rh.restBase,
+      restSkillBonus: rh.restSkillBonus,
+    },
+  });
 
-  // Stamina: per-action costs with skill-based reduction
-  if (agent.action === 'resting') {
-    const restEfficiency = 1 / (1 + getTotalSkillLevels(agent) / 800);
-    agent.needs.stamina = clamp(agent.needs.stamina + REST_RESTORE * 0.1 * restEfficiency, 0, 100);
-  } else {
-    const actionStaminaCosts: Record<string, { base: number; skill?: keyof typeof agent.skills }> = {
-      idle: { base: 0.02 },
-      wandering: { base: 0.04, skill: 'athletics' },
-      moving_to: { base: 0.05, skill: 'athletics' },
-      harvesting: { base: 0.08, skill: 'woodcutting' },  // generic; real skill varies by target
-      eating: { base: 0.01 },
-      drinking: { base: 0.01 },
-      building: { base: 0.07, skill: 'building' },
-      crafting: { base: 0.05, skill: 'crafting' },
-      socializing: { base: 0.02, skill: 'social' },
-      trading: { base: 0.02 },
-      planting: { base: 0.04, skill: 'foraging' },
-      following_message: { base: 0.04 },
-    };
-    const costDef = actionStaminaCosts[agent.action] ?? { base: STAMINA_DECAY };
-    const skillReduction = costDef.skill ? agent.skills[costDef.skill].level * 0.002 : 0;
-    const staminaDrain = costDef.base * (1 - skillReduction) * metabolism;
-    agent.needs.stamina = clamp(agent.needs.stamina - staminaDrain, 0, 100);
-  }
+  // Copy shared fields back from Being adapter
+  agent.needs.proteinHunger = being.proteinHunger;
+  agent.needs.plantHunger = being.plantHunger;
+  agent.needs.thirst = being.thirst;
+  agent.needs.stamina = being.stamina;
+  agent.needs.health = being.health;
+  agent.attackCooldown = being.attackCooldown;
 
+  // --- Agent-specific decay: social & shelter ---
   agent.needs.social = clamp(agent.needs.social - SOCIAL_DECAY, 0, 100);
   agent.needs.shelter = clamp(agent.needs.shelter - SHELTER_DECAY, 0, 100);
 
-  // Health damage from critical needs (awards defense XP for enduring damage)
-  const proteinEmpty = agent.needs.proteinHunger <= 0;
-  const plantEmpty = agent.needs.plantHunger <= 0;
-  const dmg = cfg.needs.starvationDamage;
-  let envDamage = 0;
-  if (proteinEmpty && plantEmpty) {
-    envDamage += dmg.both;
-    agent.needs.health = clamp(agent.needs.health - dmg.both, 0, 100);
-  } else if (proteinEmpty || plantEmpty) {
-    envDamage += dmg.single;
-    agent.needs.health = clamp(agent.needs.health - dmg.single, 0, 100);
-  }
-  if (agent.needs.thirst <= 0) {
-    envDamage += dmg.dehydration;
-    agent.needs.health = clamp(agent.needs.health - dmg.dehydration, 0, 100);
-  }
-  if (agent.needs.stamina <= 0) {
-    envDamage += dmg.exhaustion;
-    agent.needs.health = clamp(agent.needs.health - dmg.exhaustion, 0, 100);
-  }
-  // Exposure damage: no shelter slowly drains health
+  // Exposure damage: no shelter slowly drains health (agent-only)
   if (agent.needs.shelter <= 0) {
-    envDamage += dmg.exposure;
-    agent.needs.health = clamp(agent.needs.health - dmg.exposure, 0, 100);
-  }
-  // Environmental damage awards survival XP, not defense (defense = combat blocking)
-  if (envDamage > 0) {
-    awardXP(agent.skills, 'survival', 0.2, envDamage);
-  }
-
-  // Slow health regen when needs are met — scales with survival level
-  if (agent.needs.proteinHunger > 50 && agent.needs.plantHunger > 50 && agent.needs.thirst > 50 && agent.needs.stamina > 30) {
-    const survivalRegen = 0.01 * agent.skills.survival.level; // 0 at level 0, ~1 at level 99
-    agent.needs.health = clamp(agent.needs.health + Math.max(0.05, survivalRegen), 0, 100);
-  }
-
-  // Skill-driven passive bonuses
-  // Resting: faster stamina recovery + health regeneration
-  if (agent.action === 'resting') {
-    agent.needs.stamina = clamp(agent.needs.stamina + agent.skills.athletics.level * 0.02, 0, 100);
-    const rh = cfg.needs.healthRegen;
-    if (agent.age % rh.restInterval === 0 && agent.needs.health < 100) {
-      const restHeal = rh.restBase + agent.skills.survival.level * rh.restSkillBonus;
-      agent.needs.health = clamp(agent.needs.health + restHeal, 0, 100);
+    const exposureDmg = cfg.needs.starvationDamage.exposure;
+    agent.needs.health = clamp(agent.needs.health - exposureDmg, 0, 100);
+    // Exposure awards additional survival XP
+    if (exposureDmg > 0) {
+      awardXP(agent.skills, 'survival', 0.2, exposureDmg);
     }
-  }
-  // Endurance (base stat): slower hunger/thirst decay
-  const enduranceReduction = agent.baseStats.endurance * 0.003; // max ~4.5% at 15 END
-  agent.needs.proteinHunger = clamp(agent.needs.proteinHunger + HUNGER_DECAY * enduranceReduction, 0, 100);
-  agent.needs.thirst = clamp(agent.needs.thirst + THIRST_DECAY * enduranceReduction, 0, 100);
-  // Toughness (base stat): slow passive regen — only when not taking environmental damage
-  if (agent.needs.health < 100 && envDamage === 0) {
-    agent.needs.health = clamp(agent.needs.health + agent.baseStats.toughness * 0.002, 0, 100);
-  }
-
-  // Award survival XP when struggling
-  const lowestNeed = Math.min(agent.needs.proteinHunger, agent.needs.plantHunger, agent.needs.thirst, agent.needs.stamina);
-  if (lowestNeed < 30) {
-    awardXP(agent.skills, 'survival', 0.3, (100 - lowestNeed) / 50);
-  }
-
-  // Decrement attack cooldown
-  if (agent.attackCooldown > 0) {
-    agent.attackCooldown--;
   }
 
   // Death check
@@ -898,50 +860,24 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
     (agent as any)._lastPosY = agent.y;
 
     if ((agent as any)._stuckTicks >= 30) {
-      // Been stuck for 3 seconds — check if trapped by trees/rocks
+      // Been stuck for 3 seconds — delegate trapped-escape logic to BaseNeedsSystem
       (agent as any)._stuckTicks = 0;
-      // Check all 4 cardinal + 4 diagonal neighbors for walkability
-      const dirs = [{dx:1,dy:0},{dx:-1,dy:0},{dx:0,dy:1},{dx:0,dy:-1},{dx:1,dy:1},{dx:-1,dy:-1},{dx:1,dy:-1},{dx:-1,dy:1}];
-      const hasWalkable = dirs.some(d => world.isWalkable(ax + d.dx, ay + d.dy));
-      if (!hasWalkable) {
-        // Completely trapped — break through adjacent obstacle to escape
-        // Priority: trees (choppable) > rocks (mineable) > structures (breakable)
-        for (const d of dirs) {
-          const tx = ax + d.dx;
-          const ty = ay + d.dy;
-          const tile = world.getTile(tx, ty);
-          if (tile === TileType.TREE) {
-            const tree = world.trees.find(t => tx >= t.x && tx < t.x + 2 && ty >= t.y && ty < t.y + 2 && !t.isStump);
-            if (tree) {
-              return {
-                action: 'harvesting' as AgentAction, priority: 99,
-                target: { x: tree.x, y: tree.y },
-                reason: 'trapped! chopping tree to escape'
-              };
-            }
-          }
-          if (tile === TileType.STONE) {
-            const rock = world.rocks.find(r => r.x === tx && r.y === ty && !r.isRubble);
-            if (rock) {
-              return {
-                action: 'harvesting' as AgentAction, priority: 99,
-                target: { x: tx, y: ty },
-                reason: 'trapped! mining rock to escape'
-              };
-            }
-          }
-          // Breakable structures: walls, fences, doors
-          const breakable: number[] = [TileType.BUILT_WALL, TileType.STONE_WALL, TileType.IRON_WALL,
-            TileType.WOOD_DOOR, TileType.BONE_FENCE, TileType.ANIMAL_PEN];
-          if (breakable.includes(tile as number)) {
-            return {
-              action: 'harvesting' as AgentAction, priority: 99,
-              target: { x: tx, y: ty },
-              reason: 'trapped! breaking wall to escape'
-            };
-          }
-        }
-        // Trapped by water or map edge — can't escape, just wander in place
+      const stuckBeing: Being = {
+        x: agent.x, y: agent.y, health: agent.needs.health,
+        proteinHunger: agent.needs.proteinHunger, plantHunger: agent.needs.plantHunger,
+        thirst: agent.needs.thirst, stamina: agent.needs.stamina,
+        baseStats: agent.baseStats,
+        skills: agent.skills as unknown as Record<string, { xp: number; level: number }>,
+        alive: agent.alive, action: agent.action, attackCooldown: agent.attackCooldown,
+      };
+      const escapeDecision = baseEvaluateStuckEscape(stuckBeing, genome, world, 30);
+      if (escapeDecision) {
+        return {
+          action: escapeDecision.action as AgentAction,
+          priority: escapeDecision.priority,
+          target: escapeDecision.target,
+          reason: escapeDecision.reason,
+        };
       }
       // Fall through to full decision logic below
     } else {

@@ -9,6 +9,8 @@ import { getSpecies } from '../AnimalSpeciesConfig.ts';
 import { findPath } from './Pathfinding.ts';
 import { awardXP, getSpeedBonus, getHarvestSpeedBonus, canIdentifyPoison, getHitAccuracy, getDamageReduction, getDodgeChance, getAnimalAttackPower, getAnimalDefense, getAnimalSpeed, getAgentSpeed, getUnifiedDamageReduction } from '../Progression.ts';
 import { evaluateSurvivalNeeds, evaluateThreats, type SurvivalConfig, type ThreatConfig, type SharedDecision } from './SharedDecisionEngine.ts';
+import { baseDecayNeeds, type DecayConfig } from './BaseNeedsSystem.ts';
+import type { Being } from './SharedDecisionEngine.ts';
 
 // ============================================================
 // Types
@@ -575,118 +577,29 @@ function computeFlockingBias(
 
 // ─── Animal Metabolism ───
 
-const ANIMAL_ACTIVITY_MULTIPLIERS: Record<string, number> = {
-  sleeping: 0.4, curled: 0.5, idle: 0.6,
-  grazing: 0.8, following: 0.8,
-  wandering: 1.0, breeding: 1.0, traveling: 1.0, guarding: 1.0,
-  stalking: 1.2, fleeing: 1.3,
-  hunting: 1.6, fighting: 1.8,
-  dying: 0,
-};
-
-function getAnimalTotalSkillLevels(animal: AnimalState): number {
-  const s = animal.skills;
-  return s.combat.level + s.defense.level + s.athletics.level +
-    s.woodcutting.level + s.mining.level + s.foraging.level +
-    s.building.level + s.crafting.level + s.survival.level + s.social.level;
-}
-
-function getAnimalMetabolism(animal: AnimalState): number {
-  const levelMod = 1 + getAnimalTotalSkillLevels(animal) / 500;
-  const activityMod = ANIMAL_ACTIVITY_MULTIPLIERS[animal.action] ?? 1.0;
-  return levelMod * activityMod;
-}
+// Animal metabolism and activity multipliers now handled by BaseNeedsSystem.getBaseMetabolism()
 
 export function decayAnimalNeeds(animal: AnimalState, species: AnimalSpecies, staminaDecayMult: number = 1.0): void {
   if (!animal.alive) return;
 
-  // Metabolism: scales with total skill levels and current activity
-  const metabolism = getAnimalMetabolism(animal);
+  // ── Delegate shared decay logic to BaseNeedsSystem ──
+  const decayConfig: DecayConfig = {
+    diet: species.diet,
+    size: species.size as DecayConfig['size'],
+    hungerDecayRate: species.hungerDecay,
+    thirstDecayRate: species.thirstDecay,
+    staminaDecayRate: species.staminaDecay * staminaDecayMult,
+    maxHealth: animal.maxHealth,
+  };
 
-  // Size-based hunger scaling: larger animals burn more energy
-  const sizeMultiplier = species.size === 'tiny' ? 0.5
-    : species.size === 'small' ? 0.75
-    : species.size === 'medium' ? 1.0
-    : 1.5; // large
-  const hungerDecay = species.hungerDecay * sizeMultiplier;
-  let proteinDecay: number;
-  let plantDecay: number;
-  switch (species.diet) {
-    case 'carnivore':
-      proteinDecay = hungerDecay * 1.0;
-      plantDecay = 0;
-      break;
-    case 'herbivore':
-      proteinDecay = 0;
-      plantDecay = hungerDecay * 1.0;
-      break;
-    case 'omnivore':
-      proteinDecay = hungerDecay * 0.6;
-      plantDecay = hungerDecay * 0.6;
-      break;
-  }
-  animal.proteinHunger = clamp(animal.proteinHunger - proteinDecay * metabolism, 0, 100);
-  animal.plantHunger = clamp(animal.plantHunger - plantDecay * metabolism, 0, 100);
-  animal.thirst = clamp(animal.thirst - species.thirstDecay * metabolism, 0, 100);
+  baseDecayNeeds(animal as unknown as Being, 'animal', decayConfig);
 
-  // Stamina drain scaled by metabolism and season
-  const staminaRate = species.staminaDecay * metabolism * staminaDecayMult;
-  animal.stamina = clamp(animal.stamina - staminaRate, 0, 100);
-
-  // Sleeping restores stamina (inversely scaled — bigger body recovers slower)
-  // Also heals health every 5 ticks (0.5s)
-  if (animal.action === 'sleeping') {
-    const restEfficiency = 1 / (1 + getAnimalTotalSkillLevels(animal) / 800);
-    animal.stamina = clamp(animal.stamina + 0.2 * restEfficiency, 0, 100);
-    if (animal.age % 5 === 0 && animal.health < animal.maxHealth) {
-      const restHeal = 0.5 + animal.skills.survival.level * 0.02;
-      animal.health = clamp(animal.health + restHeal, 0, animal.maxHealth);
-    }
-  }
-
-  // Health damage from critical needs (diet-aware)
-  const needsProtein = species.diet !== 'herbivore';
-  const needsPlants = species.diet !== 'carnivore';
-  const proteinCritical = needsProtein && animal.proteinHunger <= 0;
-  const plantCritical = needsPlants && animal.plantHunger <= 0;
-
-  if (proteinCritical && plantCritical) {
-    // Omnivore with both depleted: extra penalty
-    animal.health = clamp(animal.health - 1.5, 0, animal.maxHealth);
-  } else {
-    if (proteinCritical) animal.health = clamp(animal.health - 0.5, 0, animal.maxHealth);
-    if (plantCritical) animal.health = clamp(animal.health - 0.5, 0, animal.maxHealth);
-  }
-  if (animal.thirst <= 0) animal.health = clamp(animal.health - 0.8, 0, animal.maxHealth);
-
-  // Slow health regen when relevant needs are met
-  const proteinOk = !needsProtein || animal.proteinHunger > 50;
-  const plantOk = !needsPlants || animal.plantHunger > 50;
-  if (proteinOk && plantOk && animal.thirst > 50) {
-    animal.health = clamp(animal.health + 0.1, 0, animal.maxHealth);
-  }
-
-  // Award survival XP when any relevant need is critically low
-  const anyNeedLow =
-    (needsProtein && animal.proteinHunger < 30) ||
-    (needsPlants && animal.plantHunger < 30) ||
-    animal.thirst < 30;
-  if (anyNeedLow) {
-    const diffMod = 1.0;
-    awardXP(animal.skills, 'survival', 0.3, diffMod);
-  }
-
-  // Decrement breed cooldown
+  // ── Animal-specific: breed cooldown ──
   if (animal.breedCooldown > 0) {
     animal.breedCooldown--;
   }
 
-  // Decrement attack cooldown
-  if (animal.attackCooldown > 0) {
-    animal.attackCooldown--;
-  }
-
-  // Death check
+  // ── Death check ──
   if (animal.health <= 0) {
     animal.alive = false;
     animal.action = 'dying';
