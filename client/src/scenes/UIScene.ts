@@ -848,28 +848,19 @@ export class UIScene extends Phaser.Scene {
         scale_armor: { def: 20 }, iron_plate: { def: 18 },
         fat_torch: {},
       };
-      const mh = agent.inventory?.equipped?.mainHand;
-      if (mh) {
-        const name = mh.itemId.replace(/_/g, ' ');
-        const bonuses = ITEM_BONUSES[mh.itemId] ?? {};
-        const bonusStr = Object.entries(bonuses).map(([k, v]) => `+${v}${k}`).join(' ');
-        const durStr = mh.durability !== undefined ? ` (${mh.durability})` : '';
-        addLine(`\u2694 ${name}${durStr} ${bonusStr}`, '#aa9966', '10px');
+      // Collect all bonuses from all equipped slots
+      const totalBonuses: Record<string, number> = {};
+      for (const slot of ['mainHand', 'body', 'accessory'] as const) {
+        const item = agent.inventory?.equipped?.[slot];
+        if (!item) continue;
+        const bonuses = ITEM_BONUSES[item.itemId] ?? {};
+        for (const [k, v] of Object.entries(bonuses)) {
+          totalBonuses[k] = (totalBonuses[k] ?? 0) + v;
+        }
       }
-      const body = agent.inventory?.equipped?.body;
-      if (body) {
-        const name = body.itemId.replace(/_/g, ' ');
-        const bonuses = ITEM_BONUSES[body.itemId] ?? {};
-        const bonusStr = Object.entries(bonuses).map(([k, v]) => `+${v}${k}`).join(' ');
-        const durStr = body.durability !== undefined ? ` (${body.durability})` : '';
-        addLine(`\uD83D\uDEE1 ${name}${durStr} ${bonusStr}`, '#aa9966', '10px');
-      }
-      const acc = agent.inventory?.equipped?.accessory;
-      if (acc) {
-        const name = acc.itemId.replace(/_/g, ' ');
-        const bonuses = ITEM_BONUSES[acc.itemId] ?? {};
-        const bonusStr = Object.entries(bonuses).map(([k, v]) => `+${v}${k}`).join(' ');
-        addLine(`\u2728 ${name} ${bonusStr}`, '#aa9966', '10px');
+      if (Object.keys(totalBonuses).length > 0) {
+        const bonusStr = Object.entries(totalBonuses).map(([k, v]) => `+${v}${k}`).join('  ');
+        addLine(bonusStr, '#aa9966', '10px');
       }
     }
 
