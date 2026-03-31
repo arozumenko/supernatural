@@ -4,7 +4,7 @@
 
 // Re-export genome and journal types
 export type {
-  BehaviorGenome, StrategyRule, RuleCondition, RuleEffect,
+  CreatureGenome, BehaviorGenome, StrategyRule, RuleCondition, RuleEffect,
   LLMProviderConfig,
 } from './genome.ts';
 export { GENOME_BOUNDS } from './genome.ts';

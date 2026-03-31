@@ -1,8 +1,14 @@
 // ============================================================
-// Behavior Genome — per-agent learned decision config
+// Creature Genome — shared decision config for agents AND animals
 // ============================================================
 
-export interface BehaviorGenome {
+export interface CreatureGenome {
+  // === CREATURE TYPE (optional — agents omit, animals set) ===
+  creatureType?: 'agent' | 'animal';
+  species?: string;          // animal species ID (e.g. 'bear', 'rabbit')
+  diet?: 'carnivore' | 'herbivore' | 'omnivore';
+  size?: 'tiny' | 'small' | 'medium' | 'large';
+
   // === IDENTITY ===
   version: number;
   generation: number;
@@ -114,6 +120,9 @@ export interface BehaviorGenome {
   mutatedAt: number;
   fitnessScore: number;
 }
+
+/** @deprecated Use CreatureGenome — kept for backward compatibility */
+export type BehaviorGenome = CreatureGenome;
 
 // --- Strategy Rules ---
 

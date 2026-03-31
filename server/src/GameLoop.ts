@@ -16,6 +16,7 @@ import { initJournal, detectDeathCause, finalizeJournal, recordTimelineEntry, re
 import { getGenomeLibrary } from './config/genome-library.ts';
 import { calculateLivesChange, checkHighlander } from './ai/LivesEconomy.ts';
 import { applyFallbackMutation } from './ai/FallbackEvolution.ts';
+import { createAnimalGenome, mutateGenomeBreeding } from './ai/BehaviorGenome.ts';
 import { EvolutionQueue } from './ai/EvolutionQueue.ts';
 
 import type { TreeState, RockState, PlantState, AnimalState, CorpseState, StructureState, SkillSet, Season, BehaviorGenome } from '../shared/src/index.ts';
@@ -36,7 +37,7 @@ export class GameLoop {
   tickCount: number = 0;
   private intervalId: ReturnType<typeof setInterval> | null = null;
   private respawnQueue: { agent: AgentState; respawnTick: number }[] = [];
-  private animalRespawnQueue: { species: string; respawnTick: number; skills: SkillSet }[] = [];
+  private animalRespawnQueue: { species: string; respawnTick: number; skills: SkillSet; genome?: any }[] = [];
   private queuedDeadAnimalIds: Set<string> = new Set();
   private evolutionQueue: EvolutionQueue = new EvolutionQueue();
   // Track agent score over time for results chart
@@ -111,6 +112,11 @@ export class GameLoop {
       // Initialize life journal
       initJournal(agent, 0);
       this.agents.push(agent);
+    }
+
+    // Attach genomes to all initial animals
+    for (const animal of this.world.animals) {
+      (animal as any).currentGenome = createAnimalGenome(getSpecies(animal.species), 0);
     }
   }
 
@@ -410,6 +416,18 @@ export class GameLoop {
       }
     }
     if (animalOffspring.length > 0) {
+      // Attach genome to offspring: inherit parent genome with breeding mutations
+      for (const offspring of animalOffspring) {
+        // Find parent (closest animal of same species that just bred)
+        const parent = this.world.animals.find(a => a.alive && a.species === offspring.species
+          && Math.abs(a.x - offspring.x) < 3 && Math.abs(a.y - offspring.y) < 3);
+        const parentGenome = parent ? (parent as any).currentGenome : null;
+        if (parentGenome) {
+          (offspring as any).currentGenome = mutateGenomeBreeding(parentGenome);
+        } else {
+          (offspring as any).currentGenome = createAnimalGenome(getSpecies(offspring.species), this.tickCount);
+        }
+      }
       this.world.animals.push(...animalOffspring);
     }
 
@@ -531,10 +549,31 @@ export class GameLoop {
           for (const key of Object.keys(animal.skills) as (keyof SkillSet)[]) {
             skillsCopy[key] = { ...animal.skills[key] };
           }
+          // Evolve genome on death (same as agent fallback mutation)
+          const parentGenome = (animal as any).currentGenome;
+          let evolvedGenome: any = undefined;
+          if (parentGenome) {
+            evolvedGenome = structuredClone(parentGenome);
+            const causeType = animal.lastAttackedBy?.type === 'agent' ? 'killed_by_agent' as const
+              : animal.lastAttackedBy?.type === 'animal' ? 'killed_by_animal' as const
+              : animal.thirst <= 0 ? 'dehydration' as const
+              : animal.proteinHunger <= 0 ? 'starvation_protein' as const
+              : animal.stamina <= 0 ? 'exhaustion' as const
+              : 'starvation_both' as const;
+            const animalDeathCause = {
+              type: causeType,
+              killerSpecies: animal.lastAttackedBy?.type === 'animal' ? animal.lastAttackedBy.id : undefined,
+              location: { x: animal.x, y: animal.y },
+              needsAtDeath: { proteinHunger: animal.proteinHunger, plantHunger: animal.plantHunger, thirst: animal.thirst, stamina: animal.stamina, health: animal.health, social: 50, shelter: 50 },
+              lastActions: [animal.action],
+            };
+            applyFallbackMutation(evolvedGenome, animalDeathCause);
+          }
           this.animalRespawnQueue.push({
             species: animal.species,
             respawnTick: this.tickCount + delay,
             skills: skillsCopy,
+            genome: evolvedGenome,
           });
         }
       }
@@ -585,6 +624,8 @@ export class GameLoop {
               foodDrop: species.foodDrop,
               drops: species.drops,
             };
+            // Attach evolved genome (or create fresh if none)
+            (newAnimal as any).currentGenome = entry.genome ?? createAnimalGenome(species, this.tickCount);
             this.world.animals.push(newAnimal);
           }
         }

@@ -1,4 +1,4 @@
-import type { BehaviorGenome } from '../../shared/src/index.ts';
+import type { BehaviorGenome, CreatureGenome, AnimalSpecies } from '../../shared/src/index.ts';
 import { GENOME_BOUNDS } from '../../shared/src/index.ts';
 
 /**
@@ -257,4 +257,163 @@ export function clampGenome(genome: BehaviorGenome): void {
   if (genome.strategyRules.length > B.strategyRules.maxCount) {
     genome.strategyRules.length = B.strategyRules.maxCount;
   }
+}
+
+/**
+ * Create a genome for an animal based on its species config.
+ * Maps species utility weights → genome priority weights.
+ */
+export function createAnimalGenome(species: AnimalSpecies, tick: number = 0): CreatureGenome {
+  const c = (v: number, min: number, max: number) => Math.max(min, Math.min(max, Math.round(v)));
+  const uw = species.utilityWeights;
+
+  // Map utility floats to integer priorities
+  const fleeBase = c(60 + uw.safety * 25, 60, 99);           // safety 0→60, 2.0→99
+  const huntWeight = c(10 + uw.aggression * 40, 5, 70);      // aggression 0→10, 1.5→70
+  const eatWeight = c(30 + uw.food * 25, 5, 70);             // food 0→30, 1.5→68
+  const drinkWeight = c(35 + uw.water * 25, 5, 70);          // water 0→35, 1.0→60
+
+  return {
+    creatureType: 'animal',
+    species: species.id,
+    diet: species.diet,
+    size: species.size,
+
+    version: 1,
+    generation: 0,
+    lineage: [`species: ${species.id}`],
+
+    interruptWeights: {
+      criticalThirst: 95,
+      fightBack: uw.aggression > 0.5 ? c(80 + uw.aggression * 10, 60, 99) : 70,
+      criticalHunger: 90,
+      lowHealth: 85,
+      staminaHerb: 75,
+      exhaustionRest: 78,
+      groupDefense: 72,
+      fleeBase,
+    },
+
+    mediumPriorityWeights: {
+      drinkMedium: c(drinkWeight + 5, 40, 70),
+      eatMedium: c(eatWeight + 3, 40, 70),
+      forageMedium: c(eatWeight, 40, 70),
+    },
+
+    thresholds: {
+      criticalThirst: 20,
+      criticalHunger: 20,
+      criticalStamina: 15,
+      criticalHealth: 30,
+      moderateHealth: 60,
+      fleeHealthPanic: species.fleeThreshold,
+      fightBackMinRatio: uw.aggression > 0.8 ? 0.3 : 0.7,
+      groupDefenseRange: 6,
+
+      meatMinimum: 0,
+      woodMinimum: 0,
+      stoneMinimum: 0,
+      ironOreMinimum: 0,
+
+      foodTarget: 0,
+      woodTarget: 0,
+      stoneTarget: 0,
+      stockpileUrgent: 0,
+
+      plantHungerTrigger: 50,
+      woodToKeepBeforePlanting: 0,
+
+      threatDetectBase: Math.round(species.detectionRange / 2),
+      huntDetectRange: species.detectionRange,
+      socialDetectRange: Math.round(species.detectionRange * 0.8),
+      corpseDetectRange: species.detectionRange,
+      ironDetectRange: 0,
+    },
+
+    goalWeights: {
+      survive_thirst: 1.5,
+      survive_protein: species.diet !== 'herbivore' ? 1.3 : 0.1,
+      survive_plant: species.diet !== 'carnivore' ? 1.3 : 0.1,
+      rest: 1.0,
+      get_shelter: 0.1,
+      get_equipped: 0.1,
+      socialize: 0.1,
+      stockpile_wood: 0.1,
+      stockpile_stone: 0.1,
+      cook_food: 0.1,
+    },
+
+    actionCostMods: {},
+
+    goalThresholds: {
+      thirstRelevant: 50,
+      proteinRelevant: 50,
+      plantRelevant: 50,
+      staminaRelevant: 30,
+      shelterRelevant: 20,
+      socialRelevant: 20,
+      woodTarget: 20,
+      stoneTarget: 20,
+    },
+
+    fallbackWeights: {
+      drinkMedium: drinkWeight,
+      eatMedium: eatWeight,
+      harvestCorpse: c(uw.aggression * 35, 5, 55),
+      gatherWood: 5,
+      mineStone: 5,
+      huntAnimal: huntWeight,
+      socialize: 5,
+      mineIron: 5,
+      craft: 5,
+      tameAnimal: 5,
+      plantSeeds: 5,
+      wander: 12,
+    },
+
+    strategyRules: [],
+
+    createdAt: tick,
+    mutatedAt: tick,
+    fitnessScore: 50,
+  };
+}
+
+/**
+ * Create an offspring genome from a parent genome with small random mutations.
+ * Used for animal breeding — gentle perturbation, not death-driven evolution.
+ */
+export function mutateGenomeBreeding(parent: CreatureGenome): CreatureGenome {
+  const offspring = structuredClone(parent);
+  offspring.version = parent.version + 1;
+  offspring.generation = parent.generation + 1;
+  offspring.lineage = [...parent.lineage.slice(-5), 'breeding'];
+
+  // Perturb 3-5 random weights by ±5-10%
+  const mutationCount = 3 + Math.floor(Math.random() * 3);
+  const targets = [
+    { obj: offspring.interruptWeights, keys: Object.keys(offspring.interruptWeights), min: 60, max: 99 },
+    { obj: offspring.fallbackWeights, keys: Object.keys(offspring.fallbackWeights), min: 5, max: 70 },
+    { obj: offspring.mediumPriorityWeights, keys: Object.keys(offspring.mediumPriorityWeights), min: 40, max: 70 },
+  ];
+
+  for (let i = 0; i < mutationCount; i++) {
+    const group = targets[Math.floor(Math.random() * targets.length)];
+    const key = group.keys[Math.floor(Math.random() * group.keys.length)];
+    const current = (group.obj as any)[key] as number;
+    const delta = current * (Math.random() * 0.1 - 0.05); // ±5%
+    (group.obj as any)[key] = Math.max(group.min, Math.min(group.max, Math.round(current + delta)));
+  }
+
+  // Small chance to perturb a threshold
+  if (Math.random() < 0.3) {
+    const threshKeys = ['criticalThirst', 'criticalHunger', 'fleeHealthPanic', 'fightBackMinRatio'] as const;
+    const tk = threshKeys[Math.floor(Math.random() * threshKeys.length)];
+    const val = offspring.thresholds[tk];
+    const delta = typeof val === 'number' ? val * (Math.random() * 0.1 - 0.05) : 0;
+    (offspring.thresholds as any)[tk] = Math.max(0.1, val + delta);
+  }
+
+  offspring.mutatedAt = Date.now();
+  return offspring;
 }
