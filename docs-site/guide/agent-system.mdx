@@ -1,0 +1,162 @@
+---
+title: Agent System
+description: Stats, skills, archetypes, the Behavior Genome decision engine, death and evolution, and the lives economy.
+---
+
+# Agent System
+
+Every agent in Supernatural is driven by a **Behavior Genome** -- a JSON configuration that controls all decision-making. Agents have base stats, learnable skills, personalities, and a multi-tiered decision engine that runs 10 times per second.
+
+## Base Stats
+
+Each agent has 6 base stats that influence everything from combat to crafting:
+
+| Stat | Abbrev | Affects |
+|------|--------|---------|
+| Strength | STR | Melee damage, harvest amounts, carry capacity |
+| Toughness | TGH | Damage reduction, health regen, starvation resistance |
+| Agility | AGI | Movement speed, dodge chance, flee success |
+| Endurance | END | Stamina pool, stamina recovery, action duration |
+| Perception | PER | Detection range, foraging yield, threat awareness |
+| Charisma | CHA | Social interactions, taming chance, trade success |
+
+Stats are distributed at spawn based on the agent's archetype genome. The total stat budget is approximately 66 points across all 6 stats.
+
+## Skills
+
+Agents have 10 learnable skills that improve through practice:
+
+| Skill | Leveled By |
+|-------|-----------|
+| Combat | Fighting agents and animals |
+| Defense | Taking and blocking damage |
+| Athletics | Moving, fleeing, exploring |
+| Woodcutting | Chopping trees |
+| Mining | Breaking rocks, mining iron |
+| Foraging | Gathering plants, berries, herbs |
+| Building | Constructing walls, campfires, structures |
+| Crafting | Creating items at workbenches |
+| Survival | Cooking food, general wilderness actions |
+| Social | Interacting with other agents |
+
+### XP and Leveling
+
+Skills improve by doing. XP uses diminishing returns:
+
+```
+level = floor(sqrt(xp / 50))
+```
+
+Maximum skill level is 99. Skills are **preserved across deaths** with a 40% XP penalty -- this is the core reinforcement loop that makes agents gradually better at what they do most.
+
+## Agent Archetypes
+
+Six default genomes ship with the game, each with unique stat distributions and strategy rules:
+
+| Archetype | Stats Focus | Strategy Rules | Play Style |
+|-----------|-------------|---------------|------------|
+| **Random** | Balanced (11 all) | Balanced Retreat | Jack of all trades |
+| **Warrior** | STR + TGH | Bloodlust, Trophy Hunter, Stand Ground, Iron Rush | Hunts aggressively, fights everything |
+| **Survivor** | END + TGH | Early Warning, Resource Hoarder, Cautious Healing, Shelter Seeker, Cook Everything | Stockpiles, flees early, plays it safe |
+| **Builder** | STR + END | Lumber Focus, Quarry Focus, Build When Ready, Iron Seeker, Protect Investment | Gathers materials, builds settlements |
+| **Scout** | AGI + PER | Forage on the Move, Early Escape, Wanderlust, Opportunistic Harvest | Explores far, travels light, flees fast |
+| **Social** | CHA + PER | Seek Companions, Strength in Numbers, Animal Whisperer, Community Farmer, Flee When Alone | Befriends agents, tames animals |
+
+### Custom Genomes
+
+Drop `.json` files into `server/configs/genomes/` to create your own archetypes. Each genome file defines:
+
+```json
+{
+  "emoji": "🛡️",
+  "archetype": "Defender",
+  "description": "Tanky agent that prioritizes shelter and defense",
+  "stats": { "STR": 10, "TGH": 15, "AGI": 8, "END": 14, "PER": 10, "CHA": 9 },
+  "interruptWeights": { "criticalThirst": 95, "criticalHunger": 90, "flee": 60, "fight": 80 },
+  "thresholds": { "criticalThirst": 30, "criticalHunger": 30, "detectThreatRange": 6 },
+  "fallbackWeights": { "hunt": 30, "gatherWood": 40, "gatherStone": 45, "socialize": 25 },
+  "goalWeights": { "stayAlive": 100, "stayFed": 80, "stayHydrated": 85 },
+  "strategyRules": []
+}
+```
+
+## The Decision Engine
+
+The Behavior Genome drives a priority-based decision engine (in `NeedsSystem.ts`) that evaluates every tick. Decisions follow this strict priority order:
+
+### Priority Tiers (highest to lowest)
+
+1. **Player messages** -- If a human sent a message, consider it first
+2. **Threat detection / Flee** -- Run from dangers based on `detectThreatRange` and confidence
+3. **Self-defense** -- Fight back if cornered or confident enough
+4. **Critical survival** -- Address needs that are below critical thresholds (thirst < 30, hunger < 30, health < 30, stamina < 15)
+5. **Pending plan execution** -- Execute steps from an active [LLM plan](/docs/llm-gods) if one exists
+6. **GOAP planning** -- Goal-Oriented Action Planning with 8 genome-weighted goals and genome-modified action costs
+7. **Fallback priorities** -- Weighted random selection from peaceful activities (hunt, gather wood, gather stone, forage, socialize, explore, build, craft)
+8. **Strategy rules** -- Conditional behaviors defined in the genome that can boost, suppress, or force specific actions
+9. **Wander** -- Default behavior when nothing else applies
+
+Each tier fully preempts lower tiers. The agent's `lastDecisionReason` field tracks which tier made the current decision.
+
+### GOAP Planner
+
+The Goal-Oriented Action Planning system evaluates 8 goals with genome-weighted urgency. Each goal has:
+
+- **Urgency** -- How important the goal is (scaled by genome `goalWeights`)
+- **Action costs** -- Modified by genome `actionCostMods`
+- **Relevance threshold** -- Minimum urgency before the goal is considered (from genome)
+
+### Strategy Rules
+
+Strategy rules are conditional behaviors defined in the genome. Each rule has:
+
+- **Conditions** -- Recursive evaluator supporting `and`, `or`, `not`, `need_check`, `resource_check`, `near_entity`, `skill_level`, `deaths_remaining`
+- **Effects** -- `boost` (increase priority), `suppress` (decrease priority), `force` (override decision), `flee` (force retreat), `modify` (adjust thresholds)
+
+Up to 15 strategy rules can be active per genome.
+
+## Death and Evolution
+
+Agents start with **100 lives**. On each death:
+
+1. **9-way cause detection** -- The system determines exactly what killed the agent (see [World and Survival](/docs/world-and-survival#death-causes))
+2. **40% XP penalty** -- All skill XP is reduced by 40%, plus one random stat loses 1 point
+3. **Inventory lost** -- All carried items drop at the death location
+4. **Genome mutation** -- Either an LLM rewrites the behavior weights, or fallback rules mutate based on the death cause
+5. **Respawn** -- After 30 seconds, the agent respawns at a random location with the evolved genome
+6. **0 lives = permadeath** -- A tombstone tile is placed and the agent is permanently removed
+
+### Fallback Evolution
+
+When no LLM is assigned (or the LLM call fails), death-cause-specific mutation functions adjust the genome:
+
+| Death Cause | Mutation |
+|-------------|----------|
+| `starvation_protein` | Raise hunt/meat priorities, lower other activity weights |
+| `starvation_plant` | Raise foraging priorities, increase plant hunger thresholds |
+| `starvation_both` | Raise both food-gathering priorities |
+| `dehydration` | Increase thirst thresholds and water-seeking urgency |
+| `killed_by_animal` | Increase flee weights, raise threat detection range |
+| `killed_by_agent` | Boost combat/defense priorities, adjust fight confidence |
+| `exhaustion` | Lower activity multipliers, increase rest thresholds |
+| `poison` | Avoid poison shrooms (suppress foraging near them) |
+
+### LLM Evolution
+
+When an LLM is assigned, the death event is queued to the **EvolutionQueue** -- an async non-blocking queue that sends the agent's death context, journal, and current genome to the LLM. The LLM returns a modified genome with adjusted weights, thresholds, and potentially new strategy rules. See [LLM Gods](/docs/llm-gods) for details on how different god roles handle evolution.
+
+## Lives Economy
+
+Lives are calculated on death based on the agent's performance:
+
+- **Base change** -- Lose 1 life per death
+- **Achievement bonuses** -- Gain lives for milestones (long survival, high skill levels, kills)
+- **Highlander check** -- Special bonus if the agent is the last one alive
+
+The `livesRemaining` field tracks remaining lives. When it hits 0, the agent enters permadeath.
+
+## Next Steps
+
+- [Combat](/docs/combat) -- How agents fight each other and animals
+- [Crafting](/docs/crafting) -- Items and recipes that improve survival
+- [LLM Gods](/docs/llm-gods) -- How LLMs can reshape agent behavior

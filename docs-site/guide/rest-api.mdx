@@ -1,0 +1,313 @@
+---
+title: REST API
+description: All endpoints, authentication, and examples for observing and controlling agents programmatically.
+---
+
+# REST API
+
+Supernatural exposes a REST API for external LLMs and tools to observe and control agents. The API supports observation, instruction (messages, plans, genome patches), streaming, key management, and webhooks.
+
+## Authentication
+
+Set the `SUPERNATURAL_API_KEY` environment variable before starting the server to bootstrap a dev API key:
+
+```bash
+SUPERNATURAL_API_KEY=mydevkey npm run dev:server
+```
+
+All authenticated endpoints require a Bearer token:
+
+```bash
+curl -H "Authorization: Bearer mydevkey" http://localhost:3001/api/agents
+```
+
+You can also create and manage API keys programmatically via the `/api/keys` endpoints. Keys are stored in memory with SHA-256 hashing.
+
+## Rate Limiting
+
+The API uses sliding-window rate limiting per key. Different endpoint categories have different limits. Rate limit headers are included in responses:
+
+- `X-RateLimit-Limit` -- Maximum requests in the window
+- `X-RateLimit-Remaining` -- Requests remaining
+- `X-RateLimit-Reset` -- Window reset timestamp
+
+## Public Endpoints
+
+These endpoints require no authentication:
+
+### GET /api/status
+
+Server and game status.
+
+```bash
+curl http://localhost:3001/api/status
+```
+
+```json
+{
+  "alive": 10,
+  "total": 15,
+  "ticks": 4521,
+  "running": true
+}
+```
+
+### GET /api/llm-providers
+
+List configured LLM providers (id and label only, no secrets).
+
+```bash
+curl http://localhost:3001/api/llm-providers
+```
+
+```json
+[
+  { "id": "claude-sonnet", "label": "Claude Sonnet" },
+  { "id": "gpt-4o", "label": "GPT-4o" }
+]
+```
+
+### GET /api/genomes
+
+List available agent genome archetypes.
+
+```bash
+curl http://localhost:3001/api/genomes
+```
+
+```json
+[
+  {
+    "id": "warrior",
+    "label": "Warrior",
+    "emoji": "⚔️",
+    "archetype": "Warrior",
+    "description": "Hunts aggressively, fights everything",
+    "stats": { "STR": 14, "TGH": 13, "AGI": 10, "END": 11, "PER": 9, "CHA": 9 },
+    "rules": ["Bloodlust", "Trophy Hunter", "Stand Ground", "Iron Rush"]
+  }
+]
+```
+
+## Observation Endpoints
+
+All observation endpoints require authentication.
+
+### GET /api/agents
+
+List all agents with basic state.
+
+```bash
+curl -H "Authorization: Bearer $API_KEY" \
+  http://localhost:3001/api/agents
+```
+
+### GET /api/agents/:id/state
+
+LLM-optimized agent summary (~1-2KB). Includes position, needs, inventory, nearby entities with distance and direction, current action, and recent events.
+
+```bash
+curl -H "Authorization: Bearer $API_KEY" \
+  http://localhost:3001/api/agents/abc123/state
+```
+
+```json
+{
+  "id": "abc123",
+  "name": "Theron",
+  "position": { "x": 45, "y": 23 },
+  "needs": {
+    "proteinHunger": 62,
+    "plantHunger": 45,
+    "thirst": 28,
+    "stamina": 80,
+    "health": 95,
+    "social": 55,
+    "shelter": 70
+  },
+  "inventory": ["stone_axe", "wood_plank", "cooked_meat"],
+  "nearby": [
+    { "type": "agent", "name": "Lyra", "distance": 3, "direction": "east", "disposition": "friendly" },
+    { "type": "animal", "species": "wolf", "distance": 6, "direction": "north" },
+    { "type": "resource", "resourceType": "water", "distance": 4, "direction": "southeast" }
+  ],
+  "currentAction": "gathering_wood",
+  "lastDecisionReason": "fallback_priority"
+}
+```
+
+### GET /api/agents/:id/genome
+
+Full Behavior Genome JSON.
+
+```bash
+curl -H "Authorization: Bearer $API_KEY" \
+  http://localhost:3001/api/agents/abc123/genome
+```
+
+### GET /api/agents/:id/history
+
+Death history with journal summaries, life metrics, and timeline entries.
+
+```bash
+curl -H "Authorization: Bearer $API_KEY" \
+  http://localhost:3001/api/agents/abc123/history
+```
+
+### GET /api/world/summary
+
+Global world state: population counts, resource availability, current season, recent events.
+
+```bash
+curl -H "Authorization: Bearer $API_KEY" \
+  http://localhost:3001/api/world/summary
+```
+
+## Instruction Endpoints
+
+### POST /api/agents/:id/message
+
+Send a natural language message to an agent.
+
+```bash
+curl -X POST -H "Authorization: Bearer $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"content": "Water is 3 tiles east. Your thirst is dropping."}' \
+  http://localhost:3001/api/agents/abc123/message
+```
+
+The agent may follow or ignore the message based on its obedience score and personality.
+
+### POST /api/agents/:id/plan
+
+Submit a structured action plan (up to 5 steps).
+
+```bash
+curl -X POST -H "Authorization: Bearer $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "plan": {
+      "name": "Emergency Hydration",
+      "steps": [
+        {
+          "action": "drinking",
+          "target": { "type": "nearest", "resourceType": "water" },
+          "condition": { "type": "need_above", "field": "thirst", "value": 80 }
+        },
+        {
+          "action": "foraging",
+          "target": { "type": "nearest", "resourceType": "berry_bush" }
+        }
+      ],
+      "priority": 60,
+      "expireAfterTicks": 500,
+      "abandonOnDanger": true
+    }
+  }' \
+  http://localhost:3001/api/agents/abc123/plan
+```
+
+### GET /api/agents/:id/plan
+
+Get the agent's current active plan and step progress.
+
+```bash
+curl -H "Authorization: Bearer $API_KEY" \
+  http://localhost:3001/api/agents/abc123/plan
+```
+
+### DELETE /api/agents/:id/plan
+
+Cancel the agent's active plan.
+
+```bash
+curl -X DELETE -H "Authorization: Bearer $API_KEY" \
+  http://localhost:3001/api/agents/abc123/plan
+```
+
+### PATCH /api/agents/:id/genome
+
+Apply JSON Patch (RFC 6902) operations to the agent's Behavior Genome.
+
+```bash
+curl -X PATCH -H "Authorization: Bearer $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "patches": [
+      { "op": "replace", "path": "/thresholds/criticalThirst", "value": 35 },
+      { "op": "replace", "path": "/fallbackWeights/hunt", "value": 50 },
+      { "op": "add", "path": "/strategyRules/-", "value": {
+        "name": "Avoid Water At Night",
+        "conditions": { "type": "and", "conditions": [
+          { "type": "near_entity", "entityType": "alligator", "range": 10 }
+        ]},
+        "effects": [{ "type": "flee" }]
+      }}
+    ],
+    "reason": "Agent keeps dying near water to alligators"
+  }' \
+  http://localhost:3001/api/agents/abc123/genome
+```
+
+Supported JSON Patch operations: `add`, `replace`, `remove`. Array paths support index and `/-` (append).
+
+## Streaming
+
+### GET /api/agents/:id/stream
+
+Server-Sent Events (SSE) stream of real-time agent events.
+
+```bash
+curl -H "Authorization: Bearer $API_KEY" \
+  http://localhost:3001/api/agents/abc123/stream
+```
+
+Events include need changes, actions taken, combat events, deaths, plan updates, and genome mutations.
+
+## Key Management
+
+### POST /api/keys
+
+Create a new API key.
+
+```bash
+curl -X POST -H "Authorization: Bearer $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "my-bot", "permissions": ["read", "write"]}' \
+  http://localhost:3001/api/keys
+```
+
+### GET /api/keys
+
+List all API keys (hashed, no raw values).
+
+### DELETE /api/keys/:id
+
+Revoke an API key.
+
+## Webhooks
+
+### POST /api/webhooks
+
+Register a webhook to receive event notifications.
+
+```bash
+curl -X POST -H "Authorization: Bearer $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://my-server.com/hook", "events": ["agent:died", "agent:born"]}' \
+  http://localhost:3001/api/webhooks
+```
+
+### GET /api/webhooks
+
+List registered webhooks.
+
+### DELETE /api/webhooks/:id
+
+Remove a webhook.
+
+## Next Steps
+
+- [LLM Gods](/docs/llm-gods) -- The built-in orchestrator that uses this API
+- [Configuration](/docs/configuration) -- Setting up API keys and providers
+- [Agent System](/docs/agent-system) -- Understanding the agent state you observe

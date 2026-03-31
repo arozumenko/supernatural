@@ -5,7 +5,7 @@ import {
 import { World } from '../World.ts';
 import { findPath } from './Pathfinding.ts';
 import { getSpecies } from '../AnimalSpeciesConfig.ts';
-import { awardXP, getNeedDecayReduction, getHitAccuracy, getAttackDamage, getHarvestSpeedBonus, getAgentSpeed, getAnimalDefense, getDodgeChance, canIdentifyPoison } from '../Progression.ts';
+import { awardXP, getNeedDecayReduction, getHitAccuracy, getAttackDamage, getDamageReduction, getHarvestSpeedBonus, getAgentSpeed, getAnimalDefense, getDodgeChance, canIdentifyPoison } from '../Progression.ts';
 import { RECIPES as NEW_RECIPES } from '../RecipeDefinitions.ts';
 import { getItemDef } from '../ItemDefinitions.ts';
 import {
@@ -15,36 +15,25 @@ import {
 import { createDefaultGenome } from './BehaviorGenome.ts';
 import { executePendingPlan } from '../api/plan-executor.ts';
 import { evaluateStrategyRules } from './StrategyRules.ts';
+import { WorldConfig } from '../WorldConfig.ts';
 
-// Base decay rates per tick (level 0 agent)
-const HUNGER_DECAY = 0.15;
-const THIRST_DECAY = 0.2;
-const STAMINA_DECAY = 0.05;
-const SOCIAL_DECAY = 0.03;
-const SHELTER_DECAY = 0.02;
+const cfg = WorldConfig;
 
-// How much actions restore (flat — doesn't scale with level)
-const EAT_RESTORE = 25;
-const DRINK_RESTORE = 30;
-const REST_RESTORE = 15;
-const SOCIAL_RESTORE = 10;
+// Base decay rates per tick — from WorldConfig
+const HUNGER_DECAY = cfg.needs.decayRates.hunger;
+const THIRST_DECAY = cfg.needs.decayRates.thirst;
+const STAMINA_DECAY = cfg.needs.decayRates.stamina;
+const SOCIAL_DECAY = cfg.needs.decayRates.social;
+const SHELTER_DECAY = cfg.needs.decayRates.shelter;
 
-// --- Metabolism scaling ---
-// Higher-level agents burn through resources faster.
-// Sum of all skill levels determines metabolism: a maxed agent (990 total) eats/drinks ~3x more.
-// Activity multiplier: heavy actions (chopping, mining, fighting) burn even more.
-const ACTIVITY_MULTIPLIERS: Record<string, number> = {
-  idle: 0.6,
-  resting: 0.4,
-  wandering: 1.0,
-  socializing: 0.8,
-  building: 1.4,
-  crafting: 1.2,
-  harvesting: 1.5,
-  hunting: 1.6,
-  fighting: 1.8,
-  fleeing: 1.3,
-};
+// How much actions restore — from WorldConfig
+const EAT_RESTORE = cfg.needs.restoreAmounts.eat;
+const DRINK_RESTORE = cfg.needs.restoreAmounts.drink;
+const REST_RESTORE = cfg.needs.restoreAmounts.rest;
+const SOCIAL_RESTORE = cfg.needs.restoreAmounts.social;
+
+// Activity metabolism multipliers — from WorldConfig
+const ACTIVITY_MULTIPLIERS: Record<string, number> = cfg.activityMultipliers;
 
 function getTotalSkillLevels(agent: AgentState): number {
   const s = agent.skills;
@@ -396,12 +385,20 @@ function tryGOAPDecision(
 }
 
 /** Clear social dispositions involving a dead agent — reset on next meeting */
-export function clearDispositions(agentId: string): void {
+export function clearDispositions(agentId: string, allAgents?: AgentState[]): void {
   for (const key of agentDisposition.keys()) {
     if (key.includes(agentId)) agentDisposition.delete(key);
   }
   for (const key of socialCooldowns.keys()) {
     if (key.includes(agentId)) socialCooldowns.delete(key);
+  }
+  // Remove from all alliances
+  if (allAgents) {
+    for (const other of allAgents) {
+      if (other.allies) {
+        other.allies = other.allies.filter(id => id !== agentId);
+      }
+    }
   }
 }
 
@@ -447,26 +444,27 @@ export function decayNeeds(agent: AgentState): void {
   // Health damage from critical needs (awards defense XP for enduring damage)
   const proteinEmpty = agent.needs.proteinHunger <= 0;
   const plantEmpty = agent.needs.plantHunger <= 0;
+  const dmg = cfg.needs.starvationDamage;
   let envDamage = 0;
   if (proteinEmpty && plantEmpty) {
-    envDamage += 1.5;
-    agent.needs.health = clamp(agent.needs.health - 1.5, 0, 100);
+    envDamage += dmg.both;
+    agent.needs.health = clamp(agent.needs.health - dmg.both, 0, 100);
   } else if (proteinEmpty || plantEmpty) {
-    envDamage += 0.5;
-    agent.needs.health = clamp(agent.needs.health - 0.5, 0, 100);
+    envDamage += dmg.single;
+    agent.needs.health = clamp(agent.needs.health - dmg.single, 0, 100);
   }
   if (agent.needs.thirst <= 0) {
-    envDamage += 1.5;  // was 0.8 — dehydration kills faster
-    agent.needs.health = clamp(agent.needs.health - 1.5, 0, 100);
+    envDamage += dmg.dehydration;
+    agent.needs.health = clamp(agent.needs.health - dmg.dehydration, 0, 100);
   }
   if (agent.needs.stamina <= 0) {
-    envDamage += 0.1;
-    agent.needs.health = clamp(agent.needs.health - 0.1, 0, 100);
+    envDamage += dmg.exhaustion;
+    agent.needs.health = clamp(agent.needs.health - dmg.exhaustion, 0, 100);
   }
   // Exposure damage: no shelter slowly drains health
   if (agent.needs.shelter <= 0) {
-    envDamage += 0.15;
-    agent.needs.health = clamp(agent.needs.health - 0.15, 0, 100);
+    envDamage += dmg.exposure;
+    agent.needs.health = clamp(agent.needs.health - dmg.exposure, 0, 100);
   }
   // Environmental damage awards survival XP, not defense (defense = combat blocking)
   if (envDamage > 0) {
@@ -480,9 +478,14 @@ export function decayNeeds(agent: AgentState): void {
   }
 
   // Skill-driven passive bonuses
-  // Athletics: faster stamina recovery when resting
+  // Resting: faster stamina recovery + health regeneration
   if (agent.action === 'resting') {
     agent.needs.stamina = clamp(agent.needs.stamina + agent.skills.athletics.level * 0.02, 0, 100);
+    const rh = cfg.needs.healthRegen;
+    if (agent.age % rh.restInterval === 0 && agent.needs.health < 100) {
+      const restHeal = rh.restBase + agent.skills.survival.level * rh.restSkillBonus;
+      agent.needs.health = clamp(agent.needs.health + restHeal, 0, 100);
+    }
   }
   // Endurance (base stat): slower hunger/thirst decay
   const enduranceReduction = agent.baseStats.endurance * 0.003; // max ~4.5% at 15 END
@@ -688,25 +691,85 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
     }
   }
 
-  // --- Group defense: help nearby ally under attack ---
+  // --- Group defense: help nearby ally or alliance member under attack ---
   if (!agent.lastAttackedBy) {
+    const myAllies = agent.allies ?? [];
     for (const ally of allAgents) {
       if (ally.id === agent.id || !ally.alive) continue;
-      if (!ally.lastAttackedBy || ally.lastAttackedBy.type !== 'animal') continue;
+      if (!ally.lastAttackedBy) continue;
       const allyDist = distance(agent.x, agent.y, ally.x, ally.y);
-      if (allyDist > genome.thresholds.groupDefenseRange) continue; // only help nearby allies
-      const attacker = world.animals.find(a => a.id === ally.lastAttackedBy!.id && a.alive);
-      if (!attacker) continue;
-      const distToAttacker = distance(agent.x, agent.y, attacker.x, attacker.y);
-      if (distToAttacker < 10) {
-        decisions.push({
-          action: 'harvesting',
-          priority: genome.interruptWeights.groupDefense,
-          target: { x: Math.floor(attacker.x), y: Math.floor(attacker.y) },
-          targetAnimalId: attacker.id,
-          reason: `defending ${ally.name}`
-        });
-        break; // only help one ally at a time
+      // Alliance members get extended defense range (15 tiles vs 8)
+      const isAllied = myAllies.includes(ally.id);
+      const defenseRange = isAllied ? 15 : genome.thresholds.groupDefenseRange;
+      if (allyDist > defenseRange) continue;
+      // Non-allied agents only get help against animals (existing behavior)
+      if (!isAllied && ally.lastAttackedBy.type !== 'animal') continue;
+
+      if (ally.lastAttackedBy.type === 'animal') {
+        const attacker = world.animals.find(a => a.id === ally.lastAttackedBy!.id && a.alive);
+        if (!attacker) continue;
+        const distToAttacker = distance(agent.x, agent.y, attacker.x, attacker.y);
+        if (distToAttacker < 15) {
+          decisions.push({
+            action: 'harvesting',
+            priority: isAllied ? genome.interruptWeights.groupDefense + 5 : genome.interruptWeights.groupDefense,
+            target: { x: Math.floor(attacker.x), y: Math.floor(attacker.y) },
+            targetAnimalId: attacker.id,
+            reason: `defending ${isAllied ? 'ally' : ''} ${ally.name}`
+          });
+          break;
+        }
+      } else if (ally.lastAttackedBy.type === 'agent' && isAllied) {
+        // Defend allied agent from hostile agent
+        const attackerAgent = allAgents.find(a => a.id === ally.lastAttackedBy!.id && a.alive);
+        if (!attackerAgent) continue;
+        const distToAttacker = distance(agent.x, agent.y, attackerAgent.x, attackerAgent.y);
+        if (distToAttacker < 15) {
+          decisions.push({
+            action: 'harvesting',
+            priority: genome.interruptWeights.groupDefense + 5,
+            target: { x: Math.floor(attackerAgent.x), y: Math.floor(attackerAgent.y) },
+            targetAgentId: attackerAgent.id,
+            reason: `defending ally ${ally.name}`
+          });
+          break;
+        }
+      }
+    }
+  }
+
+  // --- Defend tamed animals under attack ---
+  {
+    const myTamed = world.animals.filter(a => a.alive && a.tamedBy === agent.id);
+    for (const pet of myTamed) {
+      if (!pet.lastAttackedBy) continue;
+      if (agent.age - pet.lastAttackedBy.tick > 30) continue; // recent only
+      const petDist = distance(agent.x, agent.y, pet.x, pet.y);
+      if (petDist > 12) continue;
+      if (pet.lastAttackedBy.type === 'animal') {
+        const attacker = world.animals.find(a => a.id === pet.lastAttackedBy!.id && a.alive);
+        if (attacker) {
+          decisions.push({
+            action: 'harvesting',
+            priority: genome.interruptWeights.groupDefense + 3,
+            target: { x: Math.floor(attacker.x), y: Math.floor(attacker.y) },
+            targetAnimalId: attacker.id,
+            reason: `protecting tamed ${getSpecies(pet.species).name}`
+          });
+          break;
+        }
+      } else if (pet.lastAttackedBy.type === 'agent') {
+        const attackerAgent = allAgents.find(a => a.id === pet.lastAttackedBy!.id && a.alive);
+        if (attackerAgent) {
+          decisions.push({
+            action: 'harvesting',
+            priority: genome.interruptWeights.groupDefense + 3,
+            target: { x: Math.floor(attackerAgent.x), y: Math.floor(attackerAgent.y) },
+            targetAgentId: attackerAgent.id,
+            reason: `protecting tamed ${getSpecies(pet.species).name}`
+          });
+          break;
+        }
       }
     }
   }
@@ -919,8 +982,10 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
   // Desperate mode: when starving, hunt at much higher priority and accept more risk
   const isStarving = agent.needs.proteinHunger < 15;
   if (agent.needs.proteinHunger < genome.goalThresholds.proteinRelevant) {
+    let bestHunt: { priority: number; animal: typeof world.animals[0]; species: ReturnType<typeof getSpecies>; dist: number } | null = null;
     for (const animal of world.animals) {
       if (!animal.alive) continue;
+      if (animal.tamedBy === agent.id) continue; // never hunt your own tamed animals
       const species = getSpecies(animal.species);
       const dist = distance(agent.x, agent.y, animal.x, animal.y);
       if (dist > genome.thresholds.huntDetectRange) continue;
@@ -930,30 +995,36 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
 
       const myAttack = 10 + agent.skills.combat.level * 0.5;
       const riskScore = species.attack / Math.max(1, myAttack);
-      const rewardScore = meatValue / 15;
+      const rewardScore = meatValue / 10; // scale: 1.0 = 10 meat (cow/bear), 0.5 = 5 meat
       const hungerUrgency = 1 - (agent.needs.proteinHunger / 100);
+      // Slow prey is much more attractive — agents can actually catch them
+      const speedAdvantage = Math.max(0, (0.3 - species.speed) * 50); // +5 priority per 0.1 slower than agent
+      // Closer prey is preferred
+      const distPenalty = dist * 0.5;
 
       // Starving agents fight anything — even bears — to survive
-      if (!isStarving && riskScore > 1.5 && hungerUrgency < 0.7) continue;
+      if (!isStarving && riskScore > 2.0 && hungerUrgency < 0.7) continue;
 
-      const huntBase = genome.fallbackWeights.huntAnimal - 10;
-      let huntPriority = Math.floor(huntBase + (rewardScore * hungerUrgency * 30) - (riskScore * 10));
+      const huntBase = genome.fallbackWeights.huntAnimal;
+      let huntPriority = Math.floor(huntBase + (rewardScore * hungerUrgency * 25) + speedAdvantage - (riskScore * 5) - distPenalty);
 
       // Starvation boost: hunt priority spikes when truly desperate
       if (isStarving) {
         huntPriority = Math.max(huntPriority, 75); // at least as urgent as flee
       }
 
-      if (huntPriority > huntBase) {
-        decisions.push({
-          action: 'harvesting',
-          priority: huntPriority + gatherBonus,
-          target: { x: Math.floor(animal.x), y: Math.floor(animal.y) },
-          targetAnimalId: animal.id,
-          reason: isStarving ? `desperate hunt: ${species.name}` : `hunting ${species.name}`
-        });
-        break; // only target closest viable prey
+      if (huntPriority > 15 && (!bestHunt || huntPriority > bestHunt.priority)) {
+        bestHunt = { priority: huntPriority, animal, species, dist };
       }
+    }
+    if (bestHunt) {
+      decisions.push({
+        action: 'harvesting',
+        priority: bestHunt.priority + gatherBonus,
+        target: { x: Math.floor(bestHunt.animal.x), y: Math.floor(bestHunt.animal.y) },
+        targetAnimalId: bestHunt.animal.id,
+        reason: isStarving ? `desperate hunt: ${bestHunt.species.name}` : `hunting ${bestHunt.species.name}`
+      });
     }
   }
 
@@ -1168,7 +1239,7 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
     }
   }
 
-  // --- Planting ---
+  // --- Planting (long-term food/resource investment) ---
   if (agent.resources.treeSeed > 0 && agent.resources.wood > genome.thresholds.woodToKeepBeforePlanting) {
     decisions.push({
       action: 'planting',
@@ -1176,10 +1247,13 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
       reason: 'planting a tree seed'
     });
   }
-  if (agent.resources.plantSeed > 0 && effectiveHunger < genome.thresholds.plantHungerTrigger) {
+  if (agent.resources.plantSeed > 0) {
+    // Plant food seeds whenever agent has them — food plants are always valuable
+    // Priority boost when hungry (investment is more urgent)
+    const plantBoost = agent.needs.plantHunger < 40 ? 15 : agent.needs.plantHunger < 60 ? 8 : 0;
     decisions.push({
       action: 'planting',
-      priority: genome.fallbackWeights.plantSeeds + 5 + gatherBonus,
+      priority: genome.fallbackWeights.plantSeeds + 5 + plantBoost + gatherBonus,
       reason: 'planting a food plant'
     });
   }
@@ -1220,22 +1294,39 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
     }
   }
 
-  // --- Taming nearby animals ---
-  for (const animal of world.animals) {
-    if (!animal.alive || animal.tamed) continue;
-    const species = getSpecies(animal.species);
-    if (!species.tameable) continue;
-    const dist = distance(agent.x, agent.y, animal.x, animal.y);
-    if (dist > 3) continue;
-    if (agent.resources.food > 0 || agent.resources.meat > 0) {
+  // --- Taming nearby animals (max 5 tamed per agent) ---
+  // Taming is a long-term food strategy: tamed animals produce drops automatically.
+  // Priority scales with tameAnimal genome weight and hunger — agents with few tamed animals
+  // and low food should prioritize taming over hunting for sustainable supply.
+  const tamedCount = world.animals.filter(a => a.alive && a.tamedBy === agent.id).length;
+  if (tamedCount < cfg.taming.maxPerAgent && genome.fallbackWeights.tameAnimal > 10) {
+    const tameRange = 8 + agent.skills.social.level * 0.1; // 8-18 tiles
+    const foodSecurityBonus = tamedCount === 0 ? 15 : (tamedCount < 3 ? 8 : 0); // more urgent when no tamed animals
+    let bestTameTarget: { animal: typeof world.animals[0]; species: ReturnType<typeof getSpecies>; priority: number } | null = null;
+    for (const animal of world.animals) {
+      if (!animal.alive || animal.tamed) continue;
+      const species = getSpecies(animal.species);
+      if (!species.tameable) continue;
+      const dist = distance(agent.x, agent.y, animal.x, animal.y);
+      if (dist > tameRange) continue;
+      if (agent.resources.food <= 0 && agent.resources.meat <= 0) break; // need food to tame
+      // Priority: base weight + food security bonus + meat production value
+      const meatProduction = (species.drops?.meat ?? species.foodDrop ?? 0) * 0.3;
+      let tamePriority = genome.fallbackWeights.tameAnimal + foodSecurityBonus + Math.floor(meatProduction * 3);
+      // Hunger urgency: when hungry, taming is more attractive for sustainable food
+      if (agent.needs.proteinHunger < 40) tamePriority += 10;
+      if (!bestTameTarget || tamePriority > bestTameTarget.priority) {
+        bestTameTarget = { animal, species, priority: tamePriority };
+      }
+    }
+    if (bestTameTarget) {
       decisions.push({
         action: 'socializing',
-        priority: genome.fallbackWeights.tameAnimal,
-        target: { x: Math.floor(animal.x), y: Math.floor(animal.y) },
-        targetAnimalId: animal.id,
-        reason: `taming ${species.name}`
+        priority: bestTameTarget.priority + gatherBonus,
+        target: { x: Math.floor(bestTameTarget.animal.x), y: Math.floor(bestTameTarget.animal.y) },
+        targetAnimalId: bestTameTarget.animal.id,
+        reason: `taming ${bestTameTarget.species.name} (${tamedCount}/5)`
       });
-      break;
     }
   }
 
@@ -1366,16 +1457,6 @@ export function executeAction(
       } else if (agent.resources.meat > 0) {
         agent.resources.meat -= 1;
         agent.needs.proteinHunger = clamp(agent.needs.proteinHunger + EAT_RESTORE, 0, 100);
-      } else {
-        // Desperate: eat rotten meat from inventory (minor protein, health damage)
-        const rottenIdx = agent.inventory.items.findIndex(i => i.itemId === 'rotten_meat');
-        if (rottenIdx !== -1) {
-          agent.inventory.items[rottenIdx].quantity--;
-          if (agent.inventory.items[rottenIdx].quantity <= 0) agent.inventory.items.splice(rottenIdx, 1);
-          agent.needs.proteinHunger = clamp(agent.needs.proteinHunger + 5, 0, 100);
-          agent.needs.health = clamp(agent.needs.health - 10, 0, 100);
-          awardXP(agent.skills, 'defense', 0.5, 1.0);
-        }
       }
       break;
     }
@@ -1568,7 +1649,7 @@ export function executeAction(
               if (d2 <= 1.5) {
                 // Attack cooldown check
                 if (agent.attackCooldown > 0) { agent.attackCooldown--; break; }
-                agent.attackCooldown = Math.max(5, 10 - Math.floor(agent.skills.combat.level / 20)); // 5-10 ticks, faster with combat skill
+                agent.attackCooldown = Math.max(cfg.combat.attackCooldownMin, cfg.combat.attackCooldownBase - Math.floor(agent.skills.combat.level / cfg.combat.attackCooldownSkillDiv));
 
                 // Hit accuracy check
                 const accuracy = getHitAccuracy(agent.skills);
@@ -1596,9 +1677,10 @@ export function executeAction(
                   damage = Math.max(1, damage * (1 - animalDef));
                 }
                 prey.health = clamp(prey.health - damage, 0, prey.maxHealth);
-                // Combat XP with difficulty modifier based on animal strength
+                // Both sides gain XP from combat
                 const diffMod = clamp(preySpecies.attack / Math.max(1, 10 + agent.skills.combat.level * 0.5), 0.5, 3.0);
                 awardXP(agent.skills, 'combat', 3.0, diffMod);
+                awardXP(prey.skills, 'defense', 2.0, Math.min(3.0, damage / 5));
                 // Mark animal as attacked by this agent
                 prey.lastAttackedBy = { type: 'agent', id: agent.id, tick: agent.age };
                 if (prey.health <= 0) {
@@ -1622,16 +1704,20 @@ export function executeAction(
                 if (agent.attackCooldown > 0) break;
                 agent.attackCooldown = Math.max(5, 10 - Math.floor(agent.skills.combat.level / 20));
 
-                // Calculate damage
+                // Calculate damage using proper stat-based formula
                 let weaponBonus = 0;
                 const weapon = agent.inventory.equipped.mainHand;
                 if (weapon) {
                   const wDef = getItemDef(weapon.itemId);
                   weaponBonus = wDef.attackBonus || 0;
                 }
-                const attackPower = agent.baseStats.strength + agent.skills.combat.level * 0.3 + weaponBonus;
-                const targetDefense = targetAgent.baseStats.toughness + targetAgent.skills.defense.level * 0.3;
-                const damage = Math.max(1, Math.floor((attackPower - targetDefense * 0.5) * 0.4));
+                // Use getAttackDamage for consistent damage calc (includes accuracy roll)
+                let damage = getAttackDamage(agent.baseStats, agent.skills, 10 + weaponBonus);
+                // Athletics adds burst damage (agility-based striking)
+                damage += agent.skills.athletics.level * 0.1;
+                // Target's defense reduces damage
+                const targetDefReduction = getDamageReduction(targetAgent.skills);
+                damage = Math.max(1, Math.floor(damage * (1 - targetDefReduction)));
 
                 targetAgent.needs.health = clamp(targetAgent.needs.health - damage, 0, 100);
                 targetAgent.lastAttackedBy = { type: 'agent', id: agent.id, tick: agent.age };
@@ -1658,21 +1744,21 @@ export function executeAction(
                   targetAgent.alive = false;
                   targetAgent.action = 'dying';
                   // Major reward for killing another agent
+                  const cc = cfg.combat;
                   if (agent.livesRemaining !== undefined) {
-                    agent.livesRemaining = Math.min(200, (agent.livesRemaining ?? 100) + 5);
+                    agent.livesRemaining = Math.min(cc.maxLives, (agent.livesRemaining ?? 100) + cc.killBonusLives);
                   }
-                  // Big XP bonus: killing an agent is the hardest combat achievement
                   const victimLevel = Object.values(targetAgent.skills).reduce((sum, s) => sum + s.level, 0);
-                  const difficultyMod = Math.max(1.0, victimLevel / 20); // harder victim = more XP
-                  awardXP(agent.skills, 'combat', 10.0, difficultyMod);
-                  awardXP(agent.skills, 'defense', 5.0, difficultyMod);
-                  awardXP(agent.skills, 'athletics', 3.0, difficultyMod);
-                  awardXP(agent.skills, 'survival', 3.0, difficultyMod);
-                  // Loot: take some of victim's resources
-                  agent.resources.food += Math.floor(targetAgent.resources.food / 2);
-                  agent.resources.meat += Math.floor(targetAgent.resources.meat / 2);
-                  agent.resources.wood += Math.floor(targetAgent.resources.wood / 4);
-                  agent.resources.stone += Math.floor(targetAgent.resources.stone / 4);
+                  const difficultyMod = Math.max(1.0, victimLevel / 10);
+                  awardXP(agent.skills, 'combat', cc.killXP.combat, difficultyMod);
+                  awardXP(agent.skills, 'defense', cc.killXP.defense, difficultyMod);
+                  awardXP(agent.skills, 'athletics', cc.killXP.athletics, difficultyMod);
+                  awardXP(agent.skills, 'survival', cc.killXP.survival, difficultyMod);
+                  // Loot victim resources
+                  agent.resources.food += Math.floor(targetAgent.resources.food * cc.lootFractions.food);
+                  agent.resources.meat += Math.floor(targetAgent.resources.meat * cc.lootFractions.meat);
+                  agent.resources.wood += Math.floor(targetAgent.resources.wood * cc.lootFractions.wood);
+                  agent.resources.stone += Math.floor(targetAgent.resources.stone * cc.lootFractions.stone);
                 }
               } else {
                 moveTowards(agent, targetAgent.x, targetAgent.y, world);
@@ -1975,10 +2061,49 @@ export function executeAction(
                 agent.needs.health = clamp(agent.needs.health + 1, 0, 100);
                 agent.needs.stamina = clamp(agent.needs.stamina + 2, 0, 100);
               }
+
+              // Alliance formation: strong friends become allies (max 3 per agent)
+              // Self-sufficient agents with many tamed animals are less likely to ally
+              const myAllies = agent.allies ?? [];
+              const theirAllies = nearbyAgent.allies ?? [];
+              const relationship = agent.relationships[nearbyAgent.id] ?? 0;
+              const reverseRelation = nearbyAgent.relationships[agent.id] ?? 0;
+              const myTamedCount = world.animals.filter(a => a.alive && a.tamedBy === agent.id).length;
+              const theirTamedCount = world.animals.filter(a => a.alive && a.tamedBy === nearbyAgent.id).length;
+              const ac = cfg.alliance;
+              const myThreshold = ac.baseRelationThreshold + myTamedCount * ac.tamedAnimalPenalty;
+              const theirThreshold = (ac.baseRelationThreshold - 20) + theirTamedCount * ac.tamedAnimalPenalty;
+              if (relationship >= myThreshold && reverseRelation >= theirThreshold
+                  && myAllies.length < ac.maxAllies && theirAllies.length < ac.maxAllies
+                  && !myAllies.includes(nearbyAgent.id)) {
+                if (!agent.allies) agent.allies = [];
+                if (!nearbyAgent.allies) nearbyAgent.allies = [];
+                agent.allies.push(nearbyAgent.id);
+                nearbyAgent.allies.push(agent.id);
+              }
+
+              // Alliance resource sharing: help starving/dehydrated ally
+              if (myAllies.includes(nearbyAgent.id)) {
+                const ac = cfg.alliance;
+                if (nearbyAgent.needs.proteinHunger < ac.shareCriticalNeed && agent.resources.meat > ac.shareMinSurplus) {
+                  const share = Math.min(ac.shareAmount, agent.resources.meat - 1);
+                  agent.resources.meat -= share;
+                  nearbyAgent.resources.meat += share;
+                  nearbyAgent.needs.proteinHunger = clamp(nearbyAgent.needs.proteinHunger + share * 10, 0, 100);
+                }
+                if (nearbyAgent.needs.plantHunger < ac.shareCriticalNeed && agent.resources.food > ac.shareMinSurplus) {
+                  const share = Math.min(ac.shareAmount, agent.resources.food - 1);
+                  agent.resources.food -= share;
+                  nearbyAgent.resources.food += share;
+                  nearbyAgent.needs.plantHunger = clamp(nearbyAgent.needs.plantHunger + share * 8, 0, 100);
+                }
+              }
             } else {
-              // Fight: deal damage, mark as attacker so other can fight back or flee
-              const attackPower = agent.baseStats.strength + agent.skills.combat.level * 0.3;
-              const damage = Math.max(1, Math.floor(attackPower * 0.3));
+              // Fight: deal damage using proper stat formula
+              let damage = getAttackDamage(agent.baseStats, agent.skills, 10);
+              damage += agent.skills.athletics.level * 0.1;
+              const foeDefReduction = getDamageReduction(nearbyAgent.skills);
+              damage = Math.max(1, Math.floor(damage * (1 - foeDefReduction)));
               nearbyAgent.needs.health = clamp(nearbyAgent.needs.health - damage, 0, 100);
               nearbyAgent.lastAttackedBy = { type: 'agent', id: agent.id, tick: agent.age };
               agent.relationships[nearbyAgent.id] = clamp((agent.relationships[nearbyAgent.id] ?? 0) - 10, -100, 100);

@@ -1,0 +1,386 @@
+---
+title: Configuration
+description: World config, genome files, LLM provider setup, and prompt customization for Supernatural.
+---
+
+# Configuration
+
+All game balance is tunable via JSON and Markdown files in `server/configs/` — no code changes needed. LLM providers are configured separately in `server/llm-providers.json`.
+
+## World Config
+
+Edit `server/configs/world-config.json` to tune gameplay. The server loads it at startup and deep-merges with built-in defaults — you only need to include the fields you want to change.
+
+### Needs
+
+```json
+{
+  "needs": {
+    "decayRates": {
+      "hunger": 0.15,
+      "thirst": 0.2,
+      "stamina": 0.05,
+      "social": 0.03,
+      "shelter": 0.02
+    },
+    "restoreAmounts": {
+      "eat": 25,
+      "drink": 30,
+      "rest": 15,
+      "social": 10
+    },
+    "starvationDamage": {
+      "both": 1.5,
+      "single": 0.5,
+      "dehydration": 1.5,
+      "exhaustion": 0.1,
+      "exposure": 0.15
+    },
+    "healthRegen": {
+      "restInterval": 5,
+      "restBase": 0.5,
+      "restSkillBonus": 0.02,
+      "toughnessRegen": 0.002,
+      "needsMet": 0.05
+    }
+  }
+}
+```
+
+### Combat
+
+```json
+{
+  "combat": {
+    "attackCooldownBase": 10,
+    "attackCooldownMin": 5,
+    "attackCooldownSkillDiv": 20,
+    "killXP": {
+      "combat": 150,
+      "defense": 80,
+      "athletics": 50,
+      "survival": 50
+    },
+    "killBonusLives": 5,
+    "maxLives": 200,
+    "cannibalWitnessRange": 15,
+    "lootFractions": {
+      "food": 0.5,
+      "meat": 0.5,
+      "wood": 0.25,
+      "stone": 0.25
+    }
+  }
+}
+```
+
+### Harvest
+
+```json
+{
+  "harvest": {
+    "baseWood": 5,
+    "baseStone": 5,
+    "basePlant": 5,
+    "baseIron": 3,
+    "skillDivisor": 10,
+    "bonusYieldChance": 0.005
+  }
+}
+```
+
+### All Sections
+
+| Section | What It Controls |
+|---------|-----------------|
+| `needs.decayRates` | How fast hunger, thirst, stamina, social, shelter drain per tick |
+| `needs.restoreAmounts` | How much eating, drinking, resting, chatting restores |
+| `needs.starvationDamage` | HP/tick from empty hunger, thirst, stamina, shelter |
+| `needs.healthRegen` | Healing rates while resting, passive, toughness-based |
+| `combat` | Attack cooldowns, kill XP, loot fractions, lives cap |
+| `harvest` | Base wood/stone/plant/iron harvest amounts, skill bonuses |
+| `plantNutrition` | Per-plant restore values (berry 5, mushroom 15, flower 30, herb 35) |
+| `taming` | Max animals per agent (5), production interval (500 ticks), drop fractions |
+| `alliance` | Max allies (3), relationship thresholds, resource sharing rules |
+| `respawn` | Agent respawn delay (300 ticks), iron respawn interval |
+| `activityMultipliers` | Metabolism per action (fighting 1.8x, resting 0.4x, idle 0.6x) |
+| `trees` | Growth ticks, health, seed drop chance (0.7), stump lifetime |
+| `rocks` | Health, rubble lifetime, respawn chance |
+| `plants` | Growth ticks (sprout 80, young 150), regrow chance (0.003), seed drop |
+| `animals` | Spawn counts per species, population thresholds, day/night cycle |
+| `distribution` | Resource ratios (55% trees, 10% rocks, 10% berries, etc.) |
+
+---
+
+## Genome Files
+
+Custom genome archetypes live in `server/configs/genomes/`. Each `.json` file defines one archetype that appears on the start screen.
+
+```json
+{
+  "emoji": "⚔️",
+  "archetype": "warrior",
+  "description": "STR+TGH combat focus — hunts aggressively, fights everything",
+  "stats": {
+    "strength": 13,
+    "toughness": 13,
+    "agility": 11,
+    "endurance": 10,
+    "perception": 10,
+    "charisma": 9
+  },
+  "version": 1,
+  "generation": 0,
+  "lineage": ["archetype: warrior"],
+  "interruptWeights": {
+    "criticalThirst": 95,
+    "fightBack": 97,
+    "criticalHunger": 90,
+    "lowHealth": 88,
+    "staminaHerb": 82,
+    "exhaustionRest": 80,
+    "groupDefense": 80,
+    "fleeBase": 65
+  },
+  "thresholds": {
+    "criticalThirst": 30,
+    "criticalHunger": 30,
+    "criticalStamina": 20,
+    "criticalHealth": 35,
+    "threatDetectBase": 5,
+    "huntDetectRange": 18,
+    "fightBackMinRatio": 0.3,
+    "fleeHealthPanic": 0.25,
+    "foodTarget": 4,
+    "woodTarget": 5,
+    "stoneTarget": 3
+  },
+  "fallbackWeights": {
+    "huntAnimal": 60,
+    "harvestCorpse": 55,
+    "drinkMedium": 60,
+    "eatMedium": 55,
+    "gatherWood": 25,
+    "mineStone": 20,
+    "mineIron": 35,
+    "craft": 30,
+    "socialize": 12,
+    "tameAnimal": 5,
+    "wander": 15
+  },
+  "strategyRules": [
+    {
+      "id": "rule_warrior_bloodlust",
+      "name": "Bloodlust",
+      "condition": {
+        "type": "need_below",
+        "field": "proteinHunger",
+        "value": 50
+      },
+      "effect": {
+        "type": "boost_priority",
+        "action": "huntAnimal",
+        "amount": 25
+      },
+      "priority": 55,
+      "enabled": true,
+      "source": "warrior"
+    }
+  ]
+}
+```
+
+### Genome Fields
+
+| Field | Purpose |
+|-------|---------|
+| `emoji`, `archetype` | Display identity on start screen |
+| `description` | Tooltip in genome selector |
+| `stats` | Base stat distribution (strength, toughness, agility, endurance, perception, charisma) |
+| `interruptWeights` | Priority scores for critical survival interrupts (range 60-99) |
+| `thresholds` | Need levels that trigger emergency actions, detection ranges |
+| `mediumPriorityWeights` | Priority for moderate needs (range 40-70) |
+| `goalWeights` | GOAP planning urgency per goal (range 0.1-5.0) |
+| `goalThresholds` | Need level at which GOAP goals become relevant (range 20-80) |
+| `fallbackWeights` | Weighted priorities for peaceful activities (range 5-70) |
+| `actionCostMods` | Optional GOAP action cost multipliers (range 0.2-5.0) |
+| `strategyRules` | Conditional behaviors, up to 15 rules |
+
+### Strategy Rule Conditions
+
+| Type | Fields | Description |
+|------|--------|-------------|
+| `need_below` | `field`, `value` | Need is below threshold |
+| `need_above` | `field`, `value` | Need is above threshold |
+| `resource_below` | `field`, `value` | Inventory resource below count |
+| `resource_above` | `field`, `value` | Inventory resource above count |
+| `near_entity` | `entityType`, `range` | Entity type within range (tiles) |
+| `health_percent` | `value` | Health below fraction (0.0-1.0) |
+| `skill_level` | `field`, `value` | Skill at or above level |
+| `deaths_remaining` | `value` | Lives remaining below threshold |
+| `and` | `conditions[]` | All sub-conditions true |
+| `or` | `conditions[]` | Any sub-condition true |
+| `not` | `conditions[]` | Inverts the sub-condition |
+
+### Strategy Rule Effects
+
+| Type | Fields | Description |
+|------|--------|-------------|
+| `boost_priority` | `action`, `amount` | Increase action priority |
+| `suppress_action` | `action`, `amount` | Decrease action priority |
+| `force_action` | `action` | Override decision to this action |
+| `modify_threshold` | `targetField`, `targetValue` | Adjust a threshold |
+| `modify_weight` | `targetField`, `targetValue` | Adjust a weight |
+| `flee_from` | -- | Trigger flee behavior |
+| `prefer_target` | -- | Prefer specific target type |
+
+---
+
+## LLM Providers
+
+Create `server/llm-providers.json` with an array of provider configs. Use `$ENV_VAR` syntax for API keys.
+
+### Anthropic Claude
+
+```json
+{
+  "id": "claude-sonnet",
+  "label": "Claude Sonnet",
+  "provider": "anthropic",
+  "model": "claude-sonnet-4-5-20250514",
+  "apiKey": "$ANTHROPIC_API_KEY",
+  "maxTokens": 4096,
+  "temperature": 0.7,
+  "timeout": 15000,
+  "maxConcurrent": 3,
+  "rateLimitPerMinute": 20
+}
+```
+
+### OpenAI GPT
+
+```json
+{
+  "id": "gpt-4o",
+  "label": "GPT-4o",
+  "provider": "openai",
+  "model": "gpt-4o",
+  "apiKey": "$OPENAI_API_KEY",
+  "maxTokens": 4096,
+  "temperature": 0.7,
+  "timeout": 15000,
+  "maxConcurrent": 3,
+  "rateLimitPerMinute": 20
+}
+```
+
+### Google Gemini
+
+```json
+{
+  "id": "gemini-flash",
+  "label": "Gemini Flash",
+  "provider": "google",
+  "model": "gemini-2.0-flash",
+  "apiKey": "$GOOGLE_API_KEY",
+  "maxTokens": 4096,
+  "temperature": 0.7,
+  "timeout": 15000,
+  "maxConcurrent": 3,
+  "rateLimitPerMinute": 20
+}
+```
+
+### Ollama (Local)
+
+```json
+{
+  "id": "ollama-llama",
+  "label": "Ollama Llama 3.1",
+  "provider": "ollama",
+  "model": "llama3.1",
+  "apiKey": "",
+  "baseUrl": "http://localhost:11434",
+  "maxTokens": 4096,
+  "temperature": 0.7,
+  "timeout": 30000,
+  "maxConcurrent": 1,
+  "rateLimitPerMinute": 10
+}
+```
+
+### AWS Bedrock
+
+```json
+{
+  "id": "bedrock-claude",
+  "label": "Bedrock Claude",
+  "provider": "bedrock",
+  "model": "anthropic.claude-sonnet-4-5-20250514-v1:0",
+  "apiKey": "$AWS_ACCESS_KEY_ID:$AWS_SECRET_ACCESS_KEY",
+  "baseUrl": "us-east-1",
+  "maxTokens": 4096,
+  "temperature": 0.7,
+  "timeout": 15000,
+  "maxConcurrent": 3,
+  "rateLimitPerMinute": 20
+}
+```
+
+The `apiKey` uses `ACCESS_KEY:SECRET_KEY` format. The `baseUrl` is the AWS region. Uses Converse API with zero-dep SigV4 signing.
+
+### OpenAI-Compatible
+
+```json
+{
+  "id": "together-mixtral",
+  "label": "Together Mixtral",
+  "provider": "openai_compatible",
+  "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
+  "apiKey": "$TOGETHER_API_KEY",
+  "baseUrl": "https://api.together.xyz/v1",
+  "maxTokens": 4096,
+  "temperature": 0.7,
+  "timeout": 15000,
+  "maxConcurrent": 3,
+  "rateLimitPerMinute": 20
+}
+```
+
+Works with vLLM, Together, Groq, LM Studio, DeepSeek, or any OpenAI-compatible API.
+
+### Provider Config Fields
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `id` | Yes | Unique identifier |
+| `label` | Yes | Display name in UI |
+| `provider` | Yes | `anthropic`, `openai`, `google`, `ollama`, `bedrock`, or `openai_compatible` |
+| `model` | Yes | Model identifier (provider-specific) |
+| `apiKey` | Yes | API key, `$ENV_VAR`, or empty string for Ollama |
+| `baseUrl` | Sometimes | Required for Ollama, Bedrock (region), and OpenAI-compatible |
+| `maxTokens` | No | Max response tokens (default 4096) |
+| `temperature` | No | Sampling temperature (default 0.7) |
+| `timeout` | No | Request timeout ms (default 15000) |
+| `maxConcurrent` | No | Max parallel requests |
+| `rateLimitPerMinute` | No | Request rate limit |
+
+---
+
+## Prompt Customization
+
+The 6 god role prompts live in `server/configs/prompts/` as editable Markdown files:
+
+| File | Role |
+|------|------|
+| `game-rules.md` | Shared game rules injected into all role prompts |
+| `advisor.md` | The Advisor — quiet counselor, message only |
+| `puppeteer.md` | The Puppeteer — tactical commander, plans + messages |
+| `god.md` | The God — silent genome shaper, patches only |
+| `darwinist.md` | The Darwinist — cold optimizer, all tools |
+| `parent.md` | The Parent — nurturing teacher, plans + messages |
+| `chaos_demon.md` | The Chaos Demon — entropy agent, all tools |
+
+Each role file uses the `{"{{GAME_RULES}}"}` marker where the shared game rules should be injected. Edit `game-rules.md` to change what all roles know about the world. Edit individual role files to change their personality and strategy.
+
+Prompts are loaded once at server startup. Restart the server after editing.

@@ -10,14 +10,18 @@ Players don't control their agents. They observe. Occasionally, they can whisper
 
 ## The World
 
-An 80×60 tile grid generated through layered noise functions. Elevation and moisture combine to produce terrain:
+A 120×90 tile grid (configurable) generated through layered noise functions. Elevation and moisture combine to produce terrain:
 
 - **Grass** — open, walkable ground. The default canvas.
+- **Dirt** — bare ground. Walkable, no resources.
 - **Water** — impassable lakes and rivers. Agents drink from adjacent tiles.
 - **Trees** — harvestable for wood. Block movement. Slowly regrow near other trees.
 - **Stone** — harvestable for stone. Block movement.
+- **Iron ore** — rare mineral deposits in rocky areas. Harvestable for iron ore. Block movement. Finite (never respawns).
 - **Berry bushes** — harvestable for food. Walkable. Regrow near other bushes.
 - **Sand** — transitional terrain near water. Walkable, no resources.
+- **Tombstone** — marks where an agent died. Walkable.
+- **Structure tiles** — built floor, built wall, stone wall, iron wall, wood door, bone fence, campfire, workbench, forge, storage, tent, bedroll, animal pen (placed by agents via crafting).
 
 The world center always starts as a clearing — the spawning ground for new agents.
 
@@ -33,7 +37,8 @@ Every agent is a self-contained being with:
 
 | Need | Decay rate | What happens at 0 |
 |---|---|---|
-| **Hunger** | 0.15/tick | Health drains at 0.5/tick |
+| **Protein Hunger** | 0.036/tick (omnivore) | Health drains at 0.5/tick |
+| **Plant Hunger** | 0.036/tick (omnivore) | Health drains at 0.5/tick |
 | **Thirst** | 0.20/tick | Health drains at 0.8/tick |
 | **Stamina** | 0.05/tick (less when resting) | Health drains at 0.1/tick |
 | **Health** | — (derived from other needs) | Agent dies |
@@ -44,15 +49,20 @@ Health slowly regenerates when hunger > 50, thirst > 50, and stamina > 30.
 
 ### Resources (carried inventory)
 
-Wood, stone, food, water. Gathered from the world, consumed by actions, spent on construction.
+Wood, stone, food, water, meat, bone, hide, sinew, fat, feathers, teeth_claws, scales, iron_ore, iron_ingot, treeSeed, plantSeed. Gathered from the world, consumed by actions, spent on construction.
 
 ### Skills (0–100, improve with use)
 
-- **Gathering** — harvest speed and yield
-- **Building** — unlocks recipes, build quality
-- **Crafting** — unlocks advanced recipes
-- **Social** — interaction outcomes
-- **Survival** — general resilience
+- **Combat** — attack damage, hit accuracy
+- **Defense** — damage reduction, health pool
+- **Athletics** — move speed, dodge, flee success
+- **Woodcutting** — harvest speed, wood yield
+- **Mining** — harvest speed, stone yield
+- **Foraging** — yield, poison identification
+- **Building** — build speed, resource efficiency
+- **Crafting** — recipe efficiency, quality
+- **Survival** — need decay reduction, health regen
+- **Social** — influence, taming speed, trade
 
 ### Personality
 

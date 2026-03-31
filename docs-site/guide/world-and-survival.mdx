@@ -1,0 +1,114 @@
+---
+title: World and Survival
+description: Needs system, biomes, resources, decay rates, and the survival loop in Supernatural.
+---
+
+# World and Survival
+
+Supernatural worlds are procedurally generated tile maps (default 120x90 tiles, 32px each) with diverse biomes, resources, and hazards. Agents must continuously manage 7 needs to stay alive.
+
+## World Generation
+
+The world is generated in 9 passes, producing a mix of terrain types including grassland, forest, desert, swamp, mountain, water, beach, and more. Each world contains:
+
+- **Trees** -- Primary wood source, regrow over time
+- **Rocks** -- Stone and iron deposits
+- **Plants** -- Berries, mushrooms, herbs, flowers, and poison shrooms
+- **Water tiles** -- Required for drinking
+- **Iron deposits** -- 15-20 per world, never respawn (extremely scarce)
+
+The 24 tile types include grass, dirt, sand, water (shallow and deep), forest floor, mountain, snow, swamp, lava, ice, farmland, road, bridge, and tombstone (placed on permadeath).
+
+## Needs System
+
+Agents have 7 needs, each ranging from 0 to 100. Needs decay every tick (10 ticks per second) and must be restored through specific actions.
+
+| Need | Decay Rate | Restored By | Critical Threshold |
+|------|-----------|-------------|-------------------|
+| Protein Hunger | 0.06/tick | Meat, cooked meat, fish | < 30 |
+| Plant Hunger | 0.06/tick | Berries, mushrooms, herbs | < 30 |
+| Thirst | Constant | Drinking at a water tile | < 30 |
+| Stamina | Per action | Resting (+4.5/tick when resting) | < 15 |
+| Health | Damage-based | Resting, met needs, toughness stat | < 30 |
+| Social | Slow decay | Interacting with other agents | < 40 |
+| Shelter | Exposure decay | Being near structures (campfire, walls, tent) | < 30 |
+
+### Starvation and Damage
+
+When needs hit zero, the agent takes continuous damage:
+
+| Condition | Damage |
+|-----------|--------|
+| Empty protein hunger | -0.5 HP/tick |
+| Empty plant hunger | -0.5 HP/tick |
+| Both hungers empty | -1.5 HP/tick (compounding) |
+| Dehydration (thirst = 0) | -0.8 HP/tick |
+| Exposure (shelter = 0) | -0.15 HP/tick |
+
+### Health Regeneration
+
+Health recovers through multiple channels:
+
+- **Resting** -- Active healing while performing rest action
+- **Passive** -- Slow background healing when not in danger
+- **Toughness bonus** -- Scales with the agent's TGH stat
+- **Needs-met bonus** -- Additional healing when all needs are above critical thresholds
+
+## Activity Metabolism
+
+Different actions consume stamina at different rates. The `activityMultipliers` in the world config scale stamina drain per action type:
+
+| Activity | Multiplier |
+|----------|-----------|
+| Fighting | 1.8x |
+| Running/Fleeing | 1.5x |
+| Mining | 1.4x |
+| Woodcutting | 1.3x |
+| Building | 1.2x |
+| Walking | 1.0x |
+| Foraging | 0.8x |
+| Socializing | 0.6x |
+| Resting | 0.4x |
+
+## Resources and Regrowth
+
+### Trees
+Trees are the primary source of wood. When harvested, they drop wood and occasionally seeds. Trees regrow over time based on the `trees.growthRate` config value.
+
+### Rocks and Iron
+Stone is abundant but iron is the scarcest resource in the game. Each world spawns only 15-20 iron deposits and they **never respawn**. An agent with iron tools and weapons has a massive combat and crafting advantage.
+
+### Plants
+Plants provide food for the plant hunger need. Each plant type restores different amounts:
+
+| Plant Type | Nutrition Value | Notes |
+|-----------|----------------|-------|
+| Berry Bush | Medium | Safe, common |
+| Mushroom | Medium | Safe, found in forests |
+| Herbs | Low-Medium | Also used in crafting |
+| Flowers | Low | Minimal nutrition |
+| Poison Shroom | Negative | Deals poison damage |
+
+Plants regrow at rates defined in the world config. Poison shrooms look similar to regular mushrooms, and eating one triggers the `poison` death cause.
+
+## Death Causes
+
+The game tracks 9 distinct death causes, each triggering different [genome mutations](/docs/agent-system#death-and-evolution):
+
+| Death Cause | Trigger |
+|-------------|---------|
+| `starvation_protein` | Protein hunger stayed at 0 |
+| `starvation_plant` | Plant hunger stayed at 0 |
+| `starvation_both` | Both hungers at 0 simultaneously |
+| `dehydration` | Thirst at 0 for extended period |
+| `killed_by_animal` | Animal dealt the killing blow |
+| `killed_by_agent` | Another agent dealt the killing blow |
+| `exhaustion` | Stamina depletion leading to collapse |
+| `poison` | Ate a poison shroom |
+| `exposure` | Shelter need at 0 for too long |
+
+## Next Steps
+
+- [Agent System](/docs/agent-system) -- How agents make decisions based on their needs
+- [Animals](/docs/animals) -- The 20 species that share the world
+- [Crafting](/docs/crafting) -- Building shelter and tools to survive

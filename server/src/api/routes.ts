@@ -6,6 +6,7 @@ import { sendMessage, sendPlan, getPlanStatus, cancelPlan, patchGenome } from '.
 import { createApiKey, listApiKeys, revokeApiKey } from './handlers/keys.ts';
 import { streamAgentEvents, registerWebhook, listWebhooks, deleteWebhook } from './handlers/streaming.ts';
 import { getPublicProviderList } from '../config/llm-config.ts';
+import { getPublicGenomeList } from '../config/genome-library.ts';
 
 /**
  * Create the API router. Uses a getter for GameLoop because the game
@@ -17,6 +18,10 @@ export function createApiRouter(getGame: () => GameLoop, isGameRunning?: () => b
   // ─── Public endpoints (no auth) ───
   router.get('/llm-providers', (_req, res) => {
     res.json(getPublicProviderList());
+  });
+
+  router.get('/genomes', (_req, res) => {
+    res.json(getPublicGenomeList());
   });
 
   router.get('/status', (_req, res) => {

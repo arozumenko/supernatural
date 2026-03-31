@@ -1,0 +1,145 @@
+{
+  "emoji": "🛡️",
+  "archetype": "survivor",
+  "description": "END+TGH survival focus — hoards resources, flees early, stockpiles",
+  "stats": { "strength": 10, "toughness": 13, "agility": 10, "endurance": 13, "perception": 11, "charisma": 9 },
+  "version": 1,
+  "generation": 0,
+  "lineage": ["archetype: survivor"],
+  "interruptWeights": {
+    "criticalThirst": 97,
+    "fightBack": 90,
+    "criticalHunger": 93,
+    "lowHealth": 92,
+    "staminaHerb": 85,
+    "exhaustionRest": 83,
+    "groupDefense": 70,
+    "fleeBase": 82
+  },
+  "mediumPriorityWeights": {
+    "drinkMedium": 65,
+    "eatMedium": 62,
+    "forageMedium": 62
+  },
+  "thresholds": {
+    "criticalThirst": 35,
+    "criticalHunger": 35,
+    "criticalStamina": 25,
+    "criticalHealth": 45,
+    "moderateHealth": 65,
+    "fleeHealthPanic": 0.5,
+    "fightBackMinRatio": 0.7,
+    "groupDefenseRange": 6,
+    "meatMinimum": 5,
+    "woodMinimum": 12,
+    "stoneMinimum": 8,
+    "ironOreMinimum": 4,
+    "foodTarget": 10,
+    "woodTarget": 15,
+    "stoneTarget": 8,
+    "stockpileUrgent": 55,
+    "plantHungerTrigger": 65,
+    "woodToKeepBeforePlanting": 8,
+    "threatDetectBase": 8,
+    "huntDetectRange": 15,
+    "socialDetectRange": 12,
+    "corpseDetectRange": 18,
+    "ironDetectRange": 20
+  },
+  "goalWeights": {
+    "survive_thirst": 1.8,
+    "survive_protein": 1.5,
+    "survive_plant": 1.5,
+    "rest": 1.4,
+    "get_shelter": 1.3,
+    "get_equipped": 1.2,
+    "socialize": 0.5,
+    "stockpile_wood": 1.3,
+    "stockpile_stone": 1.2,
+    "cook_food": 1.4
+  },
+  "actionCostMods": {},
+  "goalThresholds": {
+    "thirstRelevant": 55,
+    "proteinRelevant": 55,
+    "plantRelevant": 55,
+    "staminaRelevant": 35,
+    "shelterRelevant": 45,
+    "socialRelevant": 30,
+    "woodTarget": 20,
+    "stoneTarget": 12
+  },
+  "fallbackWeights": {
+    "drinkMedium": 65,
+    "eatMedium": 60,
+    "harvestCorpse": 55,
+    "gatherWood": 40,
+    "mineStone": 35,
+    "huntAnimal": 35,
+    "socialize": 15,
+    "mineIron": 30,
+    "craft": 30,
+    "tameAnimal": 40,
+    "plantSeeds": 25,
+    "wander": 8
+  },
+  "strategyRules": [
+    {
+      "id": "rule_survivor_early_warning",
+      "name": "Early Warning",
+      "condition": { "type": "near_entity", "entityType": "predator", "range": 12 },
+      "effect": { "type": "boost_priority", "action": "fleeing", "amount": 25 },
+      "priority": 75,
+      "enabled": true,
+      "source": "survivor"
+    },
+    {
+      "id": "rule_survivor_hoarder",
+      "name": "Resource Hoarder",
+      "condition": { "type": "resource_below", "field": "food", "value": 5 },
+      "effect": { "type": "boost_priority", "action": "huntAnimal", "amount": 15 },
+      "priority": 50,
+      "enabled": true,
+      "source": "survivor"
+    },
+    {
+      "id": "rule_survivor_cautious_health",
+      "name": "Cautious Healing",
+      "condition": { "type": "health_percent", "value": 0.6 },
+      "effect": { "type": "boost_priority", "action": "resting", "amount": 20 },
+      "priority": 60,
+      "enabled": true,
+      "source": "survivor"
+    },
+    {
+      "id": "rule_survivor_shelter_seeker",
+      "name": "Shelter Seeker",
+      "condition": { "type": "need_below", "field": "shelter", "value": 30 },
+      "effect": { "type": "boost_priority", "action": "building", "amount": 15 },
+      "priority": 45,
+      "enabled": true,
+      "source": "survivor"
+    },
+    {
+      "id": "rule_survivor_cook_everything",
+      "name": "Cook Everything",
+      "condition": { "type": "resource_above", "field": "meat", "value": 2 },
+      "effect": { "type": "boost_priority", "action": "crafting", "amount": 10 },
+      "priority": 40,
+      "enabled": true,
+      "source": "survivor"
+    },
+    {
+      "id": "rule_survivor_food_security",
+      "name": "Food Security",
+      "condition": { "type": "need_below", "field": "proteinHunger", "value": 45 },
+      "effect": { "type": "boost_priority", "action": "tameAnimal", "amount": 20 },
+      "priority": 45,
+      "enabled": true,
+      "source": "survivor"
+    }
+  ],
+  "createdAt": 0,
+  "mutatedAt": 0,
+  "fitnessScore": 50
+}

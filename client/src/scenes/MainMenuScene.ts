@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
-import { GameConfig, DEFAULT_GAME_CONFIG, ROLE_PERMISSIONS, AGENT_ARCHETYPES } from '@supernatural/shared';
-import type { OrchestratorRole, AgentArchetype } from '@supernatural/shared';
+import { GameConfig, DEFAULT_GAME_CONFIG, ROLE_PERMISSIONS } from '@supernatural/shared';
+import type { OrchestratorRole } from '@supernatural/shared';
 
 const PIXEL_FONT = '"Press Start 2P", monospace';
 
@@ -27,6 +27,17 @@ interface LLMProviderInfo {
   label: string;
 }
 
+interface GenomeInfo {
+  id: string;
+  label: string;
+  emoji: string;
+  archetype: string;
+  description: string;
+  stats: Record<string, number>;
+  rules: number;
+  mutations: number;
+}
+
 export class MainMenuScene extends Phaser.Scene {
   private config: GameConfig = { ...DEFAULT_GAME_CONFIG };
   private mapSizeIndex = 1;  // Medium
@@ -35,20 +46,21 @@ export class MainMenuScene extends Phaser.Scene {
 
   // LLM assignment
   private llmProviders: LLMProviderInfo[] = [];
+  private genomeLibrary: GenomeInfo[] = [];
   private agentAssignments: ({ providerId: string; role: OrchestratorRole } | null)[] = [];
-  private agentArchetypes: AgentArchetype[] = [];
+  private agentGenomes: (string | null)[] = [];  // genome ID — carries archetype + stats + behavior
   private agentAIContainer?: Phaser.GameObjects.Container;
   private agentAIRows: {
     label: Phaser.GameObjects.Text;
+    genomeBg: Phaser.GameObjects.Graphics;
+    genomeText: Phaser.GameObjects.Text;
+    genomeZone: Phaser.GameObjects.Zone;
     providerBg: Phaser.GameObjects.Graphics;
     providerText: Phaser.GameObjects.Text;
     providerZone: Phaser.GameObjects.Zone;
     roleBg: Phaser.GameObjects.Graphics;
     roleText: Phaser.GameObjects.Text;
     roleZone: Phaser.GameObjects.Zone;
-    archBg: Phaser.GameObjects.Graphics;
-    archText: Phaser.GameObjects.Text;
-    archZone: Phaser.GameObjects.Zone;
     index: number;
   }[] = [];
   private bulkContainer?: Phaser.GameObjects.Container;
@@ -220,12 +232,19 @@ export class MainMenuScene extends Phaser.Scene {
     (this as any)._rightColX = rightColX;
     (this as any)._colW = colW;
 
-    // Initialize assignments
+    // Initialize assignments — default genome for everyone
     this.agentAssignments = new Array(this.config.agentCount).fill(null);
-    this.agentArchetypes = new Array(this.config.agentCount).fill('random');
+    this.agentGenomes = new Array(this.config.agentCount).fill(null);
 
-    // Fetch LLM providers then build list
-    this.fetchLLMProviders().then(() => {
+    // Fetch LLM providers and genomes then build list
+    Promise.all([this.fetchLLMProviders(), this.fetchGenomes()]).then(() => {
+      // Set default genome (first in library, "default") for all agents
+      if (this.genomeLibrary.length > 0) {
+        const defaultGenome = this.genomeLibrary.find(g => g.id === 'default') ?? this.genomeLibrary[0];
+        for (let i = 0; i < this.agentGenomes.length; i++) {
+          this.agentGenomes[i] = defaultGenome.id;
+        }
+      }
       this.rebuildAgentAIList();
     });
 
@@ -276,9 +295,8 @@ export class MainMenuScene extends Phaser.Scene {
     // Scroll handling for agent list
     this.input.on('wheel', (_pointer: Phaser.Input.Pointer, _gameObjects: any[], _deltaX: number, deltaY: number) => {
       if (!this.agentAIContainer) return;
-      const listAreaY = (this as any)._listAreaY as number;
-      const listAreaH = (this as any)._listAreaH as number;
-      const maxScroll = Math.max(0, this.agentAIRows.length * 42 - listAreaH + 8);
+      const listAreaH2 = (this as any)._listAreaH as number;
+      const maxScroll = Math.max(0, this.agentAIRows.length * 42 - listAreaH2 + 8);
       const currentY = this.agentAIContainer.y;
       const newY = Phaser.Math.Clamp(currentY - deltaY * 0.5, -maxScroll, 0);
       this.agentAIContainer.y = newY;
@@ -321,6 +339,17 @@ export class MainMenuScene extends Phaser.Scene {
     this.rebuildBulkButtons();
   }
 
+  private async fetchGenomes(): Promise<void> {
+    try {
+      const res = await fetch('http://localhost:3001/api/genomes');
+      if (res.ok) {
+        this.genomeLibrary = await res.json();
+      }
+    } catch {
+      this.genomeLibrary = [];
+    }
+  }
+
   private rebuildAgentAIList(): void {
     if (!this.agentAIContainer) return;
 
@@ -329,25 +358,27 @@ export class MainMenuScene extends Phaser.Scene {
     // Clear existing rows
     for (const row of this.agentAIRows) {
       row.label.destroy();
+      row.genomeBg.destroy();
+      row.genomeText.destroy();
+      row.genomeZone.destroy();
       row.providerBg.destroy();
       row.providerText.destroy();
       row.providerZone.destroy();
       row.roleBg.destroy();
       row.roleText.destroy();
       row.roleZone.destroy();
-      row.archBg.destroy();
-      row.archText.destroy();
-      row.archZone.destroy();
     }
     this.agentAIRows = [];
 
     // Resize assignments array
     const oldLen = this.agentAssignments.length;
     this.agentAssignments.length = this.config.agentCount;
-    this.agentArchetypes.length = this.config.agentCount;
+    this.agentGenomes.length = this.config.agentCount;
     for (let i = oldLen; i < this.config.agentCount; i++) {
       this.agentAssignments[i] = null;
-      this.agentArchetypes[i] = 'random';
+      // Default genome for new agents
+      const defaultGenome = this.genomeLibrary.find(g => g.id === 'default') ?? this.genomeLibrary[0];
+      this.agentGenomes[i] = defaultGenome?.id ?? null;
     }
 
     // Reset scroll
@@ -358,16 +389,16 @@ export class MainMenuScene extends Phaser.Scene {
     const startY = listAreaY + 6;
     const rightColX = (this as any)._rightColX as number;
     const colW = (this as any)._colW as number;
-    const labelW = 50;
-    const gap = 6;
+    const labelW = 38;
+    const gap = 5;
     const availW = colW - 10 - labelW - gap * 2;
-    const btn3W = 36;                           // archetype — just one emoji
-    const remaining = availW - btn3W - gap;
-    const btn1W = Math.floor(remaining * 0.55); // provider
-    const btn2W = remaining - btn1W;            // role
-    const btn1X = rightColX + labelW;
-    const btn2X = btn1X + btn1W + gap;
-    const btn3X = btn2X + btn2W + gap;
+    const genBtnW = 46;                          // genome — emoji + short label
+    const remaining = availW - genBtnW;
+    const provBtnW = Math.floor(remaining * 0.55); // provider
+    const roleBtnW = remaining - provBtnW;         // role
+    const genX = rightColX + labelW;
+    const provX = genX + genBtnW + gap;
+    const roleX = provX + provBtnW + gap;
 
     for (let i = 0; i < this.config.agentCount; i++) {
       const y = startY + i * rowH;
@@ -378,49 +409,60 @@ export class MainMenuScene extends Phaser.Scene {
       this.agentAIContainer.add(label);
 
       const assignment = this.agentAssignments[i];
+      const genomeId = this.agentGenomes[i];
+      const genomeEntry = this.genomeLibrary.find(g => g.id === genomeId);
+      const genomeEmoji = genomeEntry?.emoji ?? '🎲';
       const provLabel = this.getProviderLabel(assignment?.providerId ?? null);
       const roleLabel = assignment?.role ?? 'none';
-      const archLabel = AGENT_ARCHETYPES[this.agentArchetypes[i] ?? 'random']?.label ?? 'Random';
+      const idx = i;
+
+      // Genome button (emoji — cycles through all genomes)
+      const genomeBg = this.add.graphics();
+      this.drawSmallButton(genomeBg, genX, y, genBtnW, btnH, false);
+      this.agentAIContainer.add(genomeBg);
+      const genomeText = this.add.text(genX + genBtnW / 2, y + btnH / 2, genomeEmoji, {
+        fontFamily: PIXEL_FONT, fontSize: '14px', color: '#88aacc',
+      }).setOrigin(0.5);
+      this.agentAIContainer.add(genomeText);
+      const genomeZone = this.add.zone(genX + genBtnW / 2, y + btnH / 2, genBtnW, btnH).setInteractive({ useHandCursor: true });
+      this.agentAIContainer.add(genomeZone);
+      genomeZone.on('pointerup', () => this.cycleGenome(idx));
 
       // Provider button
       const providerBg = this.add.graphics();
-      this.drawSmallButton(providerBg, btn1X, y, btn1W, btnH, false);
+      this.drawSmallButton(providerBg, provX, y, provBtnW, btnH, false);
       this.agentAIContainer.add(providerBg);
-      const providerText = this.add.text(btn1X + btn1W / 2, y + btnH / 2, provLabel, {
+      const providerText = this.add.text(provX + provBtnW / 2, y + btnH / 2, provLabel, {
         fontFamily: PIXEL_FONT, fontSize: '10px', color: assignment ? '#80c080' : '#888888',
       }).setOrigin(0.5);
       this.agentAIContainer.add(providerText);
-      const providerZone = this.add.zone(btn1X + btn1W / 2, y + btnH / 2, btn1W, btnH).setInteractive({ useHandCursor: true });
+      const providerZone = this.add.zone(provX + provBtnW / 2, y + btnH / 2, provBtnW, btnH).setInteractive({ useHandCursor: true });
       this.agentAIContainer.add(providerZone);
-      const idx = i;
       providerZone.on('pointerup', () => this.cycleProvider(idx));
 
       // Role button
       const roleBg = this.add.graphics();
-      this.drawSmallButton(roleBg, btn2X, y, btn2W, btnH, false);
+      this.drawSmallButton(roleBg, roleX, y, roleBtnW, btnH, false);
       this.agentAIContainer.add(roleBg);
-      const roleText = this.add.text(btn2X + btn2W / 2, y + btnH / 2, roleLabel, {
+      const roleText = this.add.text(roleX + roleBtnW / 2, y + btnH / 2, roleLabel, {
         fontFamily: PIXEL_FONT, fontSize: '10px', color: assignment ? '#c0a060' : '#666666',
       }).setOrigin(0.5);
       this.agentAIContainer.add(roleText);
-      const roleZone = this.add.zone(btn2X + btn2W / 2, y + btnH / 2, btn2W, btnH).setInteractive({ useHandCursor: true });
+      const roleZone = this.add.zone(roleX + roleBtnW / 2, y + btnH / 2, roleBtnW, btnH).setInteractive({ useHandCursor: true });
       this.agentAIContainer.add(roleZone);
       roleZone.on('pointerup', () => this.cycleRole(idx));
 
-      // Archetype button
-      const archBg = this.add.graphics();
-      this.drawSmallButton(archBg, btn3X, y, btn3W, btnH, false);
-      this.agentAIContainer.add(archBg);
-      const archText = this.add.text(btn3X + btn3W / 2, y + btnH / 2, archLabel, {
-        fontFamily: PIXEL_FONT, fontSize: '10px', color: '#88aacc',
-      }).setOrigin(0.5);
-      this.agentAIContainer.add(archText);
-      const archZone = this.add.zone(btn3X + btn3W / 2, y + btnH / 2, btn3W, btnH).setInteractive({ useHandCursor: true });
-      this.agentAIContainer.add(archZone);
-      archZone.on('pointerup', () => this.cycleArchetype(idx));
-
-      this.agentAIRows.push({ label, providerBg, providerText, providerZone, roleBg, roleText, roleZone, archBg, archText, archZone, index: i });
+      this.agentAIRows.push({ label, genomeBg, genomeText, genomeZone, providerBg, providerText, providerZone, roleBg, roleText, roleZone, index: i });
     }
+  }
+
+  private cycleGenome(agentIndex: number): void {
+    if (this.genomeLibrary.length === 0) return;
+    const current = this.agentGenomes[agentIndex];
+    const currentIdx = this.genomeLibrary.findIndex(g => g.id === current);
+    const nextIdx = (currentIdx + 1) % this.genomeLibrary.length;
+    this.agentGenomes[agentIndex] = this.genomeLibrary[nextIdx].id;
+    this.updateRowDisplay(agentIndex);
   }
 
   private cycleProvider(agentIndex: number): void {
@@ -453,27 +495,19 @@ export class MainMenuScene extends Phaser.Scene {
     this.updateRowDisplay(agentIndex);
   }
 
-  private cycleArchetype(agentIndex: number): void {
-    const archetypes: AgentArchetype[] = ['random', 'warrior', 'survivor', 'builder', 'scout', 'social'];
-    const current = this.agentArchetypes[agentIndex] ?? 'random';
-    const currentIdx = archetypes.indexOf(current);
-    const nextIdx = (currentIdx + 1) % archetypes.length;
-    this.agentArchetypes[agentIndex] = archetypes[nextIdx];
-    this.updateRowDisplay(agentIndex);
-  }
-
   private updateRowDisplay(agentIndex: number): void {
     const row = this.agentAIRows.find(r => r.index === agentIndex);
     if (!row) return;
+
     const assignment = this.agentAssignments[agentIndex];
-    const provLabel = this.getProviderLabel(assignment?.providerId ?? null);
-    const roleLabel = assignment?.role ?? 'none';
-    row.providerText.setText(provLabel);
+    row.providerText.setText(this.getProviderLabel(assignment?.providerId ?? null));
     row.providerText.setColor(assignment ? '#80c080' : '#888888');
-    row.roleText.setText(roleLabel);
+    row.roleText.setText(assignment?.role ?? 'none');
     row.roleText.setColor(assignment ? '#c0a060' : '#666666');
-    const archLabel = AGENT_ARCHETYPES[this.agentArchetypes[agentIndex] ?? 'random']?.label ?? 'Random';
-    row.archText.setText(archLabel);
+
+    const genomeId = this.agentGenomes[agentIndex];
+    const genomeEntry = this.genomeLibrary.find(g => g.id === genomeId);
+    row.genomeText.setText(genomeEntry?.emoji ?? '🎲');
   }
 
   private getProviderLabel(providerId: string | null): string {
@@ -538,10 +572,10 @@ export class MainMenuScene extends Phaser.Scene {
     });
     this.config.agentLLMAssignments = assignments;
 
-    // Build archetype map
-    const archetypes: Record<number, AgentArchetype> = {};
-    this.agentArchetypes.forEach((arch, i) => { archetypes[i] = arch; });
-    this.config.agentArchetypes = archetypes;
+    // Build genome map — genome carries archetype + stats + behavior
+    const genomes: Record<number, string | null> = {};
+    this.agentGenomes.forEach((g, i) => { genomes[i] = g; });
+    this.config.agentGenomes = genomes;
 
     this.scene.start('GameScene', { gameConfig: this.config });
   }

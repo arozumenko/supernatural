@@ -1,0 +1,133 @@
+{
+  "emoji": "👁️",
+  "archetype": "scout",
+  "description": "AGI+PER exploration focus — fast, far-sighted, travels light",
+  "stats": { "strength": 10, "toughness": 10, "agility": 13, "endurance": 11, "perception": 13, "charisma": 9 },
+  "version": 1,
+  "generation": 0,
+  "lineage": ["archetype: scout"],
+  "interruptWeights": {
+    "criticalThirst": 95,
+    "fightBack": 88,
+    "criticalHunger": 90,
+    "lowHealth": 90,
+    "staminaHerb": 82,
+    "exhaustionRest": 80,
+    "groupDefense": 70,
+    "fleeBase": 80
+  },
+  "mediumPriorityWeights": {
+    "drinkMedium": 63,
+    "eatMedium": 58,
+    "forageMedium": 60
+  },
+  "thresholds": {
+    "criticalThirst": 30,
+    "criticalHunger": 30,
+    "criticalStamina": 20,
+    "criticalHealth": 40,
+    "moderateHealth": 60,
+    "fleeHealthPanic": 0.45,
+    "fightBackMinRatio": 0.7,
+    "groupDefenseRange": 6,
+    "meatMinimum": 2,
+    "woodMinimum": 5,
+    "stoneMinimum": 3,
+    "ironOreMinimum": 2,
+    "foodTarget": 8,
+    "woodTarget": 5,
+    "stoneTarget": 3,
+    "stockpileUrgent": 45,
+    "plantHungerTrigger": 55,
+    "woodToKeepBeforePlanting": 3,
+    "threatDetectBase": 12,
+    "huntDetectRange": 22,
+    "socialDetectRange": 18,
+    "corpseDetectRange": 20,
+    "ironDetectRange": 25
+  },
+  "goalWeights": {
+    "survive_thirst": 1.3,
+    "survive_protein": 1.2,
+    "survive_plant": 1.2,
+    "rest": 1.1,
+    "get_shelter": 0.5,
+    "get_equipped": 1.0,
+    "socialize": 0.3,
+    "stockpile_wood": 0.5,
+    "stockpile_stone": 0.5,
+    "cook_food": 0.8
+  },
+  "actionCostMods": {},
+  "goalThresholds": {
+    "thirstRelevant": 50,
+    "proteinRelevant": 50,
+    "plantRelevant": 50,
+    "staminaRelevant": 35,
+    "shelterRelevant": 25,
+    "socialRelevant": 25,
+    "woodTarget": 8,
+    "stoneTarget": 5
+  },
+  "fallbackWeights": {
+    "drinkMedium": 60,
+    "eatMedium": 55,
+    "harvestCorpse": 50,
+    "gatherWood": 20,
+    "mineStone": 18,
+    "huntAnimal": 40,
+    "socialize": 10,
+    "mineIron": 35,
+    "craft": 20,
+    "tameAnimal": 15,
+    "plantSeeds": 10,
+    "wander": 35
+  },
+  "strategyRules": [
+    {
+      "id": "rule_scout_forage_run",
+      "name": "Forage on the Move",
+      "condition": { "type": "need_below", "field": "plantHunger", "value": 50 },
+      "effect": { "type": "boost_priority", "action": "foraging", "amount": 15 },
+      "priority": 45,
+      "enabled": true,
+      "source": "scout"
+    },
+    {
+      "id": "rule_scout_flee_early",
+      "name": "Early Escape",
+      "condition": { "type": "near_entity", "entityType": "predator", "range": 15 },
+      "effect": { "type": "boost_priority", "action": "fleeing", "amount": 15 },
+      "priority": 70,
+      "enabled": true,
+      "source": "scout"
+    },
+    {
+      "id": "rule_scout_explore",
+      "name": "Wanderlust",
+      "condition": {
+        "type": "and",
+        "conditions": [
+          { "type": "need_above", "field": "thirst", "value": 40 },
+          { "type": "need_above", "field": "stamina", "value": 40 }
+        ]
+      },
+      "effect": { "type": "boost_priority", "action": "wandering", "amount": 20 },
+      "priority": 35,
+      "enabled": true,
+      "source": "scout"
+    },
+    {
+      "id": "rule_scout_opportunist",
+      "name": "Opportunistic Harvest",
+      "condition": { "type": "near_entity", "entityType": "corpse", "range": 8 },
+      "effect": { "type": "boost_priority", "action": "harvestCorpse", "amount": 15 },
+      "priority": 48,
+      "enabled": true,
+      "source": "scout"
+    }
+  ],
+  "createdAt": 0,
+  "mutatedAt": 0,
+  "fitnessScore": 50
+}

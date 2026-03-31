@@ -13,6 +13,7 @@ import { decayAnimalNeeds, decideAnimalAction, executeAnimalAction } from './ai/
 import { getSpecies } from './AnimalSpeciesConfig.ts';
 import { createAnimalBaseStats, createSkillSet, applyDeathPenalty, getCarryWeight, getCarryCapacity } from './Progression.ts';
 import { initJournal, detectDeathCause, finalizeJournal, recordTimelineEntry, recordHeatmapEntry, tickMetrics, setApiEventEmitter } from './ai/LifeJournal.ts';
+import { getGenomeLibrary } from './config/genome-library.ts';
 import { calculateLivesChange, checkHighlander } from './ai/LivesEconomy.ts';
 import { applyFallbackMutation } from './ai/FallbackEvolution.ts';
 import { EvolutionQueue } from './ai/EvolutionQueue.ts';
@@ -90,6 +91,23 @@ export class GameLoop {
           agent.llmRole = assignment.role;
         }
       }
+      // Apply custom genome from library if specified (replaces archetype genome + stats)
+      if (config?.agentGenomes?.[i]) {
+        const genomeId = config.agentGenomes[i]!;
+        const entry = getGenomeLibrary().find(e => e.id === genomeId);
+        if (entry) {
+          (agent as any).currentGenome = structuredClone(entry.genome);
+          agent.genomeVersion = entry.genome.version;
+          agent.archetype = entry.archetype as any;
+          // Apply genome's base stats
+          if (entry.stats && Object.keys(entry.stats).length > 0) {
+            for (const [stat, val] of Object.entries(entry.stats)) {
+              (agent.baseStats as any)[stat] = val;
+            }
+          }
+          console.log(`Agent ${agent.name} using genome: ${entry.emoji} ${entry.archetype}`);
+        }
+      }
       // Initialize life journal
       initJournal(agent, 0);
       this.agents.push(agent);
@@ -137,7 +155,20 @@ export class GameLoop {
     // Corpse decay (with fertility boost on decomposition)
     this.world.tickCorpseDecay(this.tickCount);
 
-    // Agent updates
+    // Agent updates — two passes:
+    // Pass 1: Process any agents that died last tick (killed by another agent's combat)
+    for (const agent of this.agents) {
+      if (agent.alive) continue;
+      // Skip agents already in respawn queue or permadead
+      if (this.respawnQueue.some(r => r.agent === agent)) continue;
+      if ((agent.livesRemaining ?? 100) <= 0 && agent.totalDeaths > 0) continue;
+      // Skip agents that never lived (totalDeaths === 0 and not alive — shouldn't happen)
+      if (agent.totalDeaths === 0 && !(agent as any).currentJournal) continue;
+      // This agent died from combat last tick — process death now
+      this.processAgentDeath(agent);
+    }
+
+    // Pass 2: Living agents
     for (const agent of this.agents) {
       if (!agent.alive) continue;
 
@@ -190,116 +221,7 @@ export class GameLoop {
       }
 
       if (!agent.alive) {
-        // --- Memory system: rich death handling ---
-        const deathCause = detectDeathCause(agent, this.tickCount);
-        const cause = deathCause.type;
-
-        // Finalize life journal
-        const journal = finalizeJournal(agent, deathCause, this.tickCount);
-
-        // Update best survival time
-        if (journal.survivalTicks > (agent.lifetimeBestSurvival ?? 0)) {
-          agent.lifetimeBestSurvival = journal.survivalTicks;
-        }
-
-        // Calculate lives change
-        const livesChange = calculateLivesChange(journal, agent);
-        agent.livesRemaining = Math.max(0, (agent.livesRemaining ?? 100) + livesChange);
-
-        // Archive journal (ring buffer: keep last 20)
-        const archive: any[] = (agent as any).journalArchive ?? [];
-        archive.unshift(journal);
-        if (archive.length > 20) {
-          // Strip timeline from journals 6+
-          for (let j = 5; j < Math.min(archive.length, 20); j++) {
-            archive[j].timeline = [];
-            archive[j].events = [];
-            archive[j].heatmap = [];
-          }
-          archive.length = 20;
-        }
-        (agent as any).journalArchive = archive;
-
-        // Apply death penalty: 5% XP rust
-        applyDeathPenalty(agent.skills, undefined, agent.baseStats);
-        agent.totalDeaths++;
-        clearDispositions(agent.id);
-        this.trackAgentEvent(agent.id, `\uD83D\uDC80 died: ${deathCause.type}`);
-
-        // Check Highlander status
-        agent.isHighlander = checkHighlander(agent);
-
-        // Permadeath check
-        if (agent.livesRemaining <= 0) {
-          // Permanent death — no respawn
-          this.events.onAgentPermadeath(agent.id, agent.name, agent.achievements ?? []);
-          this.events.onAgentDied(agent.id, agent.name, cause);
-          this.events.onWorldEvent({
-            type: 'permadeath',
-            message: `${agent.name} has permanently died (0 lives remaining)`,
-            x: agent.x,
-            y: agent.y,
-          });
-          // Create corpse but don't queue respawn
-          const size = (agent.baseStats.strength + agent.baseStats.toughness + agent.baseStats.endurance) / 3;
-          this.world.spawnCorpse(
-            agent.x, agent.y, 'agent',
-            {
-              meat: Math.floor(4 + size / 3),
-              bone: Math.floor(2 + size / 5),
-              hide: Math.floor(1 + size / 5),
-              fat: Math.floor(1 + size / 5),
-              sinew: Math.floor(1 + size / 7),
-            }, this.tickCount,
-            undefined, agent.name,
-            { ...agent.resources }
-          );
-          continue;
-        }
-
-        // Queue evolution (async, non-blocking)
-        if (agent.llmProviderId) {
-          this.evolutionQueue.queueEvolution(agent, journal, archive.slice(0, 5));
-        } else {
-          // Fallback-only mutation
-          const genome: BehaviorGenome = (agent as any).currentGenome;
-          if (genome) {
-            applyFallbackMutation(genome, deathCause);
-            agent.genomeVersion = genome.version;
-          }
-        }
-
-        // Create corpse at death position with stat-based drops
-        const size = (agent.baseStats.strength + agent.baseStats.toughness + agent.baseStats.endurance) / 3;
-        this.world.spawnCorpse(
-          agent.x, agent.y, 'agent',
-          {
-            meat: Math.floor(4 + size / 3),
-            bone: Math.floor(2 + size / 5),
-            hide: Math.floor(1 + size / 5),
-            fat: Math.floor(1 + size / 5),
-            sinew: Math.floor(1 + size / 7),
-          }, this.tickCount,
-          undefined, agent.name,
-          { ...agent.resources }
-        );
-        // Reset taming for all animals tamed by this agent
-        for (const animal of this.world.animals) {
-          if (animal.tamedBy === agent.id) {
-            animal.tamed = false;
-            animal.tamedBy = undefined;
-            animal.tamingProgress = 0;
-          }
-        }
-        // Queue for respawn after 300 ticks (30 seconds)
-        this.respawnQueue.push({ agent, respawnTick: this.tickCount + 300 });
-        this.events.onAgentDied(agent.id, agent.name, cause);
-        this.events.onWorldEvent({
-          type: 'death',
-          message: `${agent.name} died of ${cause}`,
-          x: agent.x,
-          y: agent.y,
-        });
+        this.processAgentDeath(agent);
         continue;
       }
 
@@ -618,20 +540,20 @@ export class GameLoop {
     // Decay corpses
     this.world.corpses = this.world.corpses.filter(c => this.tickCount < c.decayAt);
 
-    // Meat spoilage: raw meat becomes rotten_meat every 300 ticks (~30 seconds)
-    if (this.tickCount % 300 === 0) {
-      for (const agent of this.agents) {
-        if (!agent.alive) continue;
-        if (agent.resources.meat > 0) {
-          agent.resources.meat--;
-          // Add rotten_meat to inventory instead of just discarding
-          const existing = agent.inventory.items.find(i => i.itemId === 'rotten_meat');
-          if (existing) {
-            existing.quantity++;
-          } else {
-            agent.inventory.items.push({ itemId: 'rotten_meat', quantity: 1 });
-          }
-        }
+    // Tamed animal production: tamed animals periodically produce drops for owner
+    const tc = WorldConfig.taming;
+    if (this.tickCount % tc.productionInterval === 0) {
+      for (const animal of this.world.animals) {
+        if (!animal.alive || !animal.tamed || !animal.tamedBy) continue;
+        const owner = this.agents.find(a => a.id === animal.tamedBy && a.alive);
+        if (!owner) continue;
+        const species = getSpecies(animal.species);
+        if (species.drops?.meat) owner.resources.meat += Math.max(1, Math.floor(species.drops.meat * tc.meatFraction));
+        if (species.drops?.bone) owner.resources.bone += Math.max(1, Math.floor(species.drops.bone * tc.boneFraction));
+        if (species.drops?.hide) owner.resources.hide += Math.max(1, Math.floor(species.drops.hide * tc.hideFraction));
+        if (species.drops?.fat) owner.resources.fat += Math.max(1, Math.floor(species.drops.fat * tc.fatFraction));
+        if (species.drops?.feathers) owner.resources.feathers += Math.max(1, Math.floor(species.drops.feathers * tc.featherFraction));
+        if (!species.drops?.meat && species.foodDrop > 0) owner.resources.meat += Math.max(1, Math.floor(species.foodDrop * tc.meatFraction));
       }
     }
 
@@ -652,6 +574,100 @@ export class GameLoop {
     const structures = this.world.getSerializedStructures();
     setImmediate(() => {
       this.events.onWorldUpdate(agents, allTileChanges, trees, rocks, plants, animals, corpses, structures, season);
+    });
+  }
+
+  private processAgentDeath(agent: AgentState): void {
+    const deathCause = detectDeathCause(agent, this.tickCount);
+    const cause = deathCause.type;
+
+    // Finalize life journal
+    const journal = finalizeJournal(agent, deathCause, this.tickCount);
+
+    // Update best survival time
+    if (journal.survivalTicks > (agent.lifetimeBestSurvival ?? 0)) {
+      agent.lifetimeBestSurvival = journal.survivalTicks;
+    }
+
+    // Calculate lives change
+    const livesChange = calculateLivesChange(journal, agent);
+    agent.livesRemaining = Math.max(0, (agent.livesRemaining ?? 100) + livesChange);
+
+    // Archive journal (ring buffer: keep last 20)
+    const archive: any[] = (agent as any).journalArchive ?? [];
+    archive.unshift(journal);
+    if (archive.length > 20) {
+      for (let j = 5; j < Math.min(archive.length, 20); j++) {
+        archive[j].timeline = [];
+        archive[j].events = [];
+        archive[j].heatmap = [];
+      }
+      archive.length = 20;
+    }
+    (agent as any).journalArchive = archive;
+
+    // Apply death penalty
+    applyDeathPenalty(agent.skills, undefined, agent.baseStats);
+    agent.totalDeaths++;
+    clearDispositions(agent.id, this.agents);
+    this.trackAgentEvent(agent.id, `\uD83D\uDC80 died: ${deathCause.type}`);
+
+    // Check Highlander status
+    agent.isHighlander = checkHighlander(agent);
+
+    // Corpse drops
+    const size = (agent.baseStats.strength + agent.baseStats.toughness + agent.baseStats.endurance) / 3;
+    const drops = {
+      meat: Math.floor(4 + size / 3),
+      bone: Math.floor(2 + size / 5),
+      hide: Math.floor(1 + size / 5),
+      fat: Math.floor(1 + size / 5),
+      sinew: Math.floor(1 + size / 7),
+    };
+
+    // Permadeath check
+    if (agent.livesRemaining <= 0) {
+      this.events.onAgentPermadeath(agent.id, agent.name, agent.achievements ?? []);
+      this.events.onAgentDied(agent.id, agent.name, cause);
+      this.events.onWorldEvent({
+        type: 'permadeath',
+        message: `${agent.name} has permanently died (0 lives remaining)`,
+        x: agent.x, y: agent.y,
+      });
+      this.world.spawnCorpse(agent.x, agent.y, 'agent', drops, this.tickCount, undefined, agent.name, { ...agent.resources });
+      return;
+    }
+
+    // Queue evolution (async, non-blocking)
+    if (agent.llmProviderId) {
+      this.evolutionQueue.queueEvolution(agent, journal, archive.slice(0, 5));
+    } else {
+      const genome: BehaviorGenome = (agent as any).currentGenome;
+      if (genome) {
+        applyFallbackMutation(genome, deathCause);
+        agent.genomeVersion = genome.version;
+      }
+    }
+
+    // Create corpse
+    this.world.spawnCorpse(agent.x, agent.y, 'agent', drops, this.tickCount, undefined, agent.name, { ...agent.resources });
+
+    // Reset taming for all animals tamed by this agent
+    for (const animal of this.world.animals) {
+      if (animal.tamedBy === agent.id) {
+        animal.tamed = false;
+        animal.tamedBy = undefined;
+        animal.tamingProgress = 0;
+      }
+    }
+
+    // Queue for respawn
+    this.respawnQueue.push({ agent, respawnTick: this.tickCount + WorldConfig.respawn.agentDelayTicks });
+    this.events.onAgentDied(agent.id, agent.name, cause);
+    this.events.onWorldEvent({
+      type: 'death',
+      message: `${agent.name} died of ${cause}`,
+      x: agent.x, y: agent.y,
     });
   }
 

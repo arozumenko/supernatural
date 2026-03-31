@@ -1,0 +1,15 @@
+{
+  "title": "Game Guide",
+  "pages": [
+    "introduction",
+    "quickstart",
+    "world-and-survival",
+    "agent-system",
+    "animals",
+    "combat",
+    "crafting",
+    "llm-gods",
+    "rest-api",
+    "configuration"
+  ]
+}

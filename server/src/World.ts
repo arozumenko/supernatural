@@ -1173,9 +1173,9 @@ export class World {
           const count = bank[type] ?? 0;
           if (count <= 0) continue;
 
-          // Each seed has 0.02% chance to sprout
+          // Each seed has 0.1% chance to sprout per tick
           for (let i = 0; i < count; i++) {
-            if (Math.random() >= 0.0002) continue;
+            if (Math.random() >= 0.001) continue;
 
             // Pick random tile within this region
             const baseX = rx * REGION_SIZE;

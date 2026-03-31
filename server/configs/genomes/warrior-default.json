@@ -1,0 +1,133 @@
+{
+  "emoji": "⚔️",
+  "archetype": "warrior",
+  "description": "STR+TGH combat focus — hunts aggressively, fights everything",
+  "stats": { "strength": 13, "toughness": 13, "agility": 11, "endurance": 10, "perception": 10, "charisma": 9 },
+  "version": 1,
+  "generation": 0,
+  "lineage": ["archetype: warrior"],
+  "interruptWeights": {
+    "criticalThirst": 95,
+    "fightBack": 97,
+    "criticalHunger": 90,
+    "lowHealth": 88,
+    "staminaHerb": 82,
+    "exhaustionRest": 80,
+    "groupDefense": 80,
+    "fleeBase": 65
+  },
+  "mediumPriorityWeights": {
+    "drinkMedium": 63,
+    "eatMedium": 58,
+    "forageMedium": 50
+  },
+  "thresholds": {
+    "criticalThirst": 30,
+    "criticalHunger": 30,
+    "criticalStamina": 20,
+    "criticalHealth": 35,
+    "moderateHealth": 55,
+    "fleeHealthPanic": 0.25,
+    "fightBackMinRatio": 0.3,
+    "groupDefenseRange": 10,
+    "meatMinimum": 3,
+    "woodMinimum": 10,
+    "stoneMinimum": 5,
+    "ironOreMinimum": 4,
+    "foodTarget": 4,
+    "woodTarget": 5,
+    "stoneTarget": 3,
+    "stockpileUrgent": 50,
+    "plantHungerTrigger": 60,
+    "woodToKeepBeforePlanting": 5,
+    "threatDetectBase": 5,
+    "huntDetectRange": 18,
+    "socialDetectRange": 10,
+    "corpseDetectRange": 18,
+    "ironDetectRange": 20
+  },
+  "goalWeights": {
+    "survive_thirst": 1.3,
+    "survive_protein": 1.5,
+    "survive_plant": 1.0,
+    "rest": 1.1,
+    "get_shelter": 0.6,
+    "get_equipped": 1.8,
+    "socialize": 0.4,
+    "stockpile_wood": 0.7,
+    "stockpile_stone": 0.7,
+    "cook_food": 1.2
+  },
+  "actionCostMods": {},
+  "goalThresholds": {
+    "thirstRelevant": 50,
+    "proteinRelevant": 55,
+    "plantRelevant": 45,
+    "staminaRelevant": 30,
+    "shelterRelevant": 30,
+    "socialRelevant": 25,
+    "woodTarget": 10,
+    "stoneTarget": 5
+  },
+  "fallbackWeights": {
+    "drinkMedium": 60,
+    "eatMedium": 55,
+    "harvestCorpse": 55,
+    "gatherWood": 25,
+    "mineStone": 20,
+    "huntAnimal": 60,
+    "socialize": 12,
+    "mineIron": 35,
+    "craft": 30,
+    "tameAnimal": 5,
+    "plantSeeds": 10,
+    "wander": 15
+  },
+  "strategyRules": [
+    {
+      "id": "rule_warrior_bloodlust",
+      "name": "Bloodlust",
+      "condition": { "type": "need_below", "field": "proteinHunger", "value": 50 },
+      "effect": { "type": "boost_priority", "action": "huntAnimal", "amount": 25 },
+      "priority": 55,
+      "enabled": true,
+      "source": "warrior"
+    },
+    {
+      "id": "rule_warrior_scavenger",
+      "name": "Trophy Hunter",
+      "condition": { "type": "near_entity", "entityType": "corpse", "range": 10 },
+      "effect": { "type": "boost_priority", "action": "harvestCorpse", "amount": 20 },
+      "priority": 50,
+      "enabled": true,
+      "source": "warrior"
+    },
+    {
+      "id": "rule_warrior_stand_ground",
+      "name": "Stand Ground",
+      "condition": {
+        "type": "and",
+        "conditions": [
+          { "type": "health_percent", "value": 0.5 },
+          { "type": "skill_level", "field": "combat", "value": 10 }
+        ]
+      },
+      "effect": { "type": "suppress_action", "action": "fleeing", "amount": -20 },
+      "priority": 65,
+      "enabled": true,
+      "source": "warrior"
+    },
+    {
+      "id": "rule_warrior_iron_rush",
+      "name": "Iron Rush",
+      "condition": { "type": "skill_level", "field": "mining", "value": 5 },
+      "effect": { "type": "boost_priority", "action": "mineIron", "amount": 15 },
+      "priority": 40,
+      "enabled": true,
+      "source": "warrior"
+    }
+  ],
+  "createdAt": 0,
+  "mutatedAt": 0,
+  "fitnessScore": 50
+}

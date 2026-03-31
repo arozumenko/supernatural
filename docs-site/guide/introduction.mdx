@@ -1,0 +1,61 @@
+---
+title: Introduction
+description: What is Supernatural and how does the AI agent civilization simulator work.
+---
+
+# Introduction
+
+**Supernatural** is a server-authoritative AI agent civilization simulator where LLMs play god.
+
+Autonomous agents with needs, personalities, and learnable skills struggle to survive in a procedurally generated tile world alongside 20 animal species forming a complete food chain. You assign LLMs as divine overseers -- each playing a distinct "god" role -- and watch civilizations emerge, collapse, and evolve.
+
+Agents make their own decisions. Gods shape their fate. Evolution rewards what works.
+
+## What Happens in a Game
+
+1. **Agents spawn** into a tile world with water, forests, mountains, animals, and limited iron deposits
+2. **Each agent** has 7 needs (hunger, thirst, stamina, health, social, shelter, plant hunger), 6 base stats, 10 learnable skills, a personality, and 100 lives
+3. **A decision engine** (the Behavior Genome) drives every choice -- drink, eat, flee, hunt, build, craft, socialize, rest -- 10 times per second
+4. **20 animal species** form a food chain: apex predators (bears, tigers, alligators), pack hunters (wolves), herds (deer, cows), and small prey (rabbits, chickens)
+5. **LLM gods** observe their agents on a timer and intervene -- whispering advice, issuing tactical plans, or silently rewriting the agent's instincts
+6. **When agents die**, their genome mutates based on what killed them. The LLM (or a fallback algorithm) rewrites their decision weights. They respawn with preserved skills but lost inventory
+7. **After 0 lives**, permadeath. A results screen shows leaderboards, genome evolution charts, and LLM vs decision-tree comparisons
+
+The central question: **which god strategy produces the most resilient civilization?**
+
+## Architecture Overview
+
+Supernatural is a TypeScript monorepo with three packages:
+
+| Package | Purpose |
+|---------|---------|
+| `shared/` | Types shared between server and client (AgentState, BehaviorGenome, GameConfig) |
+| `server/` | Express + Socket.IO server running the simulation at 10 ticks/sec |
+| `client/` | Phaser 3 browser client with tile rendering and UI panels |
+
+### Data Flow
+
+1. The server runs the simulation at 10 ticks per second, broadcasting `world:update` with all entity states
+2. The client receives updates, interpolates positions, reconciles sprites, and updates the UI
+3. Player actions (create agent, send message) flow client-to-server via Socket.IO
+4. The OrchestratorLoop polls agent state per role interval (10-30s), calls the LLM, and applies actions
+5. On death: journal is finalized, lives are calculated, LLM evolution (async) or fallback mutation runs, and the agent respawns with an updated genome
+6. The [REST API](/docs/rest-api) enables external LLM orchestration (observe, message, plan, genome patch)
+
+## Game UI
+
+The browser client has three main regions:
+
+- **Left Sidebar** (260px) -- God cards grouped by LLM provider showing power score, role badge, and agent count. Agent rows with alive indicator, name, level, and current action. Click to pan the camera and select an agent.
+- **Center Viewport** -- Procedurally generated tile world with autotiled terrain. Agents, animals, structures, and resources rendered as sprites. WASD to pan, scroll to zoom, click to select.
+- **Right Panel** (380px) -- Selected entity detail with needs bars, skills, inventory, equipment, evolution section (lives remaining, genome version, AI role, active strategy rules), and plan section.
+
+After stopping the game, a **Results Screen** shows agent leaderboards, animal stats, genome evolution charts with mutation highlighting, and LLM vs decision-tree aggregate comparisons.
+
+## Next Steps
+
+- [Quickstart](/docs/quickstart) -- Install, configure, and run your first game
+- [World and Survival](/docs/world-and-survival) -- Understand needs, biomes, and resources
+- [Agent System](/docs/agent-system) -- Deep dive into stats, skills, genomes, and the decision engine
+- [LLM Gods](/docs/llm-gods) -- Learn about the 6 orchestrator roles
+- [REST API](/docs/rest-api) -- Build your own external LLM controller

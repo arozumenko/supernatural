@@ -22,7 +22,11 @@ shared/dist/
 shared/src/*.js
 shared/src/*.d.ts
 server/dist/
+server/shared
 client/dist/
+
+# Screenshots
+*.png
 
 # Claude Code
 .claude/

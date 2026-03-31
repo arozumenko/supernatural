@@ -1,0 +1,122 @@
+---
+title: Crafting and Building
+description: 4 material tiers, 52 items, 53 recipes, structures, and iron scarcity in Supernatural.
+---
+
+# Crafting and Building
+
+Supernatural has 52 items and 53 recipes spread across 4 material tiers. Crafting progression gates access to better tools, weapons, armor, and structures.
+
+## Material Tiers
+
+| Tier | Materials | Unlocks |
+|------|-----------|---------|
+| **Hand** | Bare hands | Basic gathering (slow), punching |
+| **Wood** | Wood planks, sticks | Club, wooden walls, campfire, basic shelter |
+| **Stone** | Stone, flint | Stone axe, stone pickaxe, stone tools, better weapons |
+| **Bone/Hide** | Animal bones, leather | Bow, arrows, leather armor, rope, advanced tools |
+| **Iron** | Iron ingots | Iron sword, iron shield, reinforced walls, best-in-class gear |
+
+Each tier represents a significant power increase. A stone axe harvests wood faster than bare hands, and an iron sword deals 2.5x the damage of fists.
+
+## Key Recipes
+
+### Wood Tier
+
+| Recipe | Ingredients | Use |
+|--------|------------|-----|
+| Wood Plank | 1 Wood Log | Base crafting material |
+| Club | 2 Wood Plank | Basic melee weapon (1.3x damage) |
+| Campfire | 3 Wood Log, 1 Flint | Shelter source, cooking station |
+| Wooden Wall | 4 Wood Plank | Shelter structure |
+| Wooden Door | 3 Wood Plank | Access control for shelters |
+
+### Stone Tier
+
+| Recipe | Ingredients | Use |
+|--------|------------|-----|
+| Stone Axe | 1 Stone, 2 Stick | Faster wood harvesting |
+| Stone Pickaxe | 1 Stone, 2 Stick | Mine stone and iron |
+| Stone Knife | 1 Flint, 1 Stick | Butchering, basic weapon |
+| Cooking Spit | 2 Stick, 1 Stone | Cook meat (removes poison risk) |
+
+### Bone/Hide Tier
+
+| Recipe | Ingredients | Use |
+|--------|------------|-----|
+| Bow | 1 Stick, 1 Rope | Ranged weapon |
+| Arrows (5) | 1 Stick, 1 Flint | Bow ammunition |
+| Leather Armor | 3 Leather | Damage reduction |
+| Rope | 2 Plant Fiber | Crafting component |
+
+### Iron Tier
+
+| Recipe | Ingredients | Use |
+|--------|------------|-----|
+| Iron Ingot | 2 Iron Ore, Campfire | Smelting at campfire |
+| Iron Sword | 2 Iron Ingot, 1 Stick | Best melee weapon (2.5x damage) |
+| Iron Shield | 3 Iron Ingot | Best defense item |
+| Reinforced Wall | 2 Wood Plank, 1 Iron Ingot | Strongest structure |
+
+## Iron Scarcity
+
+Iron is the rarest and most impactful resource in the game:
+
+- **15-20 deposits** per world generation
+- **Never respawn** once mined
+- An agent with iron gear has a **massive advantage** in combat and resource gathering
+- The Builder archetype has "Iron Seeker" and "Protect Investment" strategy rules
+- The Warrior archetype has "Iron Rush" to prioritize finding iron early
+
+Iron creates a natural arms race -- agents who secure iron deposits first gain a lasting edge. LLM gods can use [genome patches](/docs/llm-gods) to adjust iron-seeking priority.
+
+## Structures
+
+Structures provide the **shelter** need and strategic advantages:
+
+| Structure | Materials | Shelter Value | Notes |
+|-----------|-----------|---------------|-------|
+| Campfire | 3 Wood, 1 Flint | Low | Also used for cooking |
+| Wooden Wall | 4 Wood Plank | Medium | Basic perimeter |
+| Wooden Door | 3 Wood Plank | Medium | Controls access |
+| Tent | 4 Stick, 2 Leather | Medium-High | Portable shelter |
+| Reinforced Wall | 2 Wood, 1 Iron | High | Strongest protection |
+
+Structures decay over time and can be destroyed by other agents. The Builder archetype focuses on constructing and maintaining shelters.
+
+## Crafting Skills
+
+The Crafting and Building skills affect:
+
+- **Crafting speed** -- Higher skill = faster item creation
+- **Building efficiency** -- Higher skill = less material waste
+- **Recipe access** -- Some complex recipes require minimum skill levels
+- **Harvest bonuses** -- Woodcutting and Mining skills increase yields from trees and rocks
+
+Skill bonuses for harvesting are configured in the `harvest` section of the world config:
+
+```json
+{
+  "harvest": {
+    "baseWoodAmount": 2,
+    "baseStoneAmount": 2,
+    "baseIronAmount": 1,
+    "skillBonusPerLevel": 0.02
+  }
+}
+```
+
+## Cooking
+
+Raw meat can cause food poisoning. Cooking at a campfire or cooking spit:
+
+- Removes poison risk
+- Increases nutrition value
+- Requires the Survival skill (higher level = better results)
+- The Survivor archetype has the "Cook Everything" strategy rule
+
+## Next Steps
+
+- [Combat](/docs/combat) -- How weapons and armor affect fights
+- [World and Survival](/docs/world-and-survival) -- Resources in the world
+- [Configuration](/docs/configuration) -- Tuning harvest rates and recipe costs

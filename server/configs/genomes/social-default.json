@@ -1,0 +1,145 @@
+{
+  "emoji": "🤝",
+  "archetype": "social",
+  "description": "CHA+PER social focus — befriends agents, tames animals, trades to survive",
+  "stats": { "strength": 9, "toughness": 10, "agility": 10, "endurance": 10, "perception": 13, "charisma": 14 },
+  "version": 1,
+  "generation": 0,
+  "lineage": ["archetype: social"],
+  "interruptWeights": {
+    "criticalThirst": 95,
+    "fightBack": 85,
+    "criticalHunger": 90,
+    "lowHealth": 90,
+    "staminaHerb": 82,
+    "exhaustionRest": 80,
+    "groupDefense": 80,
+    "fleeBase": 78
+  },
+  "mediumPriorityWeights": {
+    "drinkMedium": 63,
+    "eatMedium": 58,
+    "forageMedium": 60
+  },
+  "thresholds": {
+    "criticalThirst": 30,
+    "criticalHunger": 30,
+    "criticalStamina": 20,
+    "criticalHealth": 40,
+    "moderateHealth": 60,
+    "fleeHealthPanic": 0.45,
+    "fightBackMinRatio": 0.8,
+    "groupDefenseRange": 12,
+    "meatMinimum": 3,
+    "woodMinimum": 8,
+    "stoneMinimum": 5,
+    "ironOreMinimum": 2,
+    "foodTarget": 10,
+    "woodTarget": 8,
+    "stoneTarget": 5,
+    "stockpileUrgent": 50,
+    "plantHungerTrigger": 60,
+    "woodToKeepBeforePlanting": 5,
+    "threatDetectBase": 5,
+    "huntDetectRange": 12,
+    "socialDetectRange": 25,
+    "corpseDetectRange": 15,
+    "ironDetectRange": 15
+  },
+  "goalWeights": {
+    "survive_thirst": 1.3,
+    "survive_protein": 1.2,
+    "survive_plant": 1.2,
+    "rest": 1.1,
+    "get_shelter": 0.8,
+    "get_equipped": 0.8,
+    "socialize": 2.5,
+    "stockpile_wood": 0.8,
+    "stockpile_stone": 0.6,
+    "cook_food": 1.0
+  },
+  "actionCostMods": {},
+  "goalThresholds": {
+    "thirstRelevant": 50,
+    "proteinRelevant": 50,
+    "plantRelevant": 50,
+    "staminaRelevant": 30,
+    "shelterRelevant": 35,
+    "socialRelevant": 55,
+    "woodTarget": 12,
+    "stoneTarget": 7
+  },
+  "fallbackWeights": {
+    "drinkMedium": 60,
+    "eatMedium": 55,
+    "harvestCorpse": 45,
+    "gatherWood": 20,
+    "mineStone": 15,
+    "huntAnimal": 20,
+    "socialize": 60,
+    "mineIron": 15,
+    "craft": 20,
+    "tameAnimal": 45,
+    "plantSeeds": 25,
+    "wander": 12
+  },
+  "strategyRules": [
+    {
+      "id": "rule_social_seek_friends",
+      "name": "Seek Companions",
+      "condition": { "type": "need_below", "field": "social", "value": 50 },
+      "effect": { "type": "boost_priority", "action": "socializing", "amount": 25 },
+      "priority": 55,
+      "enabled": true,
+      "source": "social"
+    },
+    {
+      "id": "rule_social_group_defense",
+      "name": "Strength in Numbers",
+      "condition": { "type": "near_entity", "entityType": "agent", "range": 8 },
+      "effect": { "type": "suppress_action", "action": "fleeing", "amount": -10 },
+      "priority": 50,
+      "enabled": true,
+      "source": "social"
+    },
+    {
+      "id": "rule_social_tamer",
+      "name": "Animal Whisperer",
+      "condition": {
+        "type": "and",
+        "conditions": [
+          { "type": "skill_level", "field": "social", "value": 8 },
+          { "type": "need_above", "field": "thirst", "value": 30 }
+        ]
+      },
+      "effect": { "type": "boost_priority", "action": "tameAnimal", "amount": 20 },
+      "priority": 42,
+      "enabled": true,
+      "source": "social"
+    },
+    {
+      "id": "rule_social_plant_farmer",
+      "name": "Community Farmer",
+      "condition": { "type": "resource_above", "field": "plantSeed", "value": 1 },
+      "effect": { "type": "boost_priority", "action": "planting", "amount": 15 },
+      "priority": 38,
+      "enabled": true,
+      "source": "social"
+    },
+    {
+      "id": "rule_social_flee_alone",
+      "name": "Flee When Alone",
+      "condition": {
+        "type": "not",
+        "conditions": [{ "type": "near_entity", "entityType": "agent", "range": 10 }]
+      },
+      "effect": { "type": "boost_priority", "action": "fleeing", "amount": 10 },
+      "priority": 60,
+      "enabled": true,
+      "source": "social"
+    }
+  ],
+  "createdAt": 0,
+  "mutatedAt": 0,
+  "fitnessScore": 50
+}

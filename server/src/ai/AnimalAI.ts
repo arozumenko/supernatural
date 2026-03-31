@@ -621,9 +621,14 @@ export function decayAnimalNeeds(animal: AnimalState, species: AnimalSpecies, st
   animal.stamina = clamp(animal.stamina - staminaRate, 0, 100);
 
   // Sleeping restores stamina (inversely scaled — bigger body recovers slower)
+  // Also heals health every 5 ticks (0.5s)
   if (animal.action === 'sleeping') {
     const restEfficiency = 1 / (1 + getAnimalTotalSkillLevels(animal) / 800);
     animal.stamina = clamp(animal.stamina + 0.2 * restEfficiency, 0, 100);
+    if (animal.age % 5 === 0 && animal.health < animal.maxHealth) {
+      const restHeal = 0.5 + animal.skills.survival.level * 0.02;
+      animal.health = clamp(animal.health + restHeal, 0, animal.maxHealth);
+    }
   }
 
   // Health damage from critical needs (diet-aware)
@@ -751,41 +756,84 @@ export function decideAnimalAction(
   // Tamed behaviors
   // ──────────────────────────────────────────────
 
-  if (animal.tamed && animal.tamedBy) {
-    if (species.tamedBehavior === 'follow') {
-      const d = distance(animal.x, animal.y, animal.homeX, animal.homeY);
-      const followScore = 0.6 * Math.min(d / 10, 1);
-      if (followScore > 0.05) {
+  if (animal.tamed && animal.tamedBy && agents) {
+    // All tamed animals: follow owner + defend owner
+    const owner = agents.find(a => a.id === animal.tamedBy && a.alive);
+    if (owner) {
+      // Update home to owner's current position (follow the owner, not a static spot)
+      animal.homeX = Math.floor(owner.x);
+      animal.homeY = Math.floor(owner.y);
+
+      // Follow owner when too far
+      const ownerDist = distance(animal.x, animal.y, owner.x, owner.y);
+      if (ownerDist > 3) {
+        const followScore = 0.7 * Math.min(ownerDist / 8, 1); // stronger pull as distance grows
         candidates.push({
           action: 'following',
-          target: { x: animal.homeX, y: animal.homeY },
+          target: { x: Math.floor(owner.x), y: Math.floor(owner.y) },
           score: followScore,
         });
       }
-    }
 
-    if (species.tamedBehavior === 'guard') {
-      const guardScore = computeGuardingScore(animal, species, allAnimals);
-      if (guardScore > 0.05) {
-        const guardThreats = findThreats(animal, species, allAnimals, tickCount, agents);
-        const nearHomeThreat = guardThreats.find(t =>
-          distance(t.entity.x, t.entity.y, animal.homeX, animal.homeY) <= 5
-        );
-        if (nearHomeThreat) {
-          candidates.push({
-            action: 'guarding',
-            target: { x: Math.floor(nearHomeThreat.entity.x), y: Math.floor(nearHomeThreat.entity.y) },
-            targetEntityId: nearHomeThreat.type === 'agent' ? 'agent:' + (nearHomeThreat.entity as AgentState).id : (nearHomeThreat.entity as AnimalState).id,
-            score: guardScore,
-          });
-        } else {
-          candidates.push({
-            action: 'guarding',
-            target: { x: animal.homeX, y: animal.homeY },
-            score: 0.3,
-          });
+      // Defend owner AND fellow tamed animals: attack anything threatening them within 8 tiles
+      const ownerThreatRange = 8;
+      let bestThreat: { entity: AnimalState; dist: number } | null = null;
+      let agentThreat: AgentState | null = null;
+
+      // Collect all "family" members: owner + tamed siblings
+      const tamedSiblings = allAnimals.filter(a => a.alive && a.tamedBy === animal.tamedBy && a.id !== animal.id);
+
+      for (const other of allAnimals) {
+        if (other.id === animal.id || !other.alive || other.tamedBy === animal.tamedBy) continue;
+        const otherSpec = getSpecies(other.species);
+        // Threat: attacked owner, attacked a sibling, or is a predator near owner
+        const attackedOwner = owner.lastAttackedBy?.type === 'animal' && owner.lastAttackedBy.id === other.id;
+        const attackedSibling = tamedSiblings.some(s => s.lastAttackedBy?.type === 'animal' && s.lastAttackedBy.id === other.id);
+        const isPredator = otherSpec.hunts.includes('agent');
+        if (!attackedOwner && !attackedSibling && !isPredator) continue;
+        const threatDist = distance(owner.x, owner.y, other.x, other.y);
+        if (threatDist > ownerThreatRange) continue;
+        if (!bestThreat || threatDist < bestThreat.dist) {
+          bestThreat = { entity: other, dist: threatDist };
         }
       }
+
+      // Check hostile agents attacking owner or any tamed sibling
+      if (agents) {
+        const ownerAttackerId = owner.lastAttackedBy?.type === 'agent' ? owner.lastAttackedBy.id : null;
+        const siblingAttackerIds = tamedSiblings
+          .filter(s => s.lastAttackedBy?.type === 'agent')
+          .map(s => s.lastAttackedBy!.id);
+        const allAttackerIds = new Set([...(ownerAttackerId ? [ownerAttackerId] : []), ...siblingAttackerIds]);
+        for (const attackerId of allAttackerIds) {
+          const attacker = agents.find(a => a.id === attackerId && a.alive);
+          if (attacker) {
+            const aDist = distance(owner.x, owner.y, attacker.x, attacker.y);
+            if (aDist <= ownerThreatRange) { agentThreat = attacker; break; }
+          }
+        }
+      }
+
+      if (bestThreat) {
+        candidates.push({
+          action: 'fighting',
+          target: { x: Math.floor(bestThreat.entity.x), y: Math.floor(bestThreat.entity.y) },
+          targetEntityId: bestThreat.entity.id,
+          score: 0.9, // high priority — defend owner
+        });
+      } else if (agentThreat) {
+        candidates.push({
+          action: 'fighting',
+          target: { x: Math.floor(agentThreat.x), y: Math.floor(agentThreat.y) },
+          targetEntityId: 'agent:' + agentThreat.id,
+          score: 0.9,
+        });
+      }
+    } else {
+      // Owner dead or gone — untame
+      animal.tamed = false;
+      animal.tamedBy = undefined;
+      animal.tamingProgress = 0;
     }
   }
 
@@ -803,8 +851,9 @@ export function decideAnimalAction(
   // Retaliation check (recently attacked — fight or flight)
   // ──────────────────────────────────────────────
   if (animal.lastAttackedBy && tickCount && (tickCount - animal.lastAttackedBy.tick) < 50) {
-    if (species.utilityWeights.aggression > 0.5 && species.attack > 15) {
-      // Fight back
+    const isTamedWithOwner = animal.tamed && animal.tamedBy && agents?.find(a => a.id === animal.tamedBy && a.alive);
+    if (isTamedWithOwner || species.utilityWeights.aggression > 0.5 && species.attack > 15) {
+      // Fight back — tamed animals always fight back to defend owner
       candidates.push({
         action: 'fighting',
         targetEntityId: (animal.lastAttackedBy.type === 'agent' ? 'agent:' : '') + animal.lastAttackedBy.id,
@@ -832,12 +881,57 @@ export function decideAnimalAction(
   }
 
   // ──────────────────────────────────────────────
+  // Pack/herd/flock defense: if a nearby same-species member is under attack, fight the attacker
+  // ──────────────────────────────────────────────
+  if (species.social === 'pack' || species.social === 'herd' || species.social === 'flock') {
+    const packDefenseRange = 2; // only defend very nearby members (2 tiles)
+    for (const packmate of allAnimals) {
+      if (packmate.id === animal.id || !packmate.alive) continue;
+      if (packmate.species !== animal.species) continue;
+      if (!packmate.lastAttackedBy) continue;
+      if (tickCount && (tickCount - packmate.lastAttackedBy.tick) > 30) continue; // recent attack only
+      const matedist = distance(animal.x, animal.y, packmate.x, packmate.y);
+      if (matedist > packDefenseRange) continue;
+
+      // Found a nearby packmate under attack — fight the attacker
+      const attackerId = packmate.lastAttackedBy.id;
+      const attackerType = packmate.lastAttackedBy.type;
+      if (attackerType === 'animal') {
+        const attacker = allAnimals.find(a => a.id === attackerId && a.alive);
+        if (attacker) {
+          candidates.push({
+            action: 'fighting',
+            targetEntityId: attacker.id,
+            target: { x: Math.floor(attacker.x), y: Math.floor(attacker.y) },
+            score: 0.85, // high but below self-defense (0.95)
+          });
+          break;
+        }
+      } else if (attackerType === 'agent' && agents) {
+        const attacker = agents.find(a => a.id === attackerId && a.alive);
+        if (attacker) {
+          candidates.push({
+            action: 'fighting',
+            targetEntityId: 'agent:' + attacker.id,
+            target: { x: Math.floor(attacker.x), y: Math.floor(attacker.y) },
+            score: 0.85,
+          });
+          break;
+        }
+      }
+    }
+  }
+
+  // ──────────────────────────────────────────────
   // Flee
   // ──────────────────────────────────────────────
   const threats = findThreats(animal, species, allAnimals, tickCount, agents);
   const closestThreat = threats[0] ?? null;
 
-  if (closestThreat && species.specialAbility !== 'curl') {
+  // Tamed animals with a living owner don't flee — they fight
+  const tamedAndProtected = animal.tamed && animal.tamedBy && agents?.find(a => a.id === animal.tamedBy && a.alive);
+
+  if (closestThreat && species.specialAbility !== 'curl' && !tamedAndProtected) {
     rememberDanger(animal, Math.floor(closestThreat.entity.x), Math.floor(closestThreat.entity.y), tickCount);
 
     // Pack courage
@@ -866,8 +960,8 @@ export function decideAnimalAction(
     }
   }
 
-  // High-priority flee when actively under attack
-  if (animal.health < animal.maxHealth * 0.7 && closestThreat && closestThreat.dist < 3 && species.specialAbility !== 'curl') {
+  // High-priority flee when actively under attack (not for tamed animals)
+  if (!tamedAndProtected && animal.health < animal.maxHealth * 0.7 && closestThreat && closestThreat.dist < 3 && species.specialAbility !== 'curl') {
     const existingFlee = candidates.find(c => c.action === 'fleeing');
     candidates.push({
       action: 'fleeing',

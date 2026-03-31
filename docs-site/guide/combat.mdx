@@ -1,0 +1,125 @@
+---
+title: Combat
+description: Damage formulas, confidence system, agent-vs-agent combat, cannibalism, alliances, and tamed animal defense.
+---
+
+# Combat
+
+Combat in Supernatural is stat-driven and deterministic. Agents assess threats before engaging, form persistent opinions of other agents, and can recruit tamed animals as defenders.
+
+## Damage Formula
+
+Outgoing melee damage is calculated as:
+
+```
+damage = baseDamage * (1 + strength / 20) * (1 + combatSkill / 50) * weaponMultiplier * athleticsBonus
+```
+
+Where:
+- `baseDamage` -- Base unarmed damage (configurable in world config)
+- `strength` -- Agent's STR stat
+- `combatSkill` -- Agent's Combat skill level
+- `weaponMultiplier` -- Weapon bonus (fists = 1.0, club = 1.3, stone axe = 1.5, iron sword = 2.5)
+- `athleticsBonus` -- Small bonus from Athletics skill level
+
+## Defense
+
+Incoming damage is reduced by the Defense skill:
+
+```
+damageReduction = defenseSkill / (defenseSkill + 100)
+```
+
+This means:
+- Defense 0: 0% reduction
+- Defense 25: 20% reduction
+- Defense 50: 33% reduction
+- Defense 100: 50% reduction
+
+Armor items provide additional flat damage reduction on top of the skill-based reduction.
+
+## Confidence System
+
+Before engaging in combat, agents assess threats using a **confidence score**:
+
+- Factors: own combat skill, strength, health, weapon quality, opponent's visible stats, nearby allies
+- **High confidence** -- Agent will engage willingly
+- **Low confidence** -- Agent will flee or avoid the threat
+- Confidence thresholds are defined in the agent's genome and can be modified by [LLM genome patches](/docs/llm-gods)
+
+The Warrior archetype has high fight confidence and the "Stand Ground" strategy rule. The Scout archetype has low fight confidence and the "Early Escape" rule.
+
+## Agent vs Agent Combat
+
+### Disposition System
+
+When two agents meet for the first time, their disposition is determined:
+
+- **Friendly** -- Will not attack, may socialize and trade
+- **Neutral** -- Cautious, may become friendly or hostile based on interactions
+- **Hostile** -- Will attack on sight
+
+Disposition is **persistent until death** -- once an agent marks another as an enemy, it stays that way for that life.
+
+### Kill Rewards
+
+Killing another agent provides significant rewards:
+
+| Reward | Description |
+|--------|-------------|
+| Massive XP | Large Combat and Defense XP bonus |
+| Bonus lives | Gain extra lives (configurable in world config) |
+| Loot | Fraction of the victim's inventory drops |
+
+The kill XP reward and loot fraction are configurable in the `combat` section of the world config.
+
+## Cannibalism
+
+Under extreme starvation, agents may resort to hunting other agents for food:
+
+- Triggered when both protein and plant hunger are critically low
+- The cannibal agent actively hunts other agents as a food source
+- **Witnesses** who see the act mark the cannibal as a **permanent enemy**
+- Cannibalism is a desperate last-resort behavior driven by the decision engine's survival priorities
+
+## Alliances
+
+Agents can form alliances for mutual benefit:
+
+| Parameter | Value |
+|-----------|-------|
+| Max allies per agent | 3 |
+| Formation | Based on positive social interactions and relationship thresholds |
+
+### Alliance Benefits
+
+1. **Resource sharing** -- Allied agents share food and materials when one is in need
+2. **Mutual defense** -- Allies respond to threats against each other
+3. **Confidence boost** -- Having nearby allies increases combat confidence
+
+Alliance thresholds and resource sharing rules are configurable in the `alliance` section of the world config.
+
+## Tamed Animal Defense
+
+Tamed animals (up to 5 per agent) actively defend their owner:
+
+- When the owner is attacked, tamed animals engage the attacker
+- Larger tamed animals (dogs, horses) are more effective fighters
+- Multiple tamed animals can swarm an attacker
+- Tamed animals can die in combat -- they are not replaced automatically
+
+The Social archetype with the "Animal Whisperer" and "Strength in Numbers" strategy rules excels at building an animal entourage for defense.
+
+## Combat Tips
+
+- **Weapon quality matters enormously** -- An iron sword does 2.5x base damage vs fists at 1.0x
+- **Defense skill has diminishing returns** -- The first 50 points of Defense are more impactful than the next 50
+- **Numbers win** -- Alliances and tamed animals provide a decisive advantage
+- **The Warrior genome** starts aggressive but may die frequently to apex predators early on; evolution gradually improves threat assessment
+- **Flee early** -- The Scout and Survivor archetypes live longer by avoiding fights they cannot win
+
+## Next Steps
+
+- [Agent System](/docs/agent-system) -- Stats and skills that drive combat effectiveness
+- [Crafting](/docs/crafting) -- Weapons and armor that change the combat equation
+- [Animals](/docs/animals) -- The animal threats and taming opportunities

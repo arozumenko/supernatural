@@ -123,6 +123,7 @@ export interface GameConfig {
   // LLM assignments: agent slot index -> provider + role (null = no LLM, fallback only)
   agentLLMAssignments?: Record<number, { providerId: string; role: OrchestratorRole } | null>;
   agentArchetypes?: Record<number, AgentArchetype>;
+  agentGenomes?: Record<number, string | null>;  // genome ID from library, null = default
 }
 
 export const DEFAULT_GAME_CONFIG: GameConfig = {
@@ -378,6 +379,7 @@ export interface AgentState {
   llmRole?: OrchestratorRole;
   archetype?: AgentArchetype;
   lastDecisionReason?: string;
+  allies?: string[];  // agent IDs of allied agents (max 3, mutual)
 }
 
 export interface SpatialMemoryEntry {

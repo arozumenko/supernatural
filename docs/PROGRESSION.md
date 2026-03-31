@@ -21,7 +21,7 @@ Perception    detection range, foraging yield, trap avoid  5-15             spec
 Charisma      social influence, taming, trade, obedience   5-15             species-specific
 ```
 
-Base stats are **fixed at birth** and never change. All progression comes from skill bonuses applied on top.
+Base stats are determined at birth but can decrease on death (see Death Penalty below). All progression comes from skill bonuses applied on top.
 
 ### Skills (the progression layer)
 
@@ -243,27 +243,31 @@ The being is just as skilled as before death, but starts with a fresh body. The 
 - **Momentum loss**: any plan/task in progress is abandoned
 - **Taming reset**: tamed animals lose taming bond — owner must re-tame
 
-### Death Penalty: Skill Rust
+### Death Penalty: Skill Rust + Stat Decay
 
-To make death sting without erasing knowledge, skills decay slightly on death:
+Death is punishing. Skills decay significantly and base stats can degrade:
 
 ```
 on_death:
   for each skill:
-    xp_lost = total_xp × 0.05  // lose 5% of total XP
+    xp_lost = total_xp × 0.40  // lose 40% of total XP
     total_xp = max(total_xp - xp_lost, 0)
     recalculate level
 
+  base stat decay:
+    One random base stat decreases by 1 (minimum 3).
+    This means repeated deaths erode the agent's birth advantages over time.
+
 A level 50 Combat skill (125,000 XP):
-  loses 6,250 XP → drops to ~124,000 XP → still level 49
-  Barely noticeable at high levels.
+  loses 50,000 XP → drops to ~75,000 XP → falls to level 38
+  A significant setback.
 
 A level 10 Combat skill (5,000 XP):
-  loses 250 XP → drops to ~4,750 XP → still level 9
-  Also mild.
+  loses 2,000 XP → drops to ~3,000 XP → falls to level 7
+  Noticeable at all levels.
 
-Repeated deaths DO compound: dying 10 times in a row loses ~40% of XP total.
-This punishes reckless behavior without wiping progress from a single death.
+A single death is painful. Repeated deaths are devastating.
+This strongly punishes reckless behavior and makes survival a priority.
 ```
 
 ---
@@ -647,7 +651,7 @@ This creates **emergent difficulty scaling**: the longer an animal lives, the ha
 trigger:    health reaches 0
 delay:      30 seconds (death screen / spectate mode)
 location:   world center clearing
-preserves:  all skill XP (minus 5% rust penalty)
+preserves:  all skill XP (minus 40% rust penalty)
 resets:     position, health, all needs to 100, carried resources dropped
 inventory:  empty (everything dropped at death location)
 memory:     agents keep full spatial memory (they're smarter)
@@ -662,7 +666,7 @@ trigger:    health reaches 0
 delay:      60-300 seconds (species.breedCooldown × 0.1)
             → rabbits respawn in ~90 sec, horses in ~900 sec
 location:   random valid habitat tile for species
-preserves:  all skill XP (minus 5% rust penalty)
+preserves:  all skill XP (minus 40% rust penalty)
 resets:     position, health, all needs, taming progress, spatial memory (keep 30%)
 condition:  species population < maxPopulation (otherwise no respawn — death is final)
 ```
@@ -800,7 +804,7 @@ interface SkillSet {
 }
 
 interface BaseStats {
-  strength: number;      // 5-15 at birth, fixed
+  strength: number;      // 5-15 at birth, can decrease by 1 on death (min 3)
   toughness: number;
   agility: number;
   endurance: number;

@@ -275,7 +275,48 @@ function buildAgentSummary(agent: AgentState, world: World, tickCount: number): 
 }
 ```
 
-### 2.2 World Context Endpoint
+### 2.2 Available Genomes
+
+```
+GET /api/genomes
+```
+
+Public endpoint (no authentication required). Returns a list of all available preset genomes that can be assigned to agents.
+
+**Response:**
+
+```typescript
+interface GenomeListEntry {
+  id: string;                        // unique genome identifier
+  label: string;                     // human-readable name
+  emoji: string;                     // display emoji
+  archetype: string;                 // behavioral archetype (e.g. "balanced", "aggressive", "cautious")
+  description: string;               // brief description of the genome's behavior
+  stats: Record<string, number>;     // key genome parameters
+  rules: {                           // summary of strategy rules
+    name: string;
+    description?: string;
+  }[];
+}
+```
+
+**Example response:**
+
+```json
+[
+  {
+    "id": "default",
+    "label": "Balanced",
+    "emoji": "⚖️",
+    "archetype": "balanced",
+    "description": "Default genome with balanced priorities and no special rules.",
+    "stats": { "fleeBase": 60, "criticalThirst": 20, "criticalHunger": 20 },
+    "rules": []
+  }
+]
+```
+
+### 2.3 World Context Endpoint
 
 ```
 GET /api/world/summary
@@ -304,7 +345,7 @@ interface WorldSummary {
 }
 ```
 
-### 2.3 Multi-Agent Query
+### 2.4 Multi-Agent Query
 
 ```
 GET /api/agents?alive=true&fields=id,name,needs,position
@@ -312,7 +353,7 @@ GET /api/agents?alive=true&fields=id,name,needs,position
 
 Returns a lightweight list of all agents the key owner has access to. Supports field selection to keep payloads small.
 
-### 2.4 Agent History
+### 2.5 Agent History
 
 ```
 GET /api/agents/:agentId/history
@@ -337,7 +378,7 @@ interface AgentHistory {
 }
 ```
 
-### 2.5 Full Genome (on demand)
+### 2.6 Full Genome (on demand)
 
 ```
 GET /api/agents/:agentId/genome
@@ -610,7 +651,10 @@ import { authenticateApiKey, rateLimit } from './middleware.ts';
 export function createApiRouter(game: GameLoop): Router {
   const router = Router();
 
-  // All routes require API key auth
+  // Public (no auth)
+  router.get('/genomes', getAvailableGenomes(game));
+
+  // All remaining routes require API key auth
   router.use(authenticateApiKey);
 
   // Observation

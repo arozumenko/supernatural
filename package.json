@@ -8,7 +8,8 @@
     "dev:server": "cd server && npm run dev",
     "dev:client": "cd client && npm run dev",
     "build": "cd shared && npm run build && cd ../server && npm run build && cd ../client && npm run build",
-    "install:all": "npm install && cd shared && npm install && cd ../server && npm install && cd ../client && npm install"
+    "install:all": "npm install && cd shared && npm install && cd ../server && npm install && cd ../client && npm install",
+    "dev:docs": "cd docs-site && npm run dev -- --port 3002"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"

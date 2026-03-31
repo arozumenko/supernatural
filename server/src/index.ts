@@ -6,6 +6,7 @@ import { GameLoop } from './GameLoop.ts';
 import type { ClientToServerEvents, ServerToClientEvents, GameConfig } from '../shared/src/index.ts';
 import { applyGameConfig, DEFAULT_GAME_CONFIG } from '../shared/src/index.ts';
 import { loadLLMProviders } from './config/llm-config.ts';
+import { loadGenomeLibrary, getPublicGenomeList, getGenomeById } from './config/genome-library.ts';
 import { createApiRouter } from './api/routes.ts';
 import { keyStore } from './api/key-store.ts';
 import { OrchestratorLoop } from './orchestrator/OrchestratorLoop.ts';
@@ -15,8 +16,9 @@ import type { OrchestratorRole } from '../shared/src/index.ts';
 
 const PORT = 3001;
 
-// Load LLM providers from config file
+// Load LLM providers and genome library
 loadLLMProviders();
+loadGenomeLibrary();
 
 // Bootstrap dev API key from env var
 keyStore.bootstrapDevKey(process.env.SUPERNATURAL_API_KEY);

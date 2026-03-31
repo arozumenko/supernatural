@@ -1,0 +1,148 @@
+---
+title: Animals
+description: 20 animal species across 5 tiers, taming mechanics, pack defense, and the food chain.
+---
+
+# Animals
+
+Supernatural features 20 animal species organized into 5 tiers. Animals use the same priority-based utility AI decision engine as agents, with species-specific weights, 3-sense awareness (sight, sound, smell), and special abilities.
+
+## Species Table
+
+### Apex Predators (Tier 5)
+
+| Species | Notable Behaviors | Special Abilities |
+|---------|-------------------|-------------------|
+| Bear | Territory patrol, aggressive when threatened | High damage, thick hide |
+| Tiger | Ambush hunting, stalks prey | Fastest predator, stealth approach |
+| Alligator | Water-edge hunting, guards waterways | Ambush from water, high bite damage |
+
+### Mid Predators (Tier 4)
+
+| Species | Notable Behaviors | Special Abilities |
+|---------|-------------------|-------------------|
+| Fox | Scavenging, nocturnal hunting | Cunning escape, targets small prey |
+| Cat | Independent hunting, nocturnal | Stealth, catches small prey |
+| Dog/Wolf | Pack hunting, loyal | Pack coordination, howl alerts pack |
+| Rat | Swarming, scavenging | Swarm numbers, disease carrier |
+
+### Large Herbivores (Tier 3)
+
+| Species | Notable Behaviors | Special Abilities |
+|---------|-------------------|-------------------|
+| Deer | Herding, sentinel alertness | Fast flee, herd warning system |
+| Cow | Grazing herds, docile | Milk production when tamed |
+| Horse | Herd movement, fast | Fastest land speed, mount potential |
+
+### Medium Herbivores (Tier 2)
+
+| Species | Notable Behaviors | Special Abilities |
+|---------|-------------------|-------------------|
+| Pig | Rooting for food, social | Truffle finding, meat source |
+| Goat | Climbing terrain, hardy | Mountain traversal, milk production |
+| Sheep | Flocking, timid | Wool harvest when tamed |
+| Donkey | Stubborn, enduring | Pack carrying capacity |
+
+### Small Prey (Tier 1)
+
+| Species | Notable Behaviors | Special Abilities |
+|---------|-------------------|-------------------|
+| Rabbit | Burrowing, fast breeding | Quick escape, high reproduction |
+| Chicken | Egg laying, flocking | Egg production when tamed |
+| Duck | Semi-aquatic, flocking | Water traversal, egg laying |
+| Squirrel | Tree climbing, nut gathering | Vertical escape, food caching |
+| Hedgehog | Curl defense, nocturnal | Damage reflection when curled |
+| Capybara | Semi-aquatic, social | Water traversal, calming presence |
+
+## The Food Chain
+
+Animals form a complete food chain:
+
+- **Apex predators** hunt mid predators and large herbivores
+- **Mid predators** hunt small prey and medium herbivores
+- **Large herbivores** graze and flee from predators
+- **Medium herbivores** graze and have moderate defense
+- **Small prey** forage and rely on speed or special defenses
+
+Agents sit at the top of the food chain but start vulnerable. An unarmed agent can be killed by apex predators and even overwhelmed by pack-hunting wolves.
+
+## Animal AI
+
+Each animal species uses a utility AI system with:
+
+### Three-Sense Awareness
+
+- **Sight** -- Detection range varies by species; predators see farther
+- **Sound** -- Alerts nearby animals to threats; herds use warning calls
+- **Smell** -- Tracks food sources and detects predators downwind
+
+### Decision Priorities
+
+Animals follow the same priority structure as agents:
+1. **Flee** from threats (predators, armed agents)
+2. **Fight** if cornered or defending territory/young
+3. **Eat** when hungry
+4. **Drink** when thirsty
+5. **Socialize** (herd/pack behavior, flocking)
+6. **Wander** and explore
+
+### Flocking Behavior
+
+Herd and pack animals exhibit flocking:
+- **Alignment** -- Move in the same direction as nearby group members
+- **Cohesion** -- Stay close to the group center
+- **Separation** -- Avoid crowding neighbors
+
+## Pack Defense
+
+Pack animals (wolves, dogs) coordinate attacks:
+
+- When one pack member is threatened, nearby members respond
+- Pack hunting allows taking down larger prey
+- Alpha animals lead the group and set patrol routes
+
+Herd animals (deer, cows, horses) use **sentinel alertness** -- one member watches while others graze, and warning calls trigger group flight.
+
+## Taming
+
+Agents can tame animals through repeated positive interactions. Taming mechanics:
+
+| Parameter | Value |
+|-----------|-------|
+| Max tamed animals per agent | 5 |
+| Taming chance | Scales with CHA stat and Social skill |
+| Production interval | Configurable per species |
+
+### Tamed Animal Benefits
+
+Tamed animals provide three types of benefit:
+
+1. **Follow** -- The animal follows the agent around the world
+2. **Defend** -- Tamed animals fight alongside the agent when threatened
+3. **Produce** -- Species-specific resource production:
+   - Cows produce milk
+   - Chickens lay eggs
+   - Sheep produce wool
+   - Goats produce milk
+
+### Taming Tips
+
+- High CHA and Social skill dramatically improve taming success
+- The **Social** archetype has the "Animal Whisperer" strategy rule that boosts taming
+- Start with small, docile animals (chickens, sheep) before attempting larger ones
+- Tamed animals that die are lost permanently -- protect them from predators
+
+## Animal Spawning
+
+Animal populations are managed by the server:
+
+- **Initial spawn** -- Configurable count per species based on world config
+- **Population thresholds** -- Animals respawn when populations drop below minimums
+- **Day/night cycle** -- Some species (cats, foxes, rats, hedgehogs) are more active at night
+- **Breeding** -- Animals can reproduce when population is below cap and conditions are met
+
+## Next Steps
+
+- [Combat](/docs/combat) -- How agents fight animals and each other
+- [World and Survival](/docs/world-and-survival) -- The environment animals inhabit
+- [Configuration](/docs/configuration) -- Tuning animal spawn rates and behavior

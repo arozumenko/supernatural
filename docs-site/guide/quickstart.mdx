@@ -1,0 +1,111 @@
+---
+title: Quickstart
+description: Install dependencies, configure LLM providers, and start your first Supernatural game.
+---
+
+# Quickstart
+
+Get Supernatural running in under 5 minutes.
+
+## Prerequisites
+
+- **Node.js 18+**
+- An LLM API key (optional -- the game runs fully without LLMs using built-in decision trees)
+
+## Install and Run
+
+```bash
+# Clone the repository
+git clone https://github.com/your-org/supernatural.git
+cd supernatural
+
+# Install all dependencies (root + shared + server + client)
+npm run install:all
+
+# (Optional) Configure LLM providers
+cp server/llm-providers.example.json server/llm-providers.json
+
+# Start the dev environment (server on port 3001, client on port 5173)
+npm run dev
+```
+
+Open `http://localhost:5173` in your browser.
+
+## Configure LLM Providers (Optional)
+
+If you want LLM-controlled agents, create `server/llm-providers.json` with your provider configs. Use `$ENV_VAR` syntax for API keys:
+
+```json
+[
+  {
+    "id": "claude-sonnet",
+    "label": "Claude Sonnet",
+    "provider": "anthropic",
+    "model": "claude-sonnet-4-5-20250514",
+    "apiKey": "$ANTHROPIC_API_KEY",
+    "maxTokens": 4096,
+    "temperature": 0.7,
+    "timeout": 15000,
+    "maxConcurrent": 3,
+    "rateLimitPerMinute": 20
+  }
+]
+```
+
+See [Configuration](/docs/configuration) for all 6 supported providers.
+
+## Start a Game
+
+1. On the start screen, configure **world settings**: map size, agent count (3-20), water level, tree density, and animal population
+2. In the **Agent AI** section, assign LLM providers and [god roles](/docs/llm-gods) to individual agents (or leave them on built-in decision trees)
+3. Click **START GAME**
+
+## Verify the Server
+
+Check that the server is running:
+
+```bash
+curl http://localhost:3001/api/status
+```
+
+```json
+{
+  "alive": 10,
+  "total": 10,
+  "ticks": 1523,
+  "running": true
+}
+```
+
+## Available Commands
+
+| Command | Description |
+|---------|-------------|
+| `npm run install:all` | Install all dependencies (root + shared + server + client) |
+| `npm run dev` | Run full dev environment (server + client concurrently) |
+| `npm run dev:server` | Server only (tsx watch, port 3001) |
+| `npm run dev:client` | Client only (vite, port 5173) |
+| `npm run build` | Build all packages (shared, then server, then client) |
+
+## Using the REST API
+
+Set the `SUPERNATURAL_API_KEY` environment variable before starting the server to bootstrap a dev API key:
+
+```bash
+SUPERNATURAL_API_KEY=mydevkey npm run dev:server
+```
+
+Then use it to observe and control agents:
+
+```bash
+curl -H "Authorization: Bearer mydevkey" \
+  http://localhost:3001/api/agents
+```
+
+See [REST API](/docs/rest-api) for all available endpoints.
+
+## Next Steps
+
+- [World and Survival](/docs/world-and-survival) -- Understand the needs system and resource cycle
+- [Agent System](/docs/agent-system) -- Learn about stats, skills, and the decision engine
+- [LLM Gods](/docs/llm-gods) -- Explore the 6 orchestrator roles

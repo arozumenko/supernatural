@@ -1,0 +1,174 @@
+---
+title: LLM Gods
+description: The 6 orchestrator roles, 3 control tiers, how the orchestrator loop works, and LLM response format.
+---
+
+# LLM Gods
+
+Each LLM-controlled agent in Supernatural is managed by an **orchestrator** that periodically observes the agent's state, calls the assigned LLM, and applies the response. Six distinct god roles define what powers the LLM has and how it should interact with its agent.
+
+## The Six Roles
+
+| Role | Powers | Interval | Philosophy |
+|------|--------|----------|------------|
+| **Advisor** | Message | 30s | A quiet voice. Suggests, never commands. Respects autonomy. |
+| **Puppeteer** | Plan + Message | 15s | Tactical commander. Issues step-by-step action plans. |
+| **God** | Genome Patch | 15s | Invisible hand. Reshapes instincts without the agent knowing. |
+| **Darwinist** | All | 10s | Cold optimizer. Maximizes survival through data-driven intervention. |
+| **Parent** | Plan + Message | 15s | Teaches then lets go. 4 developmental phases. |
+| **Chaos Demon** | All | 15s | Agent of entropy. Makes things interesting, not optimal. |
+
+### Role Details
+
+**Advisor** -- The gentlest role. Can only send natural language messages. The agent may follow or ignore advice based on its obedience score. Best for observing emergent behavior with minimal interference.
+
+**Puppeteer** -- Issues structured multi-step plans (up to 5 steps) and messages. The agent executes plan steps faithfully but can interrupt for survival threats. Best for tactical micro-management.
+
+**God** -- Can only modify the agent's genome through JSON patches. The agent never knows its instincts changed. Best for long-term behavioral shaping without breaking immersion.
+
+**Darwinist** -- Has access to all three control tiers. Sees full genome and metrics data. Optimizes purely for survival statistics. Best for maximizing agent effectiveness.
+
+**Parent** -- Uses plans and messages with a developmental model:
+1. **Infant phase** -- Constant guidance, basic survival instructions
+2. **Child phase** -- Teaching with explanation, introducing skills
+3. **Adolescent phase** -- Reducing guidance, encouraging independence
+4. **Adult phase** -- Minimal intervention, only emergency advice
+
+**Chaos Demon** -- Has all powers but uses them to maximize entropy. Sends contradictory messages, creates conflicting plans, and makes genome patches that introduce interesting (not optimal) behaviors.
+
+## Three Control Tiers
+
+### Tier 1: Message
+
+Natural language advice sent to the agent.
+
+```json
+{
+  "action": "message",
+  "content": "Water is 3 tiles east. Your thirst is dropping fast."
+}
+```
+
+- Agent may follow or ignore based on **obedience score** and personality traits
+- Higher obedience = more likely to follow advice
+- Messages appear in the agent's event log
+- Available to: Advisor, Puppeteer, Darwinist, Parent, Chaos Demon
+
+### Tier 2: Plan
+
+Structured multi-step action sequences that the agent executes faithfully.
+
+```json
+{
+  "action": "plan",
+  "plan": {
+    "name": "Emergency Hydration",
+    "steps": [
+      {
+        "action": "drinking",
+        "target": { "type": "nearest", "resourceType": "water" },
+        "condition": { "type": "need_above", "field": "thirst", "value": 80 }
+      },
+      {
+        "action": "foraging",
+        "target": { "type": "nearest", "resourceType": "berry_bush" }
+      }
+    ],
+    "priority": 60,
+    "expireAfterTicks": 500,
+    "abandonOnDanger": true
+  }
+}
+```
+
+- Up to 5 steps per plan
+- Priority capped at 70 (survival interrupts always override)
+- Plans can have conditions, expiry timers, and danger-abort flags
+- Agent executes steps in order but interrupts for critical survival needs
+- Available to: Puppeteer, Darwinist, Parent, Chaos Demon
+
+### Tier 3: Genome Patch
+
+Direct JSON modification of the agent's Behavior Genome using RFC 6902 JSON Patch operations.
+
+```json
+{
+  "action": "genome_patch",
+  "patches": [
+    { "op": "replace", "path": "/thresholds/criticalThirst", "value": 35 },
+    { "op": "replace", "path": "/fallbackWeights/hunt", "value": 50 },
+    { "op": "add", "path": "/strategyRules/-", "value": {
+      "name": "Flee From Bears",
+      "conditions": { "type": "near_entity", "entityType": "bear", "range": 8 },
+      "effects": [{ "type": "flee" }]
+    }}
+  ],
+  "reason": "Agent keeps dying of thirst near bears"
+}
+```
+
+- Modifies interrupt weights, thresholds, goal weights, action costs, fallback priorities, strategy rules
+- Validated against `GENOME_BOUNDS` safety limits
+- The agent never knows its genome changed
+- Available to: God, Darwinist, Chaos Demon
+
+## How the Orchestrator Works
+
+The `OrchestratorLoop` manages all LLM-assigned agents:
+
+1. **Registration** -- When an agent is assigned an LLM + role on the start screen, `registerAgent()` starts an observation timer at the role's interval
+2. **Tick** -- On each timer fire:
+   - Build an `AgentSummary` with position, needs, inventory, nearby entities, and recent events
+   - Construct the role-specific system prompt + user message
+   - Call the assigned LLM via `LLMCaller`
+   - Parse the JSON response via `ResponseParser`
+   - Validate against role permissions
+   - Apply the action (message, plan, or genome patch)
+3. **Broadcasting** -- Applied actions are broadcast as `agent:llm_action` Socket.IO events for the client to display
+
+### Role-Specific Context
+
+Different roles receive different information in their prompts:
+
+| Role | Extra Context |
+|------|--------------|
+| God, Darwinist | Full genome data, performance metrics |
+| Puppeteer | Current plan status, step progress |
+| Parent | Skill levels, developmental phase |
+| Advisor | Basic needs and surroundings only |
+| Chaos Demon | Full state (to maximize creative disruption) |
+
+## LLM Response Format
+
+All LLM responses must be valid JSON matching this structure:
+
+```json
+{
+  "action": "message" | "plan" | "genome_patch",
+  "content": "string (for message)",
+  "plan": { ... },
+  "patches": [ ... ],
+  "reason": "string (optional explanation)"
+}
+```
+
+The `ResponseParser` strips markdown code fences, validates JSON structure, enforces role permissions (e.g., an Advisor cannot send a plan), validates genome patches against bounds, and caps plan priority at 70.
+
+## Supported LLM Providers
+
+| Provider | Type | Auth Method |
+|----------|------|-------------|
+| Anthropic Claude | `anthropic` | x-api-key header |
+| OpenAI GPT | `openai` | Bearer token |
+| Google Gemini | `google` | API key in URL |
+| Ollama (local) | `ollama` | None |
+| AWS Bedrock | `bedrock` | SigV4 signing (zero deps) |
+| OpenAI-compatible | `openai_compatible` | Bearer token + custom baseUrl |
+
+See [Configuration](/docs/configuration) for provider setup details.
+
+## Next Steps
+
+- [REST API](/docs/rest-api) -- Build your own external LLM orchestrator
+- [Agent System](/docs/agent-system) -- The decision engine that gods influence
+- [Configuration](/docs/configuration) -- Setting up LLM providers
