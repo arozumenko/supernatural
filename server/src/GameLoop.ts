@@ -387,7 +387,7 @@ export class GameLoop {
         offspring = executeAnimalAction(animal, decision, species, this.world, this.world.animals, this.agents);
       } else {
         // Continue current action
-        offspring = executeAnimalAction(animal, { action: animal.action, target: animal.target, targetEntityId: animal.targetEntityId, score: 0 }, species, this.world, this.world.animals, this.agents);
+        offspring = executeAnimalAction(animal, { action: animal.action, target: animal.target, targetEntityId: animal.targetEntityId, priority: 0 }, species, this.world, this.world.animals, this.agents);
       }
       // Collect offspring from breeding/egg-laying
       if (offspring) {

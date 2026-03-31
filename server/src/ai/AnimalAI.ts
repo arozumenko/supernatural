@@ -18,7 +18,7 @@ export interface AnimalDecision {
   action: AnimalAction;
   target?: { x: number; y: number };
   targetEntityId?: string;
-  score: number;
+  priority: number;
 }
 
 /** Offspring produced by breeding — caller is responsible for adding to the world */
@@ -707,7 +707,8 @@ export function decideAnimalAction(
   tickCount: number,
   agents?: AgentState[]
 ): AnimalDecision {
-  if (!animal.alive) return { action: 'dying', score: 0 };
+  if (!animal.alive) return { action: 'dying', priority: 0 };
+  const genome = (animal as any).currentGenome;
 
   const candidates: AnimalDecision[] = [];
   const ax = Math.floor(animal.x);
@@ -737,21 +738,21 @@ export function decideAnimalAction(
   };
 
   const survivalDecisions = evaluateSurvivalNeeds(being, world, survivalConfig);
-  // Convert SharedDecision → AnimalDecision (score = priority / 100)
+  // Convert SharedDecision → AnimalDecision
   for (const sd of survivalDecisions) {
     candidates.push({
       action: (sd.action === 'harvesting' ? 'grazing' : sd.action) as AnimalAction,
       target: sd.target,
       targetEntityId: sd.targetId,
-      score: sd.priority / 100, // normalize to 0-1 range
+      priority: sd.priority,
     });
   }
 
   // Shared threat evaluation
   const totalSkills = Object.values(animal.skills).reduce((sum, s) => sum + s.level, 0);
   const threatConfig: ThreatConfig = {
-    detectBase: Math.floor(species.detectionRange / 2),
-    fleeBase: Math.floor(species.fleeThreshold * 100),
+    detectBase: genome?.thresholds?.threatDetectBase ?? Math.floor(species.detectionRange / 2),
+    fleeBase: genome?.interruptWeights?.fleeBase ?? Math.floor(species.fleeThreshold * 100),
     confidence: Math.min(1.5, 0.5 + totalSkills / 100),
     desperation: (animal.proteinHunger < 15 || animal.thirst < 15) ? 25 : 0,
     huntsList: species.hunts,
@@ -761,7 +762,7 @@ export function decideAnimalAction(
     candidates.push({
       action: td.action as AnimalAction,
       target: td.target,
-      score: td.priority / 100,
+      priority: td.priority,
     });
   }
 
@@ -784,7 +785,7 @@ export function decideAnimalAction(
         candidates.push({
           action: 'following',
           target: { x: Math.floor(owner.x), y: Math.floor(owner.y) },
-          score: followScore,
+          priority: Math.floor(followScore * 100),
         });
       }
 
@@ -832,14 +833,14 @@ export function decideAnimalAction(
           action: 'fighting',
           target: { x: Math.floor(bestThreat.entity.x), y: Math.floor(bestThreat.entity.y) },
           targetEntityId: bestThreat.entity.id,
-          score: 0.9, // high priority — defend owner
+          priority: 90, // high priority — defend owner
         });
       } else if (agentThreat) {
         candidates.push({
           action: 'fighting',
           target: { x: Math.floor(agentThreat.x), y: Math.floor(agentThreat.y) },
           targetEntityId: 'agent:' + agentThreat.id,
-          score: 0.9,
+          priority: 90,
         });
       }
     } else {
@@ -856,7 +857,7 @@ export function decideAnimalAction(
   if (species.specialAbility === 'curl') {
     const curlThreats = findThreats(animal, species, allAnimals, tickCount, agents);
     if (curlThreats.length > 0 && curlThreats[0].dist < species.detectionRange) {
-      candidates.push({ action: 'curled', score: 0.95 });
+      candidates.push({ action: 'curled', priority: 95 });
     }
   }
 
@@ -871,7 +872,7 @@ export function decideAnimalAction(
         action: 'fighting',
         targetEntityId: (animal.lastAttackedBy.type === 'agent' ? 'agent:' : '') + animal.lastAttackedBy.id,
         target: undefined,
-        score: 0.95,
+        priority: 95,
       });
     } else {
       // Flee from attacker — look up entity position
@@ -887,7 +888,7 @@ export function decideAnimalAction(
         candidates.push({
           action: 'fleeing',
           target: computeFleeTarget(animal, species, attackerPos, tickCount),
-          score: 0.95,
+          priority: 95,
         });
       }
     }
@@ -916,7 +917,7 @@ export function decideAnimalAction(
             action: 'fighting',
             targetEntityId: attacker.id,
             target: { x: Math.floor(attacker.x), y: Math.floor(attacker.y) },
-            score: 0.85, // high but below self-defense (0.95)
+            priority: 85, // high but below self-defense (95)
           });
           break;
         }
@@ -927,7 +928,7 @@ export function decideAnimalAction(
             action: 'fighting',
             targetEntityId: 'agent:' + attacker.id,
             target: { x: Math.floor(attacker.x), y: Math.floor(attacker.y) },
-            score: 0.85,
+            priority: 85,
           });
           break;
         }
@@ -963,7 +964,7 @@ export function decideAnimalAction(
         action: 'fleeing',
         target: fleeTarget,
         targetEntityId: closestThreat.type === 'agent' ? 'agent:' + (closestThreat.entity as AgentState).id : (closestThreat.entity as AnimalState).id,
-        score: fleeScore,
+        priority: Math.floor(fleeScore * 100),
       });
 
       // Sheep panic cascade
@@ -979,7 +980,7 @@ export function decideAnimalAction(
     candidates.push({
       action: 'fleeing',
       target: existingFlee?.target ?? computeFleeTarget(animal, species, closestThreat.entity, tickCount),
-      score: 0.95,
+      priority: 95,
     });
   }
 
@@ -988,7 +989,8 @@ export function decideAnimalAction(
   // ──────────────────────────────────────────────
   if (species.hunts.length > 0) {
     const huntHunger = species.diet === 'herbivore' ? 100 : animal.proteinHunger;
-    const huntScore = quadratic(huntHunger) * species.utilityWeights.aggression * 0.9;
+    const huntBase = (genome?.fallbackWeights?.huntAnimal ?? 40) / 100;
+    const huntScore = quadratic(huntHunger) * species.utilityWeights.aggression * huntBase;
     if (huntScore > 0.05) {
       const prey = findPrey(animal, species, allAnimals, agents);
       if (prey) {
@@ -1006,14 +1008,14 @@ export function decideAnimalAction(
             action: 'stalking',
             target: { x: Math.floor(prey.entity.x), y: Math.floor(prey.entity.y) },
             targetEntityId: preyEntityId,
-            score: huntScore,
+            priority: Math.floor(huntScore * 100),
           });
         } else {
           candidates.push({
             action: 'hunting',
             target: { x: Math.floor(prey.entity.x), y: Math.floor(prey.entity.y) },
             targetEntityId: preyEntityId,
-            score: huntScore,
+            priority: Math.floor(huntScore * 100),
           });
         }
       } else if (huntHunger < 30) {
@@ -1025,7 +1027,7 @@ export function decideAnimalAction(
         candidates.push({
           action: 'wandering',
           target: searchTarget,
-          score: huntScore * 0.6,
+          priority: Math.floor(huntScore * 60),
         });
       }
     }
@@ -1046,7 +1048,7 @@ export function decideAnimalAction(
         action: 'grazing',
         target: { x: Math.floor(corpse.x), y: Math.floor(corpse.y) },
         targetEntityId: 'corpse:' + corpse.id,
-        score: scavengeScore,
+        priority: Math.floor(scavengeScore * 100),
       });
     }
   }
@@ -1070,7 +1072,7 @@ export function decideAnimalAction(
           action: 'grazing',
           target: { x: foodPlant.x, y: foodPlant.y },
           targetEntityId: foodPlant.id,
-          score: foodUrgency,
+          priority: Math.floor(foodUrgency * 100),
         });
       } else if (hasRecentFoodMemory(animal, tickCount)) {
         const foodMem = findMemory(animal, 'food', tickCount);
@@ -1078,7 +1080,7 @@ export function decideAnimalAction(
           candidates.push({
             action: 'grazing',
             target: { x: foodMem.x, y: foodMem.y },
-            score: foodUrgency * 0.7,
+            priority: Math.floor(foodUrgency * 70),
           });
         }
       } else if (isCriticalHunger) {
@@ -1086,7 +1088,7 @@ export function decideAnimalAction(
         candidates.push({
           action: 'wandering',
           target: { x: ax + Math.floor(Math.random() * 20) - 10, y: ay + Math.floor(Math.random() * 20) - 10 },
-          score: foodUrgency * 0.5,
+          priority: Math.floor(foodUrgency * 50),
         });
       }
     }
@@ -1105,14 +1107,14 @@ export function decideAnimalAction(
     const waterTile = world.findNearest(ax, ay, TileType.WATER, searchRange);
     if (waterTile) {
       const walkable = world.findNearestWalkable(ax, ay, waterTile.x, waterTile.y);
-      candidates.push({ action: 'drinking', target: walkable, score: waterUrgency });
+      candidates.push({ action: 'drinking', target: walkable, priority: Math.floor(waterUrgency * 100) });
     } else if (hasRecentWaterMemory(animal, tickCount)) {
       const waterMem = findMemory(animal, 'water', tickCount);
       if (waterMem) {
         candidates.push({
           action: 'drinking',
           target: { x: waterMem.x, y: waterMem.y },
-          score: waterUrgency * 0.7,
+          priority: Math.floor(waterUrgency * 70),
         });
       }
     } else if (isCriticalThirst) {
@@ -1120,7 +1122,7 @@ export function decideAnimalAction(
       candidates.push({
         action: 'wandering',
         target: { x: ax + Math.floor(Math.random() * 20) - 10, y: ay + Math.floor(Math.random() * 20) - 10 },
-        score: waterUrgency * 0.5,
+        priority: Math.floor(waterUrgency * 50),
       });
     }
   }
@@ -1136,7 +1138,7 @@ export function decideAnimalAction(
         action: 'breeding',
         target: { x: Math.floor(mate.x), y: Math.floor(mate.y) },
         targetEntityId: mate.id,
-        score: breedScore,
+        priority: Math.floor(breedScore * 100),
       });
     }
   }
@@ -1153,7 +1155,7 @@ export function decideAnimalAction(
     restScore *= 0.1; // drastically reduce sleep desire when starving/dehydrated
   }
   if (restScore > 0.1) {
-    candidates.push({ action: 'sleeping', score: restScore });
+    candidates.push({ action: 'sleeping', priority: Math.floor(restScore * 100) });
   }
 
   // ──────────────────────────────────────────────
@@ -1164,7 +1166,7 @@ export function decideAnimalAction(
     candidates.push({
       action: 'traveling',
       target: { x: animal.homeX, y: animal.homeY },
-      score: 0.3 + (homeDist - 15) * 0.02,
+      priority: Math.floor((0.3 + (homeDist - 15) * 0.02) * 100),
     });
   }
 
@@ -1175,16 +1177,16 @@ export function decideAnimalAction(
   candidates.push({
     action: 'wandering',
     target: flockTarget ?? undefined,
-    score: 0.12,
+    priority: 12,
   });
 
-  // Pick highest scoring action
-  candidates.sort((a, b) => b.score - a.score);
+  // Pick highest priority action
+  candidates.sort((a, b) => b.priority - a.priority);
   const best = candidates[0];
-  const chosen = best.score < 0.05 ? { action: 'idle' as AnimalAction, score: 0 } : best;
+  const chosen = best.priority < 5 ? { action: 'idle' as AnimalAction, priority: 0 } : best;
 
   // Store decision reason for UI (same as agents)
-  const topDec = candidates.slice(0, 4).map(d => (d.action as string).slice(0, 6) + ':' + Math.floor(d.score * 100)).join(' ');
+  const topDec = candidates.slice(0, 4).map(d => (d.action as string).slice(0, 6) + ':' + d.priority).join(' ');
   animal.lastDecisionReason = (chosen.action ?? 'idle') + '\n' + topDec;
 
   return chosen;
