@@ -1800,7 +1800,7 @@ function moveAnimalPathfind(
   const ax = Math.floor(animal.x);
   const ay = Math.floor(animal.y);
   // Animals cannot pass through doors
-  const path = findPath(world, ax, ay, Math.floor(tx), Math.floor(ty), 200, [TileType.WOOD_DOOR]);
+  const path = findPath(world, ax, ay, Math.floor(tx), Math.floor(ty), 500, [TileType.WOOD_DOOR]);
 
   if (path.length > 0) {
     const next = path[0];

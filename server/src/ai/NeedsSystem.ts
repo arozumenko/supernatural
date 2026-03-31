@@ -2485,15 +2485,29 @@ export function executeAction(
 
 function moveTowards(agent: AgentState, tx: number, ty: number, world: World, speedMultiplier: number = 1.0): void {
   const path = findPath(world, Math.floor(agent.x), Math.floor(agent.y), Math.floor(tx), Math.floor(ty));
+  const speed = getAgentSpeed(agent) * speedMultiplier;
   if (path.length > 0) {
     const next = path[0];
-    const speed = getAgentSpeed(agent) * speedMultiplier;
     const dx = next.x - agent.x;
     const dy = next.y - agent.y;
     const d = Math.sqrt(dx * dx + dy * dy);
     if (d > 0) {
       agent.x += (dx / d) * Math.min(speed, d);
       agent.y += (dy / d) * Math.min(speed, d);
+    }
+  } else {
+    // Pathfinding failed — try direct movement on walkable tiles
+    const dx = tx - agent.x;
+    const dy = ty - agent.y;
+    const d = Math.sqrt(dx * dx + dy * dy);
+    if (d > 0) {
+      const step = Math.min(speed, d);
+      const newX = agent.x + (dx / d) * step;
+      const newY = agent.y + (dy / d) * step;
+      if (world.isWalkable(Math.floor(newX), Math.floor(newY))) {
+        agent.x = newX;
+        agent.y = newY;
+      }
     }
   }
 }
