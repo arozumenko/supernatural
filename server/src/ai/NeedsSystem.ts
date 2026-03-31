@@ -564,6 +564,12 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
     fleePriority -= desperation;
     if (wasAttacked) fleePriority = Math.min(fleePriority + 20, 98);
 
+    // Don't flee from predators that are faster — running is futile, stand and fight
+    const agentSpeed = getAgentSpeed(agent);
+    if (species.speed > agentSpeed * 1.1) {
+      fleePriority = 0;
+    }
+
     if (fleePriority > 60) {
       // Smart flee: try to flee toward a useful resource (water/food) that's away from predator
       const awayDx = agent.x - animal.x;
@@ -1146,28 +1152,42 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
   }
 
   // --- Building ---
-  // Only decide to build if agent meets the skill requirement and no duplicate station nearby
-  if (agent.needs.shelter < genome.goalThresholds.shelterRelevant && agent.resources.wood >= 3) {
-    const canBuild = NEW_RECIPES.some(r => {
-      if (r.skillType !== 'building' || r.produces.type !== 'tile') return false;
-      if (agent.skills.building.level < r.skillRequired) return false;
-      // Don't build workbench/forge duplicates within 5 tiles (but campfire is always OK)
-      const pt = r.produces.tileType as TileType;
-      if ((pt === TileType.WORKBENCH || pt === TileType.FORGE)
-        && world.findNearest(ax, ay, pt, 5) !== null) return false;
-      if (r.station === 'workbench' && !isAdjacentToTile(ax, ay, TileType.WORKBENCH, world)) return false;
-      if (r.station === 'forge' && !isAdjacentToTile(ax, ay, TileType.FORGE, world)) return false;
-      return Object.entries(r.requires).every(([res, amt]) => ((agent.resources as any)[res] || 0) >= amt);
-    });
-    if (canBuild) {
-      // Higher priority when shelter is critically low
-      const shelterUrgency = agent.needs.shelter < 15 ? 20 : agent.needs.shelter < 30 ? 10 : 0;
-      decisions.push({
-        action: 'building',
-        priority: 45 + (agent.skills.building.level / 5) + shelterUrgency,
-        target: { x: ax, y: ay }, // build at current position
-        reason: 'needs shelter'
+  // Two motivations: (1) shelter need drives campfire, (2) settlement progression drives upgrades
+  {
+    const hasShelterNeed = agent.needs.shelter < genome.goalThresholds.shelterRelevant;
+    // Check if agent already owns a campfire nearby — don't spam more campfires
+    const ownsCampfireNearby = world.structures.some(s =>
+      s.tileType === TileType.CAMPFIRE && s.ownerId === agent.id
+      && distance(ax, ay, s.x, s.y) < 10
+    );
+    // Settlement progression: agent with own campfire should build workbench, walls, etc.
+    const wantsToSettle = ownsCampfireNearby && agent.resources.wood >= 3;
+
+    if ((hasShelterNeed && agent.resources.wood >= 3) || wantsToSettle) {
+      const canBuild = NEW_RECIPES.some(r => {
+        if (r.skillType !== 'building' || r.produces.type !== 'tile') return false;
+        if (agent.skills.building.level < r.skillRequired) return false;
+        const pt = r.produces.tileType as TileType;
+        // Skip campfire if agent already owns one nearby
+        if (pt === TileType.CAMPFIRE && ownsCampfireNearby) return false;
+        // Don't build workbench/forge duplicates within 5 tiles
+        if ((pt === TileType.WORKBENCH || pt === TileType.FORGE)
+          && world.findNearest(ax, ay, pt, 5) !== null) return false;
+        if (r.station === 'workbench' && !isAdjacentToTile(ax, ay, TileType.WORKBENCH, world)) return false;
+        if (r.station === 'forge' && !isAdjacentToTile(ax, ay, TileType.FORGE, world)) return false;
+        return Object.entries(r.requires).every(([res, amt]) => ((agent.resources as any)[res] || 0) >= amt);
       });
+      if (canBuild) {
+        const shelterUrgency = agent.needs.shelter < 15 ? 20 : agent.needs.shelter < 30 ? 10 : 0;
+        // Shelter-driven campfire gets high priority; settlement upgrades get moderate priority
+        const basePriority = hasShelterNeed && !ownsCampfireNearby ? 45 + shelterUrgency : 30;
+        decisions.push({
+          action: 'building',
+          priority: basePriority + (agent.skills.building.level / 5),
+          target: { x: ax, y: ay },
+          reason: hasShelterNeed && !ownsCampfireNearby ? 'needs shelter' : 'expanding settlement'
+        });
+      }
     }
   }
 
@@ -2005,16 +2025,21 @@ export function executeAction(
 
     case 'building': {
       // Find a building recipe from the new recipe system
+      const ownsNearCampfire = world.structures.some(s =>
+        s.tileType === TileType.CAMPFIRE && s.ownerId === agent.id
+        && distance(ax, ay, s.x, s.y) < 10
+      );
       const buildRecipe = NEW_RECIPES.find(r => {
         if (r.skillType !== 'building') return false;
         if (r.produces.type !== 'tile') return false;
         const skillLevel = agent.skills.building.level;
         if (skillLevel < r.skillRequired) return false;
-        // Don't build station-type structures if one already exists nearby (prevent spam)
         const producedTile = r.produces.tileType as TileType;
-        if (producedTile === TileType.CAMPFIRE || producedTile === TileType.WORKBENCH || producedTile === TileType.FORGE) {
-          if (world.findNearest(ax, ay, producedTile, 10) !== null) return false;
-        }
+        // Skip campfire if agent already owns one nearby
+        if (producedTile === TileType.CAMPFIRE && ownsNearCampfire) return false;
+        // Don't build workbench/forge duplicates within 5 tiles
+        if ((producedTile === TileType.WORKBENCH || producedTile === TileType.FORGE)
+          && world.findNearest(ax, ay, producedTile, 5) !== null) return false;
         // Check station requirement
         if (r.station === 'workbench' && !isAdjacentToTile(ax, ay, TileType.WORKBENCH, world)) return false;
         if (r.station === 'forge' && !isAdjacentToTile(ax, ay, TileType.FORGE, world)) return false;
@@ -2041,7 +2066,8 @@ export function executeAction(
             world.setTile(bx, by, builtTileType);
             // Track as structure if it has HP
             world.placeStructure(bx, by, builtTileType, agent.id, agent.age);
-            awardXP(agent.skills, 'building', 1.0);
+            const totalMats = Object.values(buildRecipe.requires).reduce((s, n) => s + n, 0);
+            awardXP(agent.skills, 'building', 10.0 + totalMats * 5);
             agent.needs.shelter = clamp(agent.needs.shelter + 20, 0, 100);
             tileChanges.push({ x: bx, y: by, type: builtTileType });
             break;
@@ -2124,8 +2150,9 @@ export function executeAction(
           }
         }
 
-        // Award XP
-        awardXP(agent.skills, craftRecipe.skillType === 'crafting' ? 'crafting' : 'building', 1.5);
+        // Award XP scaled to recipe complexity
+        const craftMats = Object.values(craftRecipe.requires).reduce((s, n) => s + n, 0);
+        awardXP(agent.skills, craftRecipe.skillType === 'crafting' ? 'crafting' : 'building', 10.0 + craftMats * 5);
       }
       break;
     }
