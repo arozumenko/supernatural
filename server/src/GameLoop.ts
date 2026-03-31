@@ -829,7 +829,9 @@ export class GameLoop {
     // Score agents
     const agentResults = this.agents.map(a => {
       const totalSkillLevels = Object.values(a.skills).reduce((sum, s) => sum + s.level, 0);
-      const bestLife = a.lifetimeBestSurvival ?? 0;
+      // If still alive, current life may be their best
+      const currentLifeTicks = a.alive ? (a.currentLifeTicks ?? this.tickCount) : 0;
+      const bestLife = Math.max(a.lifetimeBestSurvival ?? 0, currentLifeTicks);
       const avgLife = a.totalDeaths > 0 ? Math.floor(this.tickCount / (a.totalDeaths + 1)) : this.tickCount;
       const effectiveness = Math.floor(
         (bestLife / 100) + (avgLife / 50) + ((a.livesRemaining ?? 100) * 2)
