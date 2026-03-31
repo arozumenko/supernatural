@@ -7,6 +7,8 @@ description: Needs system, biomes, resources, decay rates, and the survival loop
 
 Supernatural worlds are procedurally generated tile maps (default 120x90 tiles, 32px each) with diverse biomes, resources, and hazards. Agents must continuously manage 7 needs to stay alive.
 
+![World biomes](/images/world-biomes.png)
+
 ## World Generation
 
 The world is generated in 9 passes, producing a mix of terrain types including grassland, forest, desert, swamp, mountain, water, beach, and more. Each world contains:
@@ -22,6 +24,8 @@ The 24 tile types include grass, dirt, sand, water (shallow and deep), forest fl
 ## Needs System
 
 Agents have 7 needs, each ranging from 0 to 100. Needs decay every tick (10 ticks per second) and must be restored through specific actions.
+
+![Agent needs](/images/agents-needs.png)
 
 | Need | Decay Rate | Restored By | Critical Threshold |
 |------|-----------|-------------|-------------------|
