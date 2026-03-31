@@ -555,17 +555,20 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
     if (!animal.alive) continue;
     const species = getSpecies(animal.species);
 
-    // Only consider animals that actually hunt agents as threats
+    // Only consider animals that hunt agents OR have RECENTLY attacked this agent
+    // A fox hunting a rabbit or a cow grazing nearby is NOT a threat
     const huntsAgents = species.hunts?.includes('agent') ?? false;
-    const isActivelyAttacking = animal.action === 'hunting' || animal.action === 'fighting';
-    const wasAttacker = agent.lastAttackedBy?.type === 'animal' && agent.lastAttackedBy.id === animal.id;
-    if (!huntsAgents && !isActivelyAttacking && !wasAttacker) continue;
+    const recentlyAttackedMe = agent.lastAttackedBy?.type === 'animal'
+      && agent.lastAttackedBy.id === animal.id
+      && (agent.age - agent.lastAttackedBy.tick) < 50; // forget after 5 seconds
+    if (!huntsAgents && !recentlyAttackedMe) continue;
 
     const dist = distance(agent.x, agent.y, animal.x, animal.y);
 
     // Perception-based detection range — wider when predator is actively hunting
     const baseDetect = genome.thresholds.threatDetectBase + (agent.skills.survival.level * 0.1);
-    const detectRange = isActivelyAttacking ? baseDetect * 2 : baseDetect;
+    const isHunting = animal.action === 'hunting' || animal.action === 'stalking';
+    const detectRange = (huntsAgents && isHunting) ? baseDetect * 2 : baseDetect;
 
     // Sound detection for large moving predators (only when hunting)
     const sizeNum = species.size === 'large' ? 4 : species.size === 'medium' ? 3 : species.size === 'small' ? 2 : 1;
@@ -589,7 +592,7 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
     if (agent.needs.health > 50 && dangerRatio < 0.4 * confidence) continue;
 
     // Was recently attacked by this animal?
-    const wasAttacked = agent.lastAttackedBy?.type === 'animal' && agent.lastAttackedBy.id === animal.id;
+    const wasAttacked = recentlyAttackedMe;
 
     const proximityUrgency = 1 - (dist / Math.max(detectRange, soundRange));
     // Confidence reduces flee urgency — powerful agents stand their ground more
