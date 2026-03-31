@@ -1020,6 +1020,25 @@ export class World {
     return true;
   }
 
+  findNearestPlantable(fromX: number, fromY: number, maxDist: number = 5): { x: number; y: number } | null {
+    let best: { x: number; y: number } | null = null;
+    let bestDist = Infinity;
+    for (let dy = -maxDist; dy <= maxDist; dy++) {
+      for (let dx = -maxDist; dx <= maxDist; dx++) {
+        const nx = fromX + dx;
+        const ny = fromY + dy;
+        if (this.canPlacePlant(nx, ny)) {
+          const d = Math.abs(dx) + Math.abs(dy);
+          if (d < bestDist) {
+            bestDist = d;
+            best = { x: nx, y: ny };
+          }
+        }
+      }
+    }
+    return best;
+  }
+
   removePlant(plantId: string): void {
     const idx = this.plants.findIndex(p => p.id === plantId);
     if (idx === -1) return;

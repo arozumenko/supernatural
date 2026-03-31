@@ -1228,21 +1228,29 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
 
   // --- Planting (long-term food/resource investment) ---
   if (agent.resources.treeSeed > 0 && agent.resources.wood > genome.thresholds.woodToKeepBeforePlanting) {
-    decisions.push({
-      action: 'planting',
-      priority: genome.fallbackWeights.plantSeeds + gatherBonus,
-      reason: 'planting a tree seed'
-    });
+    const plantSpot = world.findNearestPlantable(ax, ay);
+    if (plantSpot) {
+      decisions.push({
+        action: 'planting',
+        priority: genome.fallbackWeights.plantSeeds + gatherBonus,
+        target: plantSpot,
+        reason: 'planting a tree seed'
+      });
+    }
   }
   if (agent.resources.plantSeed > 0) {
     // Plant food seeds whenever agent has them — food plants are always valuable
     // Priority boost when hungry (investment is more urgent)
     const plantBoost = agent.needs.plantHunger < 40 ? 15 : agent.needs.plantHunger < 60 ? 8 : 0;
-    decisions.push({
-      action: 'planting',
-      priority: genome.fallbackWeights.plantSeeds + 5 + plantBoost + gatherBonus,
-      reason: 'planting a food plant'
-    });
+    const plantSpot = world.findNearestPlantable(ax, ay);
+    if (plantSpot) {
+      decisions.push({
+        action: 'planting',
+        priority: genome.fallbackWeights.plantSeeds + 5 + plantBoost + gatherBonus,
+        target: plantSpot,
+        reason: 'planting a food plant'
+      });
+    }
   }
 
   // --- Social ---
@@ -2311,37 +2319,27 @@ export function executeAction(
     }
 
     case 'planting': {
-      const dirs = [
-        { dx: 1, dy: 0 }, { dx: -1, dy: 0 }, { dx: 0, dy: 1 }, { dx: 0, dy: -1 },
-        { dx: 2, dy: 0 }, { dx: -2, dy: 0 }, { dx: 0, dy: 2 }, { dx: 0, dy: -2 },
-        { dx: 1, dy: 1 }, { dx: -1, dy: -1 }, { dx: 1, dy: -1 }, { dx: -1, dy: 1 },
-      ];
-      // Plant food seed (berry bush) if available and hungry
-      if (agent.resources.plantSeed > 0 && decision.reason?.includes('food plant')) {
-        for (const { dx, dy } of dirs) {
-          const px = ax + dx;
-          const py = ay + dy;
-          const plant = world.plantFoodSeed(px, py, PlantType.BERRY_BUSH);
+      const target = decision.target!;
+      const d = distance(agent.x, agent.y, target.x, target.y);
+      if (d <= 1.5) {
+        // Close enough — plant at target tile
+        if (agent.resources.plantSeed > 0 && decision.reason?.includes('food plant')) {
+          const plant = world.plantFoodSeed(target.x, target.y, PlantType.BERRY_BUSH);
           if (plant) {
             agent.resources.plantSeed -= 1;
             awardXP(agent.skills, 'foraging', 1.0);
-            break;
           }
-        }
-      }
-      // Plant tree seed
-      else if (agent.resources.treeSeed > 0) {
-        for (const { dx, dy } of dirs) {
-          const px = ax + dx;
-          const py = ay + dy;
-          const result = world.plantSeed(px, py);
+        } else if (agent.resources.treeSeed > 0) {
+          const result = world.plantSeed(target.x, target.y);
           if (result) {
             agent.resources.treeSeed -= 1;
             tileChanges.push(...result.tileChanges);
             awardXP(agent.skills, 'foraging', 1.0);
-            break;
           }
         }
+      } else {
+        // Walk toward plantable tile
+        moveTowards(agent, target.x, target.y, world);
       }
       break;
     }
