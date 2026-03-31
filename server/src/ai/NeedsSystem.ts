@@ -2190,7 +2190,7 @@ export function executeAction(
             // Track as structure if it has HP
             world.placeStructure(bx, by, builtTileType, agent.id, agent.age);
             const totalMats = Object.values(buildRecipe.requires).reduce((s, n) => s + n, 0);
-            awardXP(agent.skills, 'building', 10.0 + totalMats * 5);
+            awardXP(agent.skills, 'building', 25.0 + totalMats * 5);
             agent.needs.shelter = clamp(agent.needs.shelter + 20, 0, 100);
             tileChanges.push({ x: bx, y: by, type: builtTileType });
             break;
@@ -2290,7 +2290,7 @@ export function executeAction(
 
         // Award XP scaled to recipe complexity
         const craftMats = Object.values(craftRecipe.requires).reduce((s, n) => s + n, 0);
-        awardXP(agent.skills, craftRecipe.skillType === 'crafting' ? 'crafting' : 'building', 10.0 + craftMats * 5);
+        awardXP(agent.skills, craftRecipe.skillType === 'crafting' ? 'crafting' : 'building', 25.0 + craftMats * 5);
       }
       break;
     }
