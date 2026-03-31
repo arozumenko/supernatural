@@ -895,8 +895,51 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
     (agent as any)._lastPosY = agent.y;
 
     if ((agent as any)._stuckTicks >= 30) {
-      // Been stuck for 3 seconds — force full re-evaluation
+      // Been stuck for 3 seconds — check if trapped by trees/rocks
       (agent as any)._stuckTicks = 0;
+      // Check all 4 cardinal + 4 diagonal neighbors for walkability
+      const dirs = [{dx:1,dy:0},{dx:-1,dy:0},{dx:0,dy:1},{dx:0,dy:-1},{dx:1,dy:1},{dx:-1,dy:-1},{dx:1,dy:-1},{dx:-1,dy:1}];
+      const hasWalkable = dirs.some(d => world.isWalkable(ax + d.dx, ay + d.dy));
+      if (!hasWalkable) {
+        // Completely trapped — break through adjacent obstacle to escape
+        // Priority: trees (choppable) > rocks (mineable) > structures (breakable)
+        for (const d of dirs) {
+          const tx = ax + d.dx;
+          const ty = ay + d.dy;
+          const tile = world.getTile(tx, ty);
+          if (tile === TileType.TREE) {
+            const tree = world.trees.find(t => tx >= t.x && tx < t.x + 2 && ty >= t.y && ty < t.y + 2 && !t.isStump);
+            if (tree) {
+              return {
+                action: 'harvesting' as AgentAction, priority: 99,
+                target: { x: tree.x, y: tree.y },
+                reason: 'trapped! chopping tree to escape'
+              };
+            }
+          }
+          if (tile === TileType.STONE) {
+            const rock = world.rocks.find(r => r.x === tx && r.y === ty && !r.isRubble);
+            if (rock) {
+              return {
+                action: 'harvesting' as AgentAction, priority: 99,
+                target: { x: tx, y: ty },
+                reason: 'trapped! mining rock to escape'
+              };
+            }
+          }
+          // Breakable structures: walls, fences, doors
+          const breakable: number[] = [TileType.BUILT_WALL, TileType.STONE_WALL, TileType.IRON_WALL,
+            TileType.WOOD_DOOR, TileType.BONE_FENCE, TileType.ANIMAL_PEN];
+          if (breakable.includes(tile as number)) {
+            return {
+              action: 'harvesting' as AgentAction, priority: 99,
+              target: { x: tx, y: ty },
+              reason: 'trapped! breaking wall to escape'
+            };
+          }
+        }
+        // Trapped by water or map edge — can't escape, just wander in place
+      }
       // Fall through to full decision logic below
     } else {
       // Continue current action
