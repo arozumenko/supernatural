@@ -2041,6 +2041,9 @@ export function executeAction(
               animal.tamedBy = agent.id;
               animal.homeX = Math.floor(agent.x);
               animal.homeY = Math.floor(agent.y);
+              // Big XP reward for successful taming — harder animals give more
+              awardXP(agent.skills, 'social', 30.0, species.tamingCost);
+              awardXP(agent.skills, 'survival', 15.0, species.tamingCost);
               interactions.push({ agentA: agent.id, agentB: '', type: 'tamed', outcome: 0, timestamp: Date.now(), details: { species: species.name, animalId: animal.id } });
             }
             awardXP(agent.skills, 'social', 1.0);
@@ -2116,6 +2119,11 @@ export function executeAction(
                 if (!nearbyAgent.allies) nearbyAgent.allies = [];
                 agent.allies.push(nearbyAgent.id);
                 nearbyAgent.allies.push(agent.id);
+                // XP reward for forming alliance — social milestone
+                awardXP(agent.skills, 'social', 50.0);
+                awardXP(nearbyAgent.skills, 'social', 50.0);
+                awardXP(agent.skills, 'survival', 20.0);
+                awardXP(nearbyAgent.skills, 'survival', 20.0);
                 interactions.push({ agentA: agent.id, agentB: nearbyAgent.id, type: 'alliance', outcome: 0, timestamp: Date.now() });
               }
 
