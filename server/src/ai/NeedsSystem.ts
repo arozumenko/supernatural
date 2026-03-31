@@ -776,13 +776,31 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
   }
 
   const effectiveHunger = Math.min(agent.needs.proteinHunger, agent.needs.plantHunger);
+  const proteinCritical = agent.needs.proteinHunger < genome.thresholds.criticalHunger;
+  const plantCritical = agent.needs.plantHunger < genome.thresholds.criticalHunger;
 
-  if (effectiveHunger < genome.thresholds.criticalHunger) {
-    // Try eating from inventory first (food or meat)
-    if (agent.resources.food > 0 || agent.resources.meat > 0) {
-      decisions.push({ action: 'eating', priority: genome.interruptWeights.criticalHunger, reason: 'eating from inventory' });
+  // --- Critical PROTEIN hunger: eat meat or hunt ---
+  if (proteinCritical) {
+    if (agent.resources.meat > 0) {
+      decisions.push({ action: 'eating', priority: genome.interruptWeights.criticalHunger, reason: 'eating meat (starving)' });
     } else {
-      // Look for food plants — low survival skill may confuse poison shrooms for edible ones
+      // No meat — hunt is the only way to get protein (pushed below in hunt section with starvation boost)
+      // Also try eating plant food as partial stopgap (gives 20% protein via omnivore cross-restore)
+      if (agent.resources.food > 0) {
+        decisions.push({ action: 'eating', priority: genome.interruptWeights.criticalHunger - 5, reason: 'eating food (need protein)' });
+      }
+    }
+  }
+
+  // --- Critical PLANT hunger: eat food or forage ---
+  if (plantCritical) {
+    if (agent.resources.food > 0) {
+      decisions.push({ action: 'eating', priority: genome.interruptWeights.criticalHunger, reason: 'eating food (starving)' });
+    } else if (agent.resources.meat > 0) {
+      // Meat gives 20% plant hunger as omnivore stopgap
+      decisions.push({ action: 'eating', priority: genome.interruptWeights.criticalHunger - 5, reason: 'eating meat (need plants)' });
+    } else {
+      // No food — forage for plants
       const foodTypes: PlantType[] = [PlantType.BERRY_BUSH, PlantType.MUSHROOM, PlantType.HUNGER_HERB, PlantType.EDIBLE_FLOWER];
       if (!canIdentifyPoison(agent.skills) && Math.random() < 0.3) {
         foodTypes.push(PlantType.POISON_SHROOM);
@@ -794,10 +812,9 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
           priority: genome.interruptWeights.criticalHunger,
           target: { x: foodPlant.x, y: foodPlant.y },
           targetPlantId: foodPlant.id,
-          reason: 'foraging for food'
+          reason: 'foraging for food (starving)'
         });
       } else {
-        // No food anywhere — desperately search
         const searchX = ax + (Math.random() > 0.5 ? 15 : -15);
         const searchY = ay + (Math.random() > 0.5 ? 15 : -15);
         decisions.push({
@@ -1026,7 +1043,7 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
 
       // Starvation boost: hunt priority spikes when truly desperate
       if (isStarving) {
-        huntPriority = Math.max(huntPriority, 75); // at least as urgent as flee
+        huntPriority = Math.max(huntPriority, genome.interruptWeights.criticalHunger); // match critical hunger priority
       }
 
       if (huntPriority > 15 && (!bestHunt || huntPriority > bestHunt.priority)) {
