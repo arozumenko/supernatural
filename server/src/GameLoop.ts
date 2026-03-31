@@ -11,7 +11,7 @@ import { createAgent } from './Agent.ts';
 import { decayNeeds, decideAction, executeAction, clearDispositions } from './ai/NeedsSystem.ts';
 import { decayAnimalNeeds, decideAnimalAction, executeAnimalAction } from './ai/AnimalAI.ts';
 import { getSpecies } from './AnimalSpeciesConfig.ts';
-import { createAnimalBaseStats, createSkillSet, applyDeathPenalty, getCarryWeight, getCarryCapacity } from './Progression.ts';
+import { createAnimalBaseStats, createSkillSet, applyDeathPenalty, getCarryWeight, getCarryCapacity, awardXP } from './Progression.ts';
 import { initJournal, detectDeathCause, finalizeJournal, recordTimelineEntry, recordHeatmapEntry, tickMetrics, setApiEventEmitter } from './ai/LifeJournal.ts';
 import { getGenomeLibrary, getSpeciesGenome } from './config/genome-library.ts';
 import { calculateLivesChange, checkHighlander } from './ai/LivesEconomy.ts';
@@ -656,7 +656,7 @@ export class GameLoop {
     // Decay corpses
     this.world.corpses = this.world.corpses.filter(c => this.tickCount < c.decayAt);
 
-    // Tamed animal production: tamed animals periodically produce drops for owner
+    // Tamed animal production, feeding, and XP sharing
     const tc = WorldConfig.taming;
     if (this.tickCount % tc.productionInterval === 0) {
       for (const animal of this.world.animals) {
@@ -664,12 +664,39 @@ export class GameLoop {
         const owner = this.agents.find(a => a.id === animal.tamedBy && a.alive);
         if (!owner) continue;
         const species = getSpecies(animal.species);
+
+        // Production: tamed animals produce drops for owner
         if (species.drops?.meat) owner.resources.meat += Math.max(1, Math.floor(species.drops.meat * tc.meatFraction));
         if (species.drops?.bone) owner.resources.bone += Math.max(1, Math.floor(species.drops.bone * tc.boneFraction));
         if (species.drops?.hide) owner.resources.hide += Math.max(1, Math.floor(species.drops.hide * tc.hideFraction));
         if (species.drops?.fat) owner.resources.fat += Math.max(1, Math.floor(species.drops.fat * tc.fatFraction));
         if (species.drops?.feathers) owner.resources.feathers += Math.max(1, Math.floor(species.drops.feathers * tc.featherFraction));
         if (!species.drops?.meat && species.foodDrop > 0) owner.resources.meat += Math.max(1, Math.floor(species.foodDrop * tc.meatFraction));
+
+        // Owner feeds hungry tamed animals from own resources
+        if (animal.proteinHunger < 40 && owner.resources.meat > 2) {
+          owner.resources.meat -= 1;
+          animal.proteinHunger = clamp(animal.proteinHunger + 20, 0, 100);
+        }
+        if (animal.plantHunger < 40 && owner.resources.food > 2) {
+          owner.resources.food -= 1;
+          animal.plantHunger = clamp(animal.plantHunger + 20, 0, 100);
+        }
+        if (animal.thirst < 30) {
+          // Owner shares water knowledge — animal gets a thirst boost when near owner
+          const ownerDist = Math.abs(animal.x - owner.x) + Math.abs(animal.y - owner.y);
+          if (ownerDist <= 5) {
+            animal.thirst = clamp(animal.thirst + 10, 0, 100);
+          }
+        }
+
+        // XP sharing: tamed animals gain a fraction of owner's skill levels as passive XP
+        const ownerTotalLevels = Object.values(owner.skills).reduce((sum, s) => sum + s.level, 0);
+        const sharedXP = Math.max(0.5, ownerTotalLevels * 0.05); // 0.05 XP per owner level
+        awardXP(animal.skills, 'combat', sharedXP * 0.3);
+        awardXP(animal.skills, 'defense', sharedXP * 0.3);
+        awardXP(animal.skills, 'survival', sharedXP * 0.2);
+        awardXP(animal.skills, 'athletics', sharedXP * 0.2);
       }
     }
 

@@ -778,8 +778,8 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
   const effectiveHunger = Math.min(agent.needs.proteinHunger, agent.needs.plantHunger);
 
   if (effectiveHunger < genome.thresholds.criticalHunger) {
-    // Try eating from inventory first
-    if (agent.resources.food > 0) {
+    // Try eating from inventory first (food or meat)
+    if (agent.resources.food > 0 || agent.resources.meat > 0) {
       decisions.push({ action: 'eating', priority: genome.interruptWeights.criticalHunger, reason: 'eating from inventory' });
     } else {
       // Look for food plants — low survival skill may confuse poison shrooms for edible ones
@@ -821,6 +821,26 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
         targetPlantId: flower.id,
         reason: 'seeking healing flower'
       });
+    }
+    // Eat to heal: health regens when hunger > 50 — eat food/meat to enable regen
+    if (effectiveHunger < 55 && (agent.resources.food > 0 || agent.resources.meat > 0)) {
+      const healEatPriority = agent.needs.health < genome.thresholds.criticalHealth
+        ? genome.interruptWeights.lowHealth  // critical health: eat as urgently as healing
+        : 55; // moderate health: eat above most tasks
+      decisions.push({ action: 'eating', priority: healEatPriority, reason: 'eating to heal' });
+    }
+    // Drink to heal: health regens when thirst > 50
+    if (agent.needs.thirst < 55) {
+      const water = world.findNearest(ax, ay, TileType.WATER);
+      if (water) {
+        const healDrinkPriority = agent.needs.health < genome.thresholds.criticalHealth
+          ? genome.interruptWeights.lowHealth
+          : 55;
+        decisions.push({
+          action: 'drinking', priority: healDrinkPriority,
+          target: water, reason: 'drinking to heal'
+        });
+      }
     }
   }
 
@@ -947,7 +967,7 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
   }
 
   if (effectiveHunger < genome.goalThresholds.proteinRelevant) {
-    if (agent.resources.food > 0) {
+    if (agent.resources.food > 0 || agent.resources.meat > 0) {
       decisions.push({ action: 'eating', priority: genome.mediumPriorityWeights.eatMedium, reason: 'having a snack' });
     } else {
       const medFoodTypes: PlantType[] = [PlantType.BERRY_BUSH, PlantType.MUSHROOM, PlantType.HUNGER_HERB, PlantType.EDIBLE_FLOWER];
