@@ -1374,6 +1374,127 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
     reason: 'exploring'
   });
 
+  // --- Archetype urges: periodic role-specific impulses ---
+  // Every 100 ticks (~10s), archetype-specific instinct fires with moderate priority.
+  // These define the "personality" of each class beyond just weight tuning.
+  if (tickCount % 100 < 2) { // fires for 2 ticks every 100 (gives time to start action)
+    const archetype = agent.archetype ?? 'random';
+    const totalLevels = Object.values(agent.skills).reduce((sum, s) => sum + s.level, 0);
+
+    switch (archetype) {
+      case 'warrior': {
+        // Urge to Fight: seek combat with nearest animal or agent
+        const huntRange = genome.thresholds.huntDetectRange + 5;
+        let bestTarget: { x: number; y: number; id: string; isAgent: boolean; priority: number } | null = null;
+        for (const animal of world.animals) {
+          if (!animal.alive || animal.tamedBy === agent.id) continue;
+          const d = distance(agent.x, agent.y, animal.x, animal.y);
+          if (d > huntRange) continue;
+          const spec = getSpecies(animal.species);
+          if (spec.attack < 3) continue; // ignore tiny prey — warriors want a real fight
+          const pri = 50 + Math.min(20, spec.attack);
+          if (!bestTarget || pri > bestTarget.priority) {
+            bestTarget = { x: Math.floor(animal.x), y: Math.floor(animal.y), id: animal.id, isAgent: false, priority: pri };
+          }
+        }
+        if (bestTarget) {
+          decisions.push({
+            action: 'harvesting', priority: bestTarget.priority,
+            target: { x: bestTarget.x, y: bestTarget.y },
+            targetAnimalId: bestTarget.id,
+            reason: `urge to fight`
+          });
+        }
+        break;
+      }
+
+      case 'survivor': {
+        // Urge to Hoard: gather extra resources even when above thresholds
+        if (agent.resources.wood < genome.thresholds.woodTarget * 2) {
+          const tree = world.findNearestTree(ax, ay);
+          if (tree) {
+            decisions.push({
+              action: 'harvesting', priority: 38,
+              target: { x: tree.x, y: tree.y }, reason: `urge to hoard wood`
+            });
+          }
+        }
+        if (agent.resources.meat < 8) {
+          decisions.push({
+            action: 'harvesting', priority: 35,
+            target: undefined, reason: `urge to stockpile food`
+          });
+        }
+        break;
+      }
+
+      case 'builder': {
+        // Urge to Build: construct structures even when shelter is fine
+        if (agent.resources.wood >= 5 && agent.resources.stone >= 3) {
+          decisions.push({
+            action: 'building', priority: 42,
+            target: { x: ax, y: ay }, reason: `urge to build`
+          });
+        } else {
+          // Urge to gather building materials
+          const rock = world.findNearestRock(ax, ay);
+          if (rock && agent.resources.stone < 10) {
+            decisions.push({
+              action: 'harvesting', priority: 38,
+              target: { x: rock.x, y: rock.y }, reason: `urge to quarry`
+            });
+          }
+        }
+        break;
+      }
+
+      case 'scout': {
+        // Urge to Explore: wander far from current position
+        const exploreRange = 15 + Math.floor(agent.skills.athletics.level / 5);
+        const randX = clamp(ax + (Math.random() > 0.5 ? 1 : -1) * Math.floor(Math.random() * exploreRange), 0, WORLD_WIDTH - 1);
+        const randY = clamp(ay + (Math.random() > 0.5 ? 1 : -1) * Math.floor(Math.random() * exploreRange), 0, WORLD_HEIGHT - 1);
+        decisions.push({
+          action: 'moving_to', priority: 35,
+          target: { x: randX, y: randY }, reason: `urge to explore`
+        });
+        break;
+      }
+
+      case 'social': {
+        // Urge to Befriend: seek out agents to socialize, or animals to tame
+        const nearAgent = allAgents.find(a => a.id !== agent.id && a.alive && distance(agent.x, agent.y, a.x, a.y) < 25);
+        if (nearAgent) {
+          decisions.push({
+            action: 'socializing', priority: 42,
+            target: { x: Math.floor(nearAgent.x), y: Math.floor(nearAgent.y) },
+            reason: `urge to befriend ${nearAgent.name}`
+          });
+        } else {
+          // No agents nearby — seek animal to tame
+          const tamedCount = world.animals.filter(a => a.alive && a.tamedBy === agent.id).length;
+          if (tamedCount < cfg.taming.maxPerAgent) {
+            for (const animal of world.animals) {
+              if (!animal.alive || animal.tamed) continue;
+              const spec = getSpecies(animal.species);
+              if (!spec.tameable) continue;
+              const d = distance(agent.x, agent.y, animal.x, animal.y);
+              if (d < 20 && (agent.resources.food > 0 || agent.resources.meat > 0)) {
+                decisions.push({
+                  action: 'socializing', priority: 40,
+                  target: { x: Math.floor(animal.x), y: Math.floor(animal.y) },
+                  targetAnimalId: animal.id,
+                  reason: `urge to tame ${spec.name}`
+                });
+                break;
+              }
+            }
+          }
+        }
+        break;
+      }
+    }
+  }
+
   // Apply strategy rules (LLM-evolved behavior modifiers)
   evaluateStrategyRules(agent, decisions as any, world, tickCount);
 
