@@ -175,6 +175,18 @@ export class GameLoop {
       // Decay needs
       decayNeeds(agent);
 
+      // Tamed animals nearby restore social need (companionship)
+      if (agent.needs.social < 80) {
+        let nearbyTamed = 0;
+        for (const animal of this.world.animals) {
+          if (!animal.alive || animal.tamedBy !== agent.id) continue;
+          if (Math.abs(animal.x - agent.x) + Math.abs(animal.y - agent.y) <= 5) nearbyTamed++;
+        }
+        if (nearbyTamed > 0) {
+          agent.needs.social = Math.min(80, agent.needs.social + nearbyTamed * 0.02);
+        }
+      }
+
       // Update carry weight/capacity for client display
       agent.carryWeight = getCarryWeight(agent.inventory);
       agent.carryCapacity = getCarryCapacity(agent.baseStats, agent.skills, agent.inventory);
