@@ -2507,6 +2507,19 @@ function moveTowards(agent: AgentState, tx: number, ty: number, world: World, sp
       if (world.isWalkable(Math.floor(newX), Math.floor(newY))) {
         agent.x = newX;
         agent.y = newY;
+      } else {
+        // Blocked — check if a tree is in the way and chop it to clear path
+        const bx = Math.floor(newX);
+        const by = Math.floor(newY);
+        const treeId = world.treeGrid[by]?.[bx];
+        if (treeId) {
+          const chopAmount = 5 + agent.skills.woodcutting.level * 0.3;
+          const result = world.harvestTree(treeId, chopAmount);
+          if (result) {
+            agent.resources.wood += Math.floor(result.harvested);
+            awardXP(agent.skills, 'woodcutting', 0.5);
+          }
+        }
       }
     }
   }
