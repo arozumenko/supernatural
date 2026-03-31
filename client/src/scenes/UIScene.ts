@@ -820,6 +820,25 @@ export class UIScene extends Phaser.Scene {
     }
     addLine(agent.personality.join(' / '), '#607860', '12px');
 
+    // Equipped weapon/tool
+    {
+      const parts: string[] = [];
+      const mh = agent.inventory?.equipped?.mainHand;
+      if (mh) {
+        const name = mh.itemId.replace(/_/g, ' ');
+        parts.push(`\u2694 ${name}`);
+        if (mh.durability !== undefined) parts[parts.length - 1] += ` (${mh.durability})`;
+      }
+      const body = agent.inventory?.equipped?.body;
+      if (body) {
+        const name = body.itemId.replace(/_/g, ' ');
+        parts.push(`\uD83D\uDEE1 ${name}`);
+      }
+      if (parts.length > 0) {
+        addLine(parts.join('  '), '#aa9966', '10px');
+      }
+    }
+
     // Status
     if (agent.alive) {
       addLine(formatAction(agent.action), '#88bbdd', '10px', 2);
