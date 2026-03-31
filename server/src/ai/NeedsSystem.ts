@@ -2006,6 +2006,7 @@ export function executeAction(
               animal.tamedBy = agent.id;
               animal.homeX = Math.floor(agent.x);
               animal.homeY = Math.floor(agent.y);
+              interactions.push({ agentA: agent.id, agentB: '', type: 'tamed', outcome: 0, timestamp: Date.now(), details: { species: species.name, animalId: animal.id } });
             }
             awardXP(agent.skills, 'social', 1.0);
           } else {
@@ -2080,6 +2081,7 @@ export function executeAction(
                 if (!nearbyAgent.allies) nearbyAgent.allies = [];
                 agent.allies.push(nearbyAgent.id);
                 nearbyAgent.allies.push(agent.id);
+                interactions.push({ agentA: agent.id, agentB: nearbyAgent.id, type: 'alliance', outcome: 0, timestamp: Date.now() });
               }
 
               // Alliance resource sharing: help starving/dehydrated ally

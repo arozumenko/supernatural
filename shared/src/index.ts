@@ -406,9 +406,10 @@ export interface PlayerMessage {
 export interface SocialInteraction {
   agentA: string;
   agentB: string;
-  type: 'greeting' | 'trade' | 'help' | 'conflict' | 'conversation';
+  type: 'greeting' | 'trade' | 'help' | 'conflict' | 'conversation' | 'tamed' | 'alliance';
   outcome: number; // -10 to +10 relationship change
   timestamp: number;
+  details?: { species?: string; animalId?: string };
 }
 
 // --- Trees ---

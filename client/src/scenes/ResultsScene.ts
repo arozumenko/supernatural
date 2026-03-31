@@ -4,13 +4,17 @@ import type { GameResults, AgentResult, AnimalResult, AgentArchetype } from '@su
 
 const PIXEL_FONT = '"Press Start 2P", monospace';
 
-type Tab = 'agents' | 'animals' | 'genome' | 'comparison';
+type Tab = 'agents' | 'animals' | 'genome' | 'timeline' | 'comparison';
 
 export class ResultsScene extends Phaser.Scene {
   private results!: GameResults;
   private activeTab: Tab = 'agents';
   private contentContainer!: Phaser.GameObjects.Container;
   private tabButtons: Phaser.GameObjects.Text[] = [];
+  private scrollContainer: Phaser.GameObjects.Container | null = null;
+  private scrollMask: Phaser.Display.Masks.GeometryMask | null = null;
+  private scrollY: number = 0;
+  private scrollMaxY: number = 0;
 
   constructor() {
     super({ key: 'ResultsScene' });
@@ -25,6 +29,12 @@ export class ResultsScene extends Phaser.Scene {
     console.log('[ResultsScene] Received results:', JSON.stringify(this.results).slice(0, 200));
     const { width, height } = this.scale;
     this.cameras.main.setBackgroundColor('#0a0a14');
+
+    // Reset scroll state
+    this.scrollY = 0;
+    this.scrollMaxY = 0;
+    this.scrollContainer = null;
+    this.scrollMask = null;
 
     // Header
     this.add.text(width / 2, 30, 'GAME OVER', {
@@ -42,12 +52,14 @@ export class ResultsScene extends Phaser.Scene {
       { label: 'AGENTS', key: 'agents' },
       { label: 'ANIMALS', key: 'animals' },
       { label: 'BEST GENOME', key: 'genome' },
+      { label: 'TIMELINE', key: 'timeline' },
       { label: 'LLM vs DT', key: 'comparison' },
     ];
     const tabY = 90;
-    const tabW = 180;
+    const tabW = 160;
     const tabStartX = width / 2 - (tabs.length * tabW) / 2;
 
+    this.tabButtons = [];
     tabs.forEach((tab, i) => {
       const x = tabStartX + i * tabW + tabW / 2;
       const t = this.add.text(x, tabY, tab.label, {
@@ -88,6 +100,17 @@ export class ResultsScene extends Phaser.Scene {
 
   private renderContent(): void {
     this.contentContainer.removeAll(true);
+    // Clean up scroll state
+    if (this.scrollMask) {
+      this.scrollMask.destroy();
+      this.scrollMask = null;
+    }
+    this.scrollContainer = null;
+    this.scrollY = 0;
+    this.scrollMaxY = 0;
+    // Remove any previous wheel listeners
+    this.input.off('wheel');
+
     const startY = 120;
     const { width } = this.scale;
 
@@ -95,11 +118,12 @@ export class ResultsScene extends Phaser.Scene {
       case 'agents': this.renderAgentsTab(startY, width); break;
       case 'animals': this.renderAnimalsTab(startY, width); break;
       case 'genome': this.renderGenomeTab(startY, width); break;
+      case 'timeline': this.renderTimelineTab(startY, width); break;
       case 'comparison': this.renderComparisonTab(startY, width); break;
     }
   }
 
-  private renderAgentsTab(startY: number, width: number): void {
+  private renderAgentsTab(startY: number, _width: number): void {
     let y = startY;
     // Header row
     this.addText(40, y, '#', '#556655', '11px');
@@ -171,10 +195,163 @@ export class ResultsScene extends Phaser.Scene {
     let y = startY;
     const genome = this.results.bestGenome;
     const agents = this.results.agents;
+
+    // Two-column layout: LEFT ~55%, RIGHT ~45%
+    const leftW = Math.floor((width - 80) * 0.55);
+    const rightX = 40 + leftW + 20;
+    const rightW = width - rightX - 40;
+
+    // ========== LEFT COLUMN: Genome Comparison Table ==========
+    const col0 = 40;
+    const colStart = 140;
+    const colW = Math.min(90, (leftW - (colStart - col0) - 10) / Math.max(agents.length, 1));
+
+    // Agent name header
+    this.addText(col0, y, '', '#556655', '9px');
+    agents.forEach((a, i) => {
+      const c = a.rank === 1 ? '#ffd700' : '#aaaaaa';
+      this.addText(colStart + i * colW, y, a.name, c, '9px');
+    });
+    let leftY = y + 16;
+
+    // Genome Table
+    this.addText(col0, leftY, 'GENOME', '#80c080', '10px'); leftY += 16;
+
+    const defaultG = { version: 1, interruptWeights: { fleeBase: 75, fightBack: 93 }, thresholds: { criticalThirst: 30, criticalHunger: 30, criticalHealth: 40, criticalStamina: 20, fleeHealthPanic: 0.4, fightBackMinRatio: 0.6 }, fallbackWeights: { huntAnimal: 40, gatherWood: 35, mineStone: 30, harvestCorpse: 50, socialize: 30, wander: 10 }, mediumPriorityWeights: { drinkMedium: 63, eatMedium: 58 }, goalWeights: { survive_thirst: 1.3, survive_protein: 1.2, survive_plant: 1.2, rest: 1.1 }, strategyRules: [] };
+
+    const genomeFields: [string, (g: any) => string][] = [
+      ['Mutations', g => `${(g?.version ?? 1) - 1}`],
+      ['Rules', g => `${g?.strategyRules?.length ?? 0}`],
+      ['Flee', g => `${g?.interruptWeights?.fleeBase ?? '?'}`],
+      ['Fight', g => `${g?.interruptWeights?.fightBack ?? '?'}`],
+      ['Thirst thr', g => `${g?.thresholds?.criticalThirst ?? '?'}`],
+      ['Hunger thr', g => `${g?.thresholds?.criticalHunger ?? '?'}`],
+      ['Health thr', g => `${g?.thresholds?.criticalHealth ?? '?'}`],
+      ['Stamina thr', g => `${g?.thresholds?.criticalStamina ?? '?'}`],
+      ['Flee panic', g => `${g?.thresholds?.fleeHealthPanic ?? '?'}`],
+      ['Fight ratio', g => `${g?.thresholds?.fightBackMinRatio ?? '?'}`],
+      ['Hunt', g => `${g?.fallbackWeights?.huntAnimal ?? '?'}`],
+      ['Wood', g => `${g?.fallbackWeights?.gatherWood ?? '?'}`],
+      ['Stone', g => `${g?.fallbackWeights?.mineStone ?? '?'}`],
+      ['Corpse', g => `${g?.fallbackWeights?.harvestCorpse ?? '?'}`],
+      ['Social', g => `${g?.fallbackWeights?.socialize ?? '?'}`],
+      ['Wander', g => `${g?.fallbackWeights?.wander ?? '?'}`],
+      ['Drink prio', g => `${g?.mediumPriorityWeights?.drinkMedium ?? '?'}`],
+      ['Eat prio', g => `${g?.mediumPriorityWeights?.eatMedium ?? '?'}`],
+      ['Thirst goal', g => `${g?.goalWeights?.survive_thirst?.toFixed?.(1) ?? '?'}`],
+      ['Protein goal', g => `${g?.goalWeights?.survive_protein?.toFixed?.(1) ?? '?'}`],
+      ['Plant goal', g => `${g?.goalWeights?.survive_plant?.toFixed?.(1) ?? '?'}`],
+      ['Rest goal', g => `${g?.goalWeights?.rest?.toFixed?.(1) ?? '?'}`],
+    ];
+
+    for (const [label, getter] of genomeFields) {
+      this.addText(col0, leftY, label, '#556655', '9px');
+      agents.forEach((a, i) => {
+        const g = (a as any).genome;
+        const val = getter(g);
+        const defVal = getter(defaultG);
+        let color = '#909890'; // unchanged
+        if (val !== defVal) {
+          const numVal = parseFloat(val);
+          const numDef = parseFloat(defVal);
+          if (!isNaN(numVal) && !isNaN(numDef)) {
+            color = numVal > numDef ? '#44cc44' : '#cc8844'; // green up, orange down
+          } else {
+            color = '#ccaa44'; // changed but non-numeric
+          }
+        }
+        this.addText(colStart + i * colW, leftY, val, color, '9px');
+      });
+      leftY += 13;
+    }
+
+    // Final Stats below genome table
+    leftY += 12;
+    this.addText(col0, leftY, 'FINAL STATS', '#80c080', '10px'); leftY += 16;
+
+    const statFields: [string, (a: AgentResult) => string, (a: AgentResult) => string][] = [
+      ['Score', a => `${a.effectiveness}`, a => a.rank === 1 ? '#ffd700' : '#c8d0c8'],
+      ['Level', a => `${a.totalSkillLevels}`, _ => '#909890'],
+      ['Deaths', a => `${a.totalDeaths}`, a => a.totalDeaths > 5 ? '#cc6644' : '#909890'],
+      ['Lives', a => `${a.livesRemaining}`, a => a.livesRemaining > 50 ? '#44cc44' : '#cccc44'],
+      ['Best life', a => { const s = Math.floor(a.bestLifeTicks / 10); return `${Math.floor(s/60)}m${s%60}s`; }, _ => '#909890'],
+      ['AI', a => a.aiRole === 'none' ? 'DT' : a.aiRole, a => a.aiProvider ? '#80c080' : '#888888'],
+    ];
+
+    for (const [label, getter, colorFn] of statFields) {
+      this.addText(col0, leftY, label, '#556655', '9px');
+      agents.forEach((a, i) => {
+        this.addText(colStart + i * colW, leftY, getter(a), colorFn(a), '9px');
+      });
+      leftY += 13;
+    }
+
+    // ========== RIGHT COLUMN: Winner + Rules + Mutation History + Export ==========
+    let rightY = y;
+
+    if (!genome) {
+      this.addText(rightX, rightY, 'No genome data.', '#888888', '12px');
+      return;
+    }
+
+    const winner = agents[0];
+    this.addText(rightX, rightY, `WINNER: ${winner?.name ?? '?'}`, '#ffd700', '12px'); rightY += 22;
+
+    // Strategy rules (full detail)
+    if (genome.strategyRules?.length > 0) {
+      this.addText(rightX, rightY, `LEARNED RULES (${genome.strategyRules.length})`, '#80c080', '11px'); rightY += 18;
+      for (const rule of genome.strategyRules) {
+        const icon = rule.enabled ? '\u2705' : '\u274C';
+        this.addText(rightX, rightY, `${icon} ${rule.name}`, '#ccaa44', '10px');
+        this.addText(rightX + rightW - 60, rightY, `pri:${rule.priority}`, '#888888', '9px');
+        rightY += 14;
+        this.addText(rightX + 20, rightY, `Source: ${rule.source ?? 'unknown'}`, '#777766', '9px'); rightY += 14;
+        if (rule.condition) {
+          const condStr = rule.condition.type + (rule.condition.field ? ` ${rule.condition.field}` : '') + (rule.condition.value !== undefined ? ` ${rule.condition.value}` : '');
+          this.addText(rightX + 20, rightY, `If: ${condStr}`, '#667766', '9px'); rightY += 14;
+        }
+        if (rule.effect) {
+          const effStr = rule.effect.type + (rule.effect.action ? ` ${rule.effect.action}` : '') + (rule.effect.amount !== undefined ? ` ${rule.effect.amount}` : '');
+          this.addText(rightX + 20, rightY, `Then: ${effStr}`, '#667766', '9px'); rightY += 14;
+        }
+        rightY += 4;
+      }
+    } else {
+      this.addText(rightX, rightY, 'No learned strategy rules.', '#888888', '11px'); rightY += 18;
+    }
+
+    // Mutation history (lineage)
+    if (genome.lineage?.length > 0) {
+      rightY += 8;
+      this.addText(rightX, rightY, `MUTATION HISTORY (${genome.lineage.length} total)`, '#80c080', '11px'); rightY += 18;
+      for (const entry of genome.lineage.slice(-12)) {
+        this.addText(rightX, rightY, entry, '#888888', '9px'); rightY += 13;
+      }
+      if (genome.lineage.length > 12) {
+        this.addText(rightX, rightY, `... +${genome.lineage.length - 12} earlier mutations`, '#666666', '9px'); rightY += 13;
+      }
+    }
+
+    // Export buttons
+    rightY += 16;
+    this.createButton(rightX + 80, rightY, 'Copy JSON', () => {
+      navigator.clipboard.writeText(JSON.stringify(genome, null, 2));
+    });
+    this.createButton(rightX + rightW - 80, rightY, 'Download', () => {
+      const blob = new Blob([JSON.stringify(genome, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'best-genome.json'; a.click();
+      URL.revokeObjectURL(url);
+    });
+  }
+
+  private renderTimelineTab(startY: number, width: number): void {
+    let y = startY;
     const history = (this.results as any).scoreHistory as Record<string, { tick: number; score: number }[]> | undefined;
     const events = (this.results as any).notableEvents as Record<string, { tick: number; event: string }[]> | undefined;
 
-    // ─── Score Evolution Chart ───
+    // Score Evolution Chart
     if (history && Object.keys(history).length > 0) {
       this.addText(40, y, 'SCORE EVOLUTION', '#80c080', '12px'); y += 20;
 
@@ -236,170 +413,74 @@ export class ResultsScene extends Phaser.Scene {
       }
 
       y = chartY + chartH + 20;
+    }
 
-      // Notable events timeline (compact)
-      if (events && Object.keys(events).length > 0) {
-        this.addText(40, y, 'KEY EVENTS', '#80c080', '11px'); y += 16;
-        // Merge all events, sort by tick
-        const allEvents: { tick: number; name: string; event: string }[] = [];
-        for (const [name, evts] of Object.entries(events)) {
-          for (const e of evts) allEvents.push({ tick: e.tick, name, event: e.event });
-        }
-        allEvents.sort((a, b) => a.tick - b.tick);
-        for (const e of allEvents.slice(-12)) {
-          const secs = Math.floor(e.tick / 10);
-          const mins = Math.floor(secs / 60);
-          this.addText(50, y, `${mins}m${secs % 60}s`, '#555555', '8px');
-          this.addText(110, y, e.name, '#aaaaaa', '8px');
-          this.addText(190, y, e.event, '#888888', '8px');
-          y += 13;
-        }
-        y += 8;
+    // Key Events — scrollable
+    if (events && Object.keys(events).length > 0) {
+      this.addText(40, y, 'KEY EVENTS', '#80c080', '11px'); y += 16;
+
+      // Merge all events, sort by tick
+      const allEvents: { tick: number; name: string; event: string }[] = [];
+      for (const [name, evts] of Object.entries(events)) {
+        for (const e of evts) allEvents.push({ tick: e.tick, name, event: e.event });
       }
-    }
+      allEvents.sort((a, b) => a.tick - b.tick);
 
-    const col0 = 40;
-    const colStart = 140;
-    const colW = Math.min(90, (width - colStart - 40) / agents.length);
+      // Create scrollable container with mask
+      const scrollAreaX = 40;
+      const scrollAreaY = y;
+      const scrollAreaW = width - 80;
+      const { height } = this.scale;
+      const scrollAreaH = height - y - 80; // leave room for bottom buttons
 
-    // Agent name header
-    this.addText(col0, y, '', '#556655', '9px');
-    agents.forEach((a, i) => {
-      const c = a.rank === 1 ? '#ffd700' : '#aaaaaa';
-      this.addText(colStart + i * colW, y, a.name, c, '9px');
-    });
-    y += 16;
+      // Mask shape
+      const maskShape = this.add.graphics();
+      maskShape.fillStyle(0xffffff);
+      maskShape.fillRect(scrollAreaX, scrollAreaY, scrollAreaW, scrollAreaH);
+      this.scrollMask = maskShape.createGeometryMask();
 
-    // ─── Genome Table ───
-    this.addText(col0, y, 'GENOME', '#80c080', '10px'); y += 16;
+      // Scrollable container
+      this.scrollContainer = this.add.container(0, 0);
+      this.scrollContainer.setMask(this.scrollMask);
+      this.contentContainer.add(this.scrollContainer);
 
-    const defaultG = { version: 1, interruptWeights: { fleeBase: 75, fightBack: 93 }, thresholds: { criticalThirst: 30, criticalHunger: 30, criticalHealth: 40, criticalStamina: 20, fleeHealthPanic: 0.4, fightBackMinRatio: 0.6 }, fallbackWeights: { huntAnimal: 40, gatherWood: 35, mineStone: 30, harvestCorpse: 50, socialize: 30, wander: 10 }, mediumPriorityWeights: { drinkMedium: 63, eatMedium: 58 }, goalWeights: { survive_thirst: 1.3, survive_protein: 1.2, survive_plant: 1.2, rest: 1.1 }, strategyRules: [] };
-
-    const genomeFields: [string, (g: any) => string][] = [
-      ['Mutations', g => `${(g?.version ?? 1) - 1}`],
-      ['Rules', g => `${g?.strategyRules?.length ?? 0}`],
-      ['Flee', g => `${g?.interruptWeights?.fleeBase ?? '?'}`],
-      ['Fight', g => `${g?.interruptWeights?.fightBack ?? '?'}`],
-      ['Thirst thr', g => `${g?.thresholds?.criticalThirst ?? '?'}`],
-      ['Hunger thr', g => `${g?.thresholds?.criticalHunger ?? '?'}`],
-      ['Health thr', g => `${g?.thresholds?.criticalHealth ?? '?'}`],
-      ['Stamina thr', g => `${g?.thresholds?.criticalStamina ?? '?'}`],
-      ['Flee panic', g => `${g?.thresholds?.fleeHealthPanic ?? '?'}`],
-      ['Fight ratio', g => `${g?.thresholds?.fightBackMinRatio ?? '?'}`],
-      ['Hunt', g => `${g?.fallbackWeights?.huntAnimal ?? '?'}`],
-      ['Wood', g => `${g?.fallbackWeights?.gatherWood ?? '?'}`],
-      ['Stone', g => `${g?.fallbackWeights?.mineStone ?? '?'}`],
-      ['Corpse', g => `${g?.fallbackWeights?.harvestCorpse ?? '?'}`],
-      ['Social', g => `${g?.fallbackWeights?.socialize ?? '?'}`],
-      ['Wander', g => `${g?.fallbackWeights?.wander ?? '?'}`],
-      ['Drink prio', g => `${g?.mediumPriorityWeights?.drinkMedium ?? '?'}`],
-      ['Eat prio', g => `${g?.mediumPriorityWeights?.eatMedium ?? '?'}`],
-      ['Thirst goal', g => `${g?.goalWeights?.survive_thirst?.toFixed?.(1) ?? '?'}`],
-      ['Protein goal', g => `${g?.goalWeights?.survive_protein?.toFixed?.(1) ?? '?'}`],
-      ['Plant goal', g => `${g?.goalWeights?.survive_plant?.toFixed?.(1) ?? '?'}`],
-      ['Rest goal', g => `${g?.goalWeights?.rest?.toFixed?.(1) ?? '?'}`],
-    ];
-
-    for (const [label, getter] of genomeFields) {
-      this.addText(col0, y, label, '#556655', '9px');
-      agents.forEach((a, i) => {
-        const g = (a as any).genome;
-        const val = getter(g);
-        const defVal = getter(defaultG);
-        let color = '#909890'; // unchanged
-        if (val !== defVal) {
-          const numVal = parseFloat(val);
-          const numDef = parseFloat(defVal);
-          if (!isNaN(numVal) && !isNaN(numDef)) {
-            color = numVal > numDef ? '#44cc44' : '#cc8844'; // green up, orange down
-          } else {
-            color = '#ccaa44'; // changed but non-numeric
-          }
-        }
-        this.addText(colStart + i * colW, y, val, color, '9px');
-      });
-      y += 13;
-    }
-
-    // ─── End-Game Stats ───
-    y += 12;
-    this.addText(col0, y, 'FINAL STATS', '#80c080', '10px'); y += 16;
-
-    const statFields: [string, (a: AgentResult) => string, (a: AgentResult) => string][] = [
-      ['Score', a => `${a.effectiveness}`, a => a.rank === 1 ? '#ffd700' : '#c8d0c8'],
-      ['Level', a => `${a.totalSkillLevels}`, _ => '#909890'],
-      ['Deaths', a => `${a.totalDeaths}`, a => a.totalDeaths > 5 ? '#cc6644' : '#909890'],
-      ['Lives', a => `${a.livesRemaining}`, a => a.livesRemaining > 50 ? '#44cc44' : '#cccc44'],
-      ['Best life', a => { const s = Math.floor(a.bestLifeTicks / 10); return `${Math.floor(s/60)}m${s%60}s`; }, _ => '#909890'],
-      ['AI', a => a.aiRole === 'none' ? 'DT' : a.aiRole, a => a.aiProvider ? '#80c080' : '#888888'],
-    ];
-
-    for (const [label, getter, colorFn] of statFields) {
-      this.addText(col0, y, label, '#556655', '9px');
-      agents.forEach((a, i) => {
-        this.addText(colStart + i * colW, y, getter(a), colorFn(a), '9px');
-      });
-      y += 13;
-    }
-
-    // ─── Best Genome Detail ───
-    y += 16;
-    if (!genome) {
-      this.addText(40, y, 'No genome data.', '#888888', '12px');
-      return;
-    }
-
-    const winner = agents[0];
-    this.addText(40, y, `WINNER: ${winner?.name ?? '?'}`, '#ffd700', '12px'); y += 22;
-
-    // Strategy rules (full detail)
-    if (genome.strategyRules?.length > 0) {
-      this.addText(40, y, `LEARNED RULES (${genome.strategyRules.length})`, '#80c080', '11px'); y += 18;
-      for (const rule of genome.strategyRules) {
-        const icon = rule.enabled ? '\u2705' : '\u274C';
-        this.addText(50, y, `${icon} ${rule.name}`, '#ccaa44', '10px');
-        this.addText(400, y, `pri:${rule.priority}`, '#888888', '9px');
-        y += 14;
-        this.addText(70, y, `Source: ${rule.source ?? 'unknown'}`, '#777766', '9px'); y += 14;
-        // Show condition type
-        if (rule.condition) {
-          const condStr = rule.condition.type + (rule.condition.field ? ` ${rule.condition.field}` : '') + (rule.condition.value !== undefined ? ` ${rule.condition.value}` : '');
-          this.addText(70, y, `If: ${condStr}`, '#667766', '9px'); y += 14;
-        }
-        if (rule.effect) {
-          const effStr = rule.effect.type + (rule.effect.action ? ` ${rule.effect.action}` : '') + (rule.effect.amount !== undefined ? ` ${rule.effect.amount}` : '');
-          this.addText(70, y, `Then: ${effStr}`, '#667766', '9px'); y += 14;
-        }
-        y += 4;
+      let eventY = scrollAreaY;
+      for (const e of allEvents) {
+        const secs = Math.floor(e.tick / 10);
+        const mins = Math.floor(secs / 60);
+        const t1 = this.add.text(50, eventY, `${mins}m${secs % 60}s`, {
+          fontFamily: PIXEL_FONT, fontSize: '8px', color: '#555555',
+        });
+        const t2 = this.add.text(110, eventY, e.name, {
+          fontFamily: PIXEL_FONT, fontSize: '8px', color: '#aaaaaa',
+        });
+        const t3 = this.add.text(190, eventY, e.event, {
+          fontFamily: PIXEL_FONT, fontSize: '8px', color: '#888888',
+        });
+        this.scrollContainer.add([t1, t2, t3]);
+        eventY += 13;
       }
+
+      // Calculate scroll bounds
+      const contentHeight = eventY - scrollAreaY;
+      this.scrollMaxY = Math.max(0, contentHeight - scrollAreaH);
+      this.scrollY = 0;
+
+      // Handle wheel events for scrolling
+      this.input.on('wheel', (_pointer: Phaser.Input.Pointer, _gameObjects: any[], _deltaX: number, deltaY: number) => {
+        if (!this.scrollContainer) return;
+        this.scrollY = Phaser.Math.Clamp(this.scrollY + deltaY * 0.5, 0, this.scrollMaxY);
+        this.scrollContainer.y = -this.scrollY;
+      });
+
+      // Border around scroll area
+      const border = this.add.graphics();
+      border.lineStyle(1, 0x334433, 0.5);
+      border.strokeRect(scrollAreaX, scrollAreaY, scrollAreaW, scrollAreaH);
+      this.contentContainer.add(border);
     } else {
-      this.addText(40, y, 'No learned strategy rules.', '#888888', '11px'); y += 18;
+      this.addText(40, y, 'No events recorded.', '#888888', '11px');
     }
-
-    // Mutation history (lineage)
-    if (genome.lineage?.length > 0) {
-      y += 8;
-      this.addText(40, y, `MUTATION HISTORY (${genome.lineage.length} total)`, '#80c080', '11px'); y += 18;
-      for (const entry of genome.lineage.slice(-12)) {
-        this.addText(50, y, entry, '#888888', '9px'); y += 13;
-      }
-      if (genome.lineage.length > 12) {
-        this.addText(50, y, `... +${genome.lineage.length - 12} earlier mutations`, '#666666', '9px'); y += 13;
-      }
-    }
-
-    // Export
-    y += 16;
-    this.createButton(120, y, 'Copy JSON', () => {
-      navigator.clipboard.writeText(JSON.stringify(genome, null, 2));
-    });
-    this.createButton(320, y, 'Download', () => {
-      const blob = new Blob([JSON.stringify(genome, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = 'best-genome.json'; a.click();
-      URL.revokeObjectURL(url);
-    });
   }
 
   private renderComparisonTab(startY: number, _width: number): void {

@@ -248,6 +248,26 @@ export class GameLoop {
       this.events.onSocialInteraction(interaction);
     }
 
+    // Emit world events for taming and alliance interactions
+    for (const interaction of allInteractions) {
+      if (interaction.type === 'tamed') {
+        const agent = this.agents.find(a => a.id === interaction.agentA);
+        if (agent) {
+          this.events.onWorldEvent({ type: 'tamed', message: `${agent.name} tamed a ${interaction.details?.species}`, x: agent.x, y: agent.y });
+          this.trackAgentEvent(agent.id, `\uD83D\uDC3E tamed ${interaction.details?.species}`);
+        }
+      }
+      if (interaction.type === 'alliance') {
+        const a = this.agents.find(a => a.id === interaction.agentA);
+        const b = this.agents.find(a => a.id === interaction.agentB);
+        if (a && b) {
+          this.events.onWorldEvent({ type: 'alliance', message: `${a.name} and ${b.name} formed an alliance`, x: a.x, y: a.y });
+          this.trackAgentEvent(a.id, `\uD83E\uDD1D allied with ${b.name}`);
+          this.trackAgentEvent(b.id, `\uD83E\uDD1D allied with ${a.name}`);
+        }
+      }
+    }
+
     // Process agent respawn queue
     for (let i = this.respawnQueue.length - 1; i >= 0; i--) {
       if (this.tickCount >= this.respawnQueue[i].respawnTick) {
