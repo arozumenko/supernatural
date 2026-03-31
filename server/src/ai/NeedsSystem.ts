@@ -705,14 +705,17 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
       // Non-allied agents only get help against animals (existing behavior)
       if (!isAllied && ally.lastAttackedBy.type !== 'animal') continue;
 
+      // Alliance defense priority: near fight-back level (90) — allies protect each other until death
+      const allyDefensePriority = isAllied ? 90 : genome.interruptWeights.groupDefense;
+
       if (ally.lastAttackedBy.type === 'animal') {
         const attacker = world.animals.find(a => a.id === ally.lastAttackedBy!.id && a.alive);
         if (!attacker) continue;
         const distToAttacker = distance(agent.x, agent.y, attacker.x, attacker.y);
-        if (distToAttacker < 15) {
+        if (distToAttacker < 20) {
           decisions.push({
             action: 'harvesting',
-            priority: isAllied ? genome.interruptWeights.groupDefense + 5 : genome.interruptWeights.groupDefense,
+            priority: allyDefensePriority,
             target: { x: Math.floor(attacker.x), y: Math.floor(attacker.y) },
             targetAnimalId: attacker.id,
             reason: `defending ${isAllied ? 'ally' : ''} ${ally.name}`
@@ -724,10 +727,10 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
         const attackerAgent = allAgents.find(a => a.id === ally.lastAttackedBy!.id && a.alive);
         if (!attackerAgent) continue;
         const distToAttacker = distance(agent.x, agent.y, attackerAgent.x, attackerAgent.y);
-        if (distToAttacker < 15) {
+        if (distToAttacker < 20) {
           decisions.push({
             action: 'harvesting',
-            priority: genome.interruptWeights.groupDefense + 5,
+            priority: allyDefensePriority,
             target: { x: Math.floor(attackerAgent.x), y: Math.floor(attackerAgent.y) },
             targetAgentId: attackerAgent.id,
             reason: `defending ally ${ally.name}`
@@ -850,7 +853,7 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
 
   if (agent.needs.stamina < genome.thresholds.criticalStamina) {
     // Check for stamina herb — only if close enough (walking drains more stamina)
-    const herb = world.findNearestPlant(ax, ay, [PlantType.STAMINA_HERB], 5);
+    const herb = world.findNearestPlant(ax, ay, [PlantType.STAMINA_HERB], 15);
     if (herb) {
       decisions.push({
         action: 'harvesting',
@@ -1080,7 +1083,7 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
   const totalFood = agent.resources.food + agent.resources.meat;
   const foodTarget = genome.thresholds.foodTarget ?? 6;
   if (totalFood < foodTarget) {
-    const berryBush = world.findNearestPlant(ax, ay, [PlantType.BERRY_BUSH, PlantType.EDIBLE_FLOWER], 20);
+    const berryBush = world.findNearestPlant(ax, ay, [PlantType.BERRY_BUSH, PlantType.EDIBLE_FLOWER]);
     if (berryBush) {
       const urgentPriority = genome.thresholds.stockpileUrgent ?? 50;
       const stockPriority = totalFood === 0 ? urgentPriority : totalFood < foodTarget / 2 ? urgentPriority - 10 : urgentPriority - 20;
@@ -1327,6 +1330,38 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
         targetAnimalId: bestTameTarget.animal.id,
         reason: `taming ${bestTameTarget.species.name} (${tamedCount}/5)`
       });
+    }
+  }
+
+  // --- Follow alliance leader ---
+  // Allied agents walk together. Leader = highest total skill levels (ties: highest effectiveness/score).
+  // Non-leaders follow the leader with moderate priority (above wander, below survival).
+  const myAlliance = agent.allies ?? [];
+  if (myAlliance.length > 0) {
+    // Gather all living alliance members including self
+    const allianceGroup = [agent, ...allAgents.filter(a => a.alive && myAlliance.includes(a.id))];
+    // Determine leader: highest total skill levels, then most lives remaining as tiebreaker
+    let leader = allianceGroup[0];
+    for (const member of allianceGroup) {
+      const memberLevels = Object.values(member.skills).reduce((sum, s) => sum + s.level, 0);
+      const leaderLevels = Object.values(leader.skills).reduce((sum, s) => sum + s.level, 0);
+      if (memberLevels > leaderLevels || (memberLevels === leaderLevels && (member.livesRemaining ?? 0) > (leader.livesRemaining ?? 0))) {
+        leader = member;
+      }
+    }
+    // Non-leaders follow the leader
+    if (leader.id !== agent.id) {
+      const leaderDist = distance(agent.x, agent.y, leader.x, leader.y);
+      if (leaderDist > 3) {
+        // Follow with priority scaling by distance — farther = more urgent
+        const followPriority = Math.min(45, 25 + leaderDist * 1.5);
+        decisions.push({
+          action: 'moving_to',
+          priority: followPriority,
+          target: { x: Math.floor(leader.x), y: Math.floor(leader.y) },
+          reason: `following ally ${leader.name}`
+        });
+      }
     }
   }
 

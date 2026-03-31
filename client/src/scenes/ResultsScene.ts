@@ -169,10 +169,10 @@ export class ResultsScene extends Phaser.Scene {
 
     // Header
     this.addText(40, y, 'Tier', '#556655', '10px');
-    this.addText(200, y, 'Species', '#556655', '10px');
-    this.addText(340, y, 'Lv', '#556655', '10px');
-    this.addText(400, y, 'Alive', '#556655', '10px');
-    this.addText(520, y, 'Score', '#556655', '10px');
+    this.addText(260, y, 'Species', '#556655', '10px');
+    this.addText(420, y, 'Lv', '#556655', '10px');
+    this.addText(490, y, 'Alive', '#556655', '10px');
+    this.addText(620, y, 'Score', '#556655', '10px');
     y += 18;
 
     for (const [tierName, emoji, animal] of tiers) {
@@ -180,12 +180,12 @@ export class ResultsScene extends Phaser.Scene {
       if (animal) {
         const secs = Math.floor(animal.ticksAlive / 10);
         const mins = Math.floor(secs / 60);
-        this.addText(200, y, animal.species, '#c8d0c8', '11px');
-        this.addText(340, y, `${animal.skillLevels}`, '#909890', '11px');
-        this.addText(400, y, `${mins}m${secs % 60}s`, '#909890', '11px');
-        this.addText(520, y, `${animal.effectiveness}`, '#ccaa44', '11px');
+        this.addText(260, y, animal.species, '#c8d0c8', '11px');
+        this.addText(420, y, `${animal.skillLevels}`, '#909890', '11px');
+        this.addText(490, y, `${mins}m${secs % 60}s`, '#909890', '11px');
+        this.addText(620, y, `${animal.effectiveness}`, '#ccaa44', '11px');
       } else {
-        this.addText(200, y, '---', '#666666', '11px');
+        this.addText(260, y, '---', '#666666', '11px');
       }
       y += 20;
     }

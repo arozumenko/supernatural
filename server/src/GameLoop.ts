@@ -225,19 +225,46 @@ export class GameLoop {
         continue;
       }
 
-      // Decide and execute (staggered: full re-decision every 3 ticks per agent)
+      // Decide and execute (staggered re-evaluation + periodic target validation)
       const aliveAgents = this.agents.filter(a => a.alive);
       const agentIndex = aliveAgents.indexOf(agent);
       const shouldRedecide = (this.tickCount + agentIndex) % 2 === 0;
 
+      // Target re-evaluation: every 10 ticks (1 sec), validate current target is still reachable/alive
+      // If target is invalid, force a full re-decision regardless of stagger
+      let targetInvalid = false;
+      if (this.tickCount % 10 === 0 && agent.actionTarget) {
+        const tx = agent.actionTarget.x;
+        const ty = agent.actionTarget.y;
+        const distToTarget = Math.abs(agent.x - tx) + Math.abs(agent.y - ty);
+
+        if (agent.action === 'harvesting') {
+          // Check if harvest target still exists (tree/rock/plant/animal/corpse)
+          const lastDecision = (agent as any)._lastDecision;
+          if (lastDecision?.targetAnimalId) {
+            const prey = this.world.animals.find(a => a.id === lastDecision.targetAnimalId);
+            if (!prey || !prey.alive) targetInvalid = true;
+          }
+          if (lastDecision?.targetCorpseId) {
+            const corpse = this.world.corpses.find(c => c.id === lastDecision.targetCorpseId);
+            if (!corpse) targetInvalid = true;
+          }
+          // If target is very far and agent hasn't moved much, re-evaluate for closer options
+          if (distToTarget > 30) targetInvalid = true;
+        }
+        if (agent.action === 'moving_to' && distToTarget > 50) targetInvalid = true;
+      }
+
       let decision: ReturnType<typeof decideAction>;
-      if (shouldRedecide || agent.action === 'idle' || agent.action === 'wandering') {
+      if (shouldRedecide || targetInvalid || agent.action === 'idle' || agent.action === 'wandering') {
         // Full re-evaluation
         decision = decideAction(agent, this.world, aliveAgents, this.tickCount, agentIndex);
       } else {
         // Continue current action — only interrupt for critical survival
         decision = decideAction(agent, this.world, aliveAgents, this.tickCount, agentIndex, true);
       }
+      // Store decision for target validation next cycle
+      (agent as any)._lastDecision = decision;
       const result = executeAction(agent, decision, this.world, aliveAgents);
       allTileChanges.push(...result.tileChanges);
       allInteractions.push(...result.interactions);

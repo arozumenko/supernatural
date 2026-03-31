@@ -804,7 +804,7 @@ export class World {
   }
 
   /** Find nearest tree entity from a position. */
-  findNearestTree(fromX: number, fromY: number, maxDist: number = 20): TreeState | null {
+  findNearestTree(fromX: number, fromY: number, maxDist: number = 40): TreeState | null {
     let best: TreeState | null = null;
     let bestDist = Infinity;
 
@@ -948,7 +948,7 @@ export class World {
   }
 
   /** Find nearest rock entity from a position. */
-  findNearestRock(fromX: number, fromY: number, maxDist: number = 20): RockState | null {
+  findNearestRock(fromX: number, fromY: number, maxDist: number = 40): RockState | null {
     let best: RockState | null = null;
     let bestDist = Infinity;
 
@@ -1073,7 +1073,7 @@ export class World {
   }
 
   /** Find nearest plant of given types. */
-  findNearestPlant(fromX: number, fromY: number, types: PlantType[], maxDist: number = 20): PlantState | null {
+  findNearestPlant(fromX: number, fromY: number, types: PlantType[], maxDist: number = 40): PlantState | null {
     let best: PlantState | null = null;
     let bestDist = Infinity;
 
