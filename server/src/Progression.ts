@@ -1,4 +1,4 @@
-import type { SkillSet, SkillName, BaseStats, AnimalSpecies, Inventory, AnimalState, AgentState } from '../shared/src/index.ts';
+import type { SkillSet, SkillName, BaseStats, AnimalSpecies, Inventory, AnimalState, AgentState, Resources } from '../shared/src/index.ts';
 import { clamp, randomInt } from '../shared/src/index.ts';
 import { getItemDef } from './ItemDefinitions.ts';
 
@@ -248,7 +248,14 @@ export function canIdentifyPoison(skills: SkillSet): boolean {
 
 // ─── Weight & Carry Capacity ───
 
-export function getCarryWeight(inventory: Inventory): number {
+const RESOURCE_WEIGHTS: Record<string, number> = {
+  wood: 0.5, stone: 0.8, food: 0.2, water: 0.3, meat: 0.3,
+  bone: 0.2, hide: 0.3, sinew: 0.1, fat: 0.2, feathers: 0.05,
+  teeth_claws: 0.1, scales: 0.15, iron_ore: 1.0, iron_ingot: 1.2,
+  treeSeed: 0.05, plantSeed: 0.05,
+};
+
+export function getCarryWeight(inventory: Inventory, resources?: Resources): number {
   let total = 0;
   for (const item of inventory.items) {
     const def = getItemDef(item.itemId);
@@ -262,7 +269,13 @@ export function getCarryWeight(inventory: Inventory): number {
       total += def.weight * eq.quantity;
     }
   }
-  return total;
+  // Resources weight
+  if (resources) {
+    for (const [res, amount] of Object.entries(resources)) {
+      total += (RESOURCE_WEIGHTS[res] ?? 0.1) * (amount as number);
+    }
+  }
+  return Math.floor(total);
 }
 
 export function getCarryCapacity(baseStats: BaseStats, skills: SkillSet, inventory: Inventory): number {
@@ -300,13 +313,13 @@ export function getUnifiedDamageReduction(
 export function getUnifiedSpeed(
   baseStats: BaseStats, skills: SkillSet,
   baseSpeed: number, stamina: number,
-  inventory?: Inventory
+  inventory?: Inventory, resources?: Resources
 ): number {
   const athleticsBonus = skills.athletics.level * 0.005;
   const staminaFactor = 0.5 + stamina / 200; // stamina 0→0.5x, stamina 100→1.0x
   let weightPenalty = 1.0;
   if (inventory) {
-    const weight = getCarryWeight(inventory);
+    const weight = getCarryWeight(inventory, resources);
     const capacity = getCarryCapacity(baseStats, skills, inventory);
     if (weight > capacity) return 0; // overloaded
     const weightRatio = Math.min(1, weight / Math.max(1, capacity));
@@ -339,6 +352,6 @@ export function getAgentSpeed(agent: AgentState): number {
   return getUnifiedSpeed(
     agent.baseStats, agent.skills,
     0.3, agent.needs.stamina,
-    agent.inventory
+    agent.inventory, agent.resources
   );
 }

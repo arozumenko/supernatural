@@ -210,8 +210,26 @@ export class GameLoop {
       }
 
       // Update carry weight/capacity for client display
-      agent.carryWeight = getCarryWeight(agent.inventory);
+      agent.carryWeight = getCarryWeight(agent.inventory, agent.resources);
       agent.carryCapacity = getCarryCapacity(agent.baseStats, agent.skills, agent.inventory);
+
+      // Auto-drop excess resources when overloaded (drop heaviest low-priority resources first)
+      if (agent.carryWeight > agent.carryCapacity) {
+        const dropOrder: (keyof typeof agent.resources)[] = [
+          'stone', 'wood', 'iron_ore', 'iron_ingot', 'bone', 'scales',
+          'hide', 'fat', 'teeth_claws', 'sinew', 'feathers',
+        ];
+        for (const res of dropOrder) {
+          if (agent.carryWeight <= agent.carryCapacity) break;
+          const amount = agent.resources[res];
+          if (amount > 0) {
+            // Drop half of this resource (keep some)
+            const dropAmt = Math.ceil(amount / 2);
+            (agent.resources as any)[res] -= dropAmt;
+            agent.carryWeight = getCarryWeight(agent.inventory, agent.resources);
+          }
+        }
+      }
 
       // Track life ticks and journal metrics
       agent.currentLifeTicks = (agent.currentLifeTicks ?? 0) + 1;
