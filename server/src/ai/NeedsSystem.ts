@@ -1741,7 +1741,7 @@ export function executeAction(
             const harvestAmount = (5 + agent.skills.woodcutting.level / 10) * (1 + woodSpeedBonus) * (1 + toolWoodBonus);
             const result = world.harvestTree(decision.targetTreeId, harvestAmount);
             if (result) {
-              agent.resources.wood += result.harvested;
+              agent.resources.wood += Math.floor(result.harvested);
               // Bonus yield chance
               if (Math.random() < agent.skills.woodcutting.level * 0.005) {
                 agent.resources.wood += 1;
@@ -1782,7 +1782,7 @@ export function executeAction(
             const harvestAmount = (5 + agent.skills.mining.level / 10) * (1 + stoneSpeedBonus) * (1 + toolMineBonus);
             const result = world.harvestRock(decision.targetRockId, harvestAmount);
             if (result) {
-              agent.resources.stone += result.harvested;
+              agent.resources.stone += Math.floor(result.harvested);
               // Bonus yield chance
               if (Math.random() < agent.skills.mining.level * 0.005) {
                 agent.resources.stone += 1;
@@ -1812,7 +1812,7 @@ export function executeAction(
                   const harvestAmt = (5 + agent.skills.foraging.level / 10) * (1 + plantSpeedBonus) * (1 + toolHarvestBonus);
                   const result = world.harvestPlant(plant.id, harvestAmt);
                   if (result) {
-                    agent.resources.food += result.harvested;
+                    agent.resources.food += Math.floor(result.harvested);
                     agent.needs.plantHunger = clamp(agent.needs.plantHunger + 5, 0, 100);
                     awardXP(agent.skills, 'foraging', 0.8, 0.8); // berry bush: common
                     if (result.seedDrop) {

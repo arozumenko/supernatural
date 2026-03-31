@@ -418,7 +418,7 @@ export const GOAP_ACTIONS: GOAPAction[] = [
     cost: () => 12,
     estimatedTicks: 15,
     agentAction: 'building',
-    isValid: (s) => s.wood >= 8 && s.stone >= 4 && s.buildingLevel >= 10,
+    isValid: (s) => s.wood >= 8 && s.stone >= 4 && s.buildingLevel >= 5,
   },
   {
     id: 'build_wall',

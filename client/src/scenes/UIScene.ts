@@ -75,6 +75,7 @@ export class UIScene extends Phaser.Scene {
     dot: Phaser.GameObjects.Graphics;
   }[] = [];
   private sidebarAnimalTexts: Phaser.GameObjects.Text[] = [];
+  private speciesCountText: Phaser.GameObjects.Text | null = null;
   private sidebarBuilt = false;
   private sidebarAgentCount = 0;
 
@@ -365,6 +366,7 @@ export class UIScene extends Phaser.Scene {
       this.sidebarBuilt = false;
       this.sidebarAgentRows = [];
       this.sidebarAnimalTexts = [];
+      this.speciesCountText = null;
       this.sidebarContainer.removeAll(true);
       this.sidebarAgentCount = agents.length;
       this.buildSidebarStructure(agents, animals);
@@ -512,6 +514,25 @@ export class UIScene extends Phaser.Scene {
         this.sidebarAnimalTexts.push(t);
         y += 14;
       }
+
+      // Species count table
+      y += 2;
+      const divS = this.add.graphics();
+      divS.lineStyle(1, 0x334433, 0.3);
+      divS.lineBetween(10, y, SIDEBAR_W - 10, y);
+      this.sidebarContainer.add(divS);
+      y += 4;
+      const speciesLabel = this.add.text(12, y, 'SPECIES', {
+        fontFamily: PIXEL_FONT, fontSize: '9px', color: '#667766',
+      });
+      this.sidebarContainer.add(speciesLabel);
+      y += 12;
+      // Create text for species counts (filled by updateSidebarValues)
+      this.speciesCountText = this.add.text(12, y, '', {
+        fontFamily: PIXEL_FONT, fontSize: '9px', color: '#909890', lineSpacing: 2,
+      });
+      this.sidebarContainer.add(this.speciesCountText);
+      y += 60; // reserve space
     }
 
     this.sidebarContentHeight = y;
@@ -642,6 +663,22 @@ export class UIScene extends Phaser.Scene {
           const lvl = Object.values(best.skills).reduce((sum: number, s: any) => sum + (s.level || 0), 0);
           this.sidebarAnimalTexts[ti].setText(`${emoji} ${best.species} Lv${lvl} ${timeStr}`);
         }
+      }
+
+      // Update species count table
+      if (this.speciesCountText) {
+        const counts: Record<string, number> = {};
+        for (const a of animals) {
+          if (!(a as any).alive) continue;
+          counts[(a as any).species] = (counts[(a as any).species] || 0) + 1;
+        }
+        const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+        const rows: string[] = [];
+        for (let i = 0; i < entries.length; i += 3) {
+          const chunk = entries.slice(i, i + 3);
+          rows.push(chunk.map(([s, c]) => `${s}:${c}`).join('  '));
+        }
+        this.speciesCountText.setText(rows.join('\n'));
       }
     }
   }
@@ -850,7 +887,7 @@ export class UIScene extends Phaser.Scene {
     if (nonZeroRes.length > 0) {
       // Show in compact rows of 3
       for (let i = 0; i < nonZeroRes.length; i += 3) {
-        const row = nonZeroRes.slice(i, i + 3).map(([n, v]) => `${n}:${v}`).join('  ');
+        const row = nonZeroRes.slice(i, i + 3).map(([n, v]) => `${n}:${Math.floor(v as number)}`).join('  ');
         addLine(row, '#b0a890', '12px');
       }
     } else {
