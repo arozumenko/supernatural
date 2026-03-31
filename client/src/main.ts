@@ -30,10 +30,31 @@ document.fonts.load('16px "Press Start 2P"').then(() => {
 
   const game = new Phaser.Game(config);
 
-  // Handle resize
-  window.addEventListener('resize', () => {
-    game.scale.resize(window.innerWidth, window.innerHeight);
-  });
+  // Handle resize — covers manual drag, macOS green expand button, and fullscreen toggle
+  let resizeTimer: number | null = null;
+  const handleResize = () => {
+    if (resizeTimer) cancelAnimationFrame(resizeTimer);
+    resizeTimer = requestAnimationFrame(() => {
+      game.scale.resize(window.innerWidth, window.innerHeight);
+      resizeTimer = null;
+    });
+  };
+  window.addEventListener('resize', handleResize);
+  // macOS expand button triggers fullscreenchange, not always resize
+  document.addEventListener('fullscreenchange', () => setTimeout(handleResize, 100));
+  document.addEventListener('webkitfullscreenchange', () => setTimeout(handleResize, 100));
+  // Also catch delayed layout shifts (e.g. moving between displays with different DPI)
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', handleResize);
+  }
+  // Fallback: poll once after a short delay to catch any missed resize
+  setInterval(() => {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    if (game.scale.width !== w || game.scale.height !== h) {
+      game.scale.resize(w, h);
+    }
+  }, 2000);
 
   console.log(`
 ╔══════════════════════════════════════╗
