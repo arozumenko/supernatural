@@ -778,16 +778,21 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
   const effectiveHunger = Math.min(agent.needs.proteinHunger, agent.needs.plantHunger);
   const proteinCritical = agent.needs.proteinHunger < genome.thresholds.criticalHunger;
   const plantCritical = agent.needs.plantHunger < genome.thresholds.criticalHunger;
+  // Priority hierarchy: drink(95) > eat from inventory(92) > hunt/forage(88) > search(83)
+  // Eating from inventory is instant and most efficient — always prefer it
+  const eatPrio = genome.interruptWeights.criticalHunger + 2; // 92
+  const foragePrio = genome.interruptWeights.criticalHunger - 2; // 88
+  const searchPrio = genome.interruptWeights.criticalHunger - 7; // 83
 
   // --- Critical PROTEIN hunger: eat meat or hunt ---
   if (proteinCritical) {
     if (agent.resources.meat > 0) {
-      decisions.push({ action: 'eating', priority: genome.interruptWeights.criticalHunger, reason: 'eating meat (starving)' });
+      decisions.push({ action: 'eating', priority: eatPrio, reason: 'eating meat (starving)' });
     } else {
       // No meat — hunt is the only way to get protein (pushed below in hunt section with starvation boost)
       // Also try eating plant food as partial stopgap (gives 20% protein via omnivore cross-restore)
       if (agent.resources.food > 0) {
-        decisions.push({ action: 'eating', priority: genome.interruptWeights.criticalHunger - 5, reason: 'eating food (need protein)' });
+        decisions.push({ action: 'eating', priority: eatPrio - 3, reason: 'eating food (need protein)' });
       }
     }
   }
@@ -795,10 +800,10 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
   // --- Critical PLANT hunger: eat food or forage ---
   if (plantCritical) {
     if (agent.resources.food > 0) {
-      decisions.push({ action: 'eating', priority: genome.interruptWeights.criticalHunger, reason: 'eating food (starving)' });
+      decisions.push({ action: 'eating', priority: eatPrio, reason: 'eating food (starving)' });
     } else if (agent.resources.meat > 0) {
       // Meat gives 20% plant hunger as omnivore stopgap
-      decisions.push({ action: 'eating', priority: genome.interruptWeights.criticalHunger - 5, reason: 'eating meat (need plants)' });
+      decisions.push({ action: 'eating', priority: eatPrio - 3, reason: 'eating meat (need plants)' });
     } else {
       // No food — forage for plants
       const foodTypes: PlantType[] = [PlantType.BERRY_BUSH, PlantType.MUSHROOM, PlantType.HUNGER_HERB, PlantType.EDIBLE_FLOWER];
@@ -809,18 +814,16 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
       if (foodPlant) {
         decisions.push({
           action: 'harvesting',
-          priority: genome.interruptWeights.criticalHunger,
+          priority: foragePrio,
           target: { x: foodPlant.x, y: foodPlant.y },
           targetPlantId: foodPlant.id,
           reason: 'foraging for food (starving)'
         });
       } else {
-        const searchX = ax + (Math.random() > 0.5 ? 15 : -15);
-        const searchY = ay + (Math.random() > 0.5 ? 15 : -15);
         decisions.push({
           action: 'wandering',
-          priority: genome.interruptWeights.criticalHunger - 5,
-          target: { x: searchX, y: searchY },
+          priority: searchPrio,
+          target: { x: ax + (Math.random() > 0.5 ? 15 : -15), y: ay + (Math.random() > 0.5 ? 15 : -15) },
           reason: 'searching for food (desperate)'
         });
       }
