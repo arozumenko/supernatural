@@ -620,7 +620,8 @@ export class UIScene extends Phaser.Scene {
       const name = agent.name.length > 6 ? agent.name.slice(0, 5) + '.' : agent.name;
 
       row.agentId = agent.id;
-      const archEmoji = AGENT_ARCHETYPES[(agent.archetype ?? 'random') as AgentArchetype]?.label ?? '\uD83C\uDFB2';
+      const archEmoji = (agent as any).archetypeEmoji
+        ?? AGENT_ARCHETYPES[(agent.archetype ?? 'random') as AgentArchetype]?.label ?? '\uD83C\uDFB2';
       row.archText.setText(archEmoji);
       row.nameText.setText(name);
       row.nameText.setColor(alive ? '#cccccc' : '#666666');
@@ -797,7 +798,8 @@ export class UIScene extends Phaser.Scene {
     {
       const lives = agent.livesRemaining ?? 100;
       const livesColor = lives > 50 ? '#44cc44' : lives > 20 ? '#cccc44' : '#cc4444';
-      const archEmoji = AGENT_ARCHETYPES[(agent.archetype ?? 'random') as AgentArchetype]?.label ?? '';
+      const archEmoji = (agent as any).archetypeEmoji
+        ?? AGENT_ARCHETYPES[(agent.archetype ?? 'random') as AgentArchetype]?.label ?? '';
       const nameT = this.add.text(14, y, `${archEmoji} ${agent.name}`, {
         fontFamily: PIXEL_FONT, fontSize: '14px', color: '#80d880',
       });

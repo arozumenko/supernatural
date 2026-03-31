@@ -101,6 +101,7 @@ export class GameLoop {
           (agent as any).currentGenome = structuredClone(entry.genome);
           agent.genomeVersion = entry.genome.version;
           agent.archetype = entry.archetype as any;
+          agent.archetypeEmoji = entry.emoji;
           // Apply genome's base stats
           if (entry.stats && Object.keys(entry.stats).length > 0) {
             for (const [stat, val] of Object.entries(entry.stats)) {

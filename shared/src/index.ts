@@ -378,6 +378,7 @@ export interface AgentState {
   llmProviderId?: string | null;
   llmRole?: OrchestratorRole;
   archetype?: AgentArchetype;
+  archetypeEmoji?: string;  // custom emoji from genome file
   lastDecisionReason?: string;
   allies?: string[];  // agent IDs of allied agents (max 3, mutual)
 }

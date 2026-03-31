@@ -2224,6 +2224,18 @@ export function executeAction(
           if (((agent.resources as any)[mat] || 0) < qty) return false;
         }
 
+        // Don't craft non-stackable items agent already owns (no duplicate tools)
+        if (recipe.produces.type === 'item' && recipe.produces.itemId) {
+          const def = getItemDef(recipe.produces.itemId);
+          if (!def.stackable) {
+            const already = agent.inventory.items.some(i => i.itemId === recipe.produces.itemId);
+            const equipped = agent.inventory.equipped.mainHand?.itemId === recipe.produces.itemId
+              || agent.inventory.equipped.body?.itemId === recipe.produces.itemId
+              || agent.inventory.equipped.accessory?.itemId === recipe.produces.itemId;
+            if (already || equipped) return false;
+          }
+        }
+
         return true;
       });
 
