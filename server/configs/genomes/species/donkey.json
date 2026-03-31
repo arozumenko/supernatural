@@ -1,0 +1,92 @@
+{
+  "creatureType": "animal",
+  "species": "donkey",
+  "diet": "herbivore",
+  "size": "medium",
+  "version": 1,
+  "generation": 0,
+  "lineage": [
+    "species: donkey"
+  ],
+  "interruptWeights": {
+    "criticalThirst": 95,
+    "fightBack": 88,
+    "criticalHunger": 90,
+    "lowHealth": 85,
+    "staminaHerb": 75,
+    "exhaustionRest": 78,
+    "groupDefense": 72,
+    "fleeBase": 75
+  },
+  "mediumPriorityWeights": {
+    "drinkMedium": 65,
+    "eatMedium": 58,
+    "forageMedium": 55
+  },
+  "thresholds": {
+    "criticalThirst": 20,
+    "criticalHunger": 20,
+    "criticalStamina": 15,
+    "criticalHealth": 30,
+    "moderateHealth": 60,
+    "fleeHealthPanic": 0.3,
+    "fightBackMinRatio": 0.7,
+    "groupDefenseRange": 6,
+    "meatMinimum": 0,
+    "woodMinimum": 0,
+    "stoneMinimum": 0,
+    "ironOreMinimum": 0,
+    "foodTarget": 0,
+    "woodTarget": 0,
+    "stoneTarget": 0,
+    "stockpileUrgent": 0,
+    "plantHungerTrigger": 50,
+    "woodToKeepBeforePlanting": 0,
+    "threatDetectBase": 4,
+    "huntDetectRange": 8,
+    "socialDetectRange": 6,
+    "corpseDetectRange": 8,
+    "ironDetectRange": 0
+  },
+  "goalWeights": {
+    "survive_thirst": 1.5,
+    "survive_protein": 0.1,
+    "survive_plant": 1.3,
+    "rest": 1,
+    "get_shelter": 0.1,
+    "get_equipped": 0.1,
+    "socialize": 0.1,
+    "stockpile_wood": 0.1,
+    "stockpile_stone": 0.1,
+    "cook_food": 0.1
+  },
+  "actionCostMods": {},
+  "goalThresholds": {
+    "thirstRelevant": 50,
+    "proteinRelevant": 50,
+    "plantRelevant": 50,
+    "staminaRelevant": 30,
+    "shelterRelevant": 20,
+    "socialRelevant": 20,
+    "woodTarget": 20,
+    "stoneTarget": 20
+  },
+  "fallbackWeights": {
+    "drinkMedium": 60,
+    "eatMedium": 55,
+    "harvestCorpse": 28,
+    "gatherWood": 5,
+    "mineStone": 5,
+    "huntAnimal": 42,
+    "socialize": 5,
+    "mineIron": 5,
+    "craft": 5,
+    "tameAnimal": 5,
+    "plantSeeds": 5,
+    "wander": 12
+  },
+  "strategyRules": [],
+  "createdAt": 0,
+  "mutatedAt": 0,
+  "fitnessScore": 50
+}

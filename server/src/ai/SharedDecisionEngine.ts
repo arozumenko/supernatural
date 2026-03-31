@@ -145,14 +145,6 @@ export function evaluateSurvivalNeeds(
 
 // ─── Threat Evaluation ───
 
-export interface Threat {
-  entity: { x: number; y: number; id?: string };
-  species: string;
-  dist: number;
-  danger: number;
-  isHunting: boolean;
-}
-
 export function evaluateThreats(
   being: Being,
   world: World,

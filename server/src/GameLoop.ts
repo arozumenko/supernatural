@@ -13,7 +13,7 @@ import { decayAnimalNeeds, decideAnimalAction, executeAnimalAction } from './ai/
 import { getSpecies } from './AnimalSpeciesConfig.ts';
 import { createAnimalBaseStats, createSkillSet, applyDeathPenalty, getCarryWeight, getCarryCapacity } from './Progression.ts';
 import { initJournal, detectDeathCause, finalizeJournal, recordTimelineEntry, recordHeatmapEntry, tickMetrics, setApiEventEmitter } from './ai/LifeJournal.ts';
-import { getGenomeLibrary } from './config/genome-library.ts';
+import { getGenomeLibrary, getSpeciesGenome } from './config/genome-library.ts';
 import { calculateLivesChange, checkHighlander } from './ai/LivesEconomy.ts';
 import { applyFallbackMutation } from './ai/FallbackEvolution.ts';
 import { createAnimalGenome, mutateGenomeBreeding } from './ai/BehaviorGenome.ts';
@@ -116,7 +116,7 @@ export class GameLoop {
 
     // Attach genomes to all initial animals
     for (const animal of this.world.animals) {
-      (animal as any).currentGenome = createAnimalGenome(getSpecies(animal.species), 0);
+      (animal as any).currentGenome = getSpeciesGenome(animal.species) ?? createAnimalGenome(getSpecies(animal.species), 0);
     }
   }
 
@@ -425,7 +425,7 @@ export class GameLoop {
         if (parentGenome) {
           (offspring as any).currentGenome = mutateGenomeBreeding(parentGenome);
         } else {
-          (offspring as any).currentGenome = createAnimalGenome(getSpecies(offspring.species), this.tickCount);
+          (offspring as any).currentGenome = getSpeciesGenome(offspring.species) ?? createAnimalGenome(getSpecies(offspring.species), this.tickCount);
         }
       }
       this.world.animals.push(...animalOffspring);
@@ -625,7 +625,7 @@ export class GameLoop {
               drops: species.drops,
             };
             // Attach evolved genome (or create fresh if none)
-            (newAnimal as any).currentGenome = entry.genome ?? createAnimalGenome(species, this.tickCount);
+            (newAnimal as any).currentGenome = entry.genome ?? getSpeciesGenome(entry.species) ?? createAnimalGenome(species, this.tickCount);
             this.world.animals.push(newAnimal);
           }
         }

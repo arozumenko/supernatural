@@ -7,7 +7,7 @@ import { World } from '../World.ts';
 import { WorldConfig } from '../WorldConfig.ts';
 import { getSpecies } from '../AnimalSpeciesConfig.ts';
 import { findPath } from './Pathfinding.ts';
-import { awardXP, getSpeedBonus, getHarvestSpeedBonus, canIdentifyPoison, getHitAccuracy, getDamageReduction, getDodgeChance, getAnimalAttackPower, getAnimalDefense, getAnimalSpeed, getAgentSpeed, getUnifiedDamageReduction } from '../Progression.ts';
+import { awardXP, getSpeedBonus, getHarvestSpeedBonus, canIdentifyPoison, getHitAccuracy, getDamageReduction, getDodgeChance, getAnimalAttackPower, getAnimalDefense, getAnimalSpeed, getUnifiedDamageReduction } from '../Progression.ts';
 import { evaluateSurvivalNeeds, evaluateThreats, type SurvivalConfig, type ThreatConfig, type SharedDecision } from './SharedDecisionEngine.ts';
 import { baseDecayNeeds, type DecayConfig } from './BaseNeedsSystem.ts';
 import type { Being } from './SharedDecisionEngine.ts';
@@ -42,9 +42,6 @@ export interface AnimalOffspring {
 // Constants
 // ============================================================
 
-const MEMORY_FOOD_EXPIRY = 500;
-const MEMORY_WATER_EXPIRY = 500;
-const MEMORY_DANGER_EXPIRY = 200;
 const CREPUSCULAR_FRACTION = 0.15;
 const FLOCKING_RANGE = 5;
 const SEPARATION_MIN_DIST = 1;
