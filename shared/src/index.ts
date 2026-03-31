@@ -759,6 +759,21 @@ const FIRST_NAMES = [
   'Quinn', 'Reva', 'Sol', 'Tova', 'Uri', 'Vera', 'Wren', 'Xan', 'Yara', 'Zev'
 ];
 
-export function randomName(): string {
+export function randomName(existingNames?: string[]): string {
+  if (!existingNames || existingNames.length === 0) {
+    return FIRST_NAMES[randomInt(0, FIRST_NAMES.length - 1)];
+  }
+  const used = new Set(existingNames);
+  const available = FIRST_NAMES.filter(n => !used.has(n));
+  if (available.length > 0) {
+    return available[randomInt(0, available.length - 1)];
+  }
+  // All base names taken — add numeral suffix
+  for (let suffix = 2; suffix <= 99; suffix++) {
+    const withSuffix = FIRST_NAMES.filter(n => !used.has(`${n} ${suffix}`));
+    if (withSuffix.length > 0) {
+      return `${withSuffix[randomInt(0, withSuffix.length - 1)]} ${suffix}`;
+    }
+  }
   return FIRST_NAMES[randomInt(0, FIRST_NAMES.length - 1)];
 }

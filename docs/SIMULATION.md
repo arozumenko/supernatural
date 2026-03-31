@@ -42,7 +42,7 @@ Every agent is a self-contained being with:
 | **Thirst** | 0.20/tick | Health drains at 0.8/tick |
 | **Stamina** | 0.05/tick (less when resting) | Health drains at 0.1/tick |
 | **Health** | — (derived from other needs) | Agent dies |
-| **Social** | 0.03/tick | No direct death, affects behavior priority |
+| **Social** | 0.03/tick | No direct death, affects behavior priority. Restored by: socializing action (+10), nearby tamed animals (+0.1/tick each within 5 tiles), nearby allies (+0.08/tick each within 8 tiles), combat (+2 per hit vs animals, +2/+1 attacker/defender vs agents) |
 | **Shelter** | 0.02/tick | No direct death, drives building behavior |
 
 Health slowly regenerates when hunger > 50, thirst > 50, and stamina > 30.

@@ -641,7 +641,7 @@ WANDERING   — exploring, with bias toward unexplored areas.
 BREEDING    — near mate, producing offspring.
 CURLED      — hedgehog defense mode. Damage reduction.
 STALKING    — pre-hunt stealth approach. Tiger/alligator.
-FOLLOWING   — tamed animal following owner agent.
+FOLLOWING   — tamed animal following owner agent. Suppressed when animal has urgent survival needs (hunger/thirst < 40) — animal eats/drinks first, then catches up. Owner waits in place while pet handles survival.
 GUARDING    — tamed donkey defending area.
 TRAVELING   — moving to a remembered or planned destination (not random).
 ```

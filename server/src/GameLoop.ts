@@ -83,7 +83,8 @@ export class GameLoop {
     const agentCount = this.gameConfig.agentCount;
     for (let i = 0; i < agentCount; i++) {
       const archetype = config?.agentArchetypes?.[i] ?? 'random';
-      const agent = createAgent(undefined, undefined, undefined, this.world, archetype as any);
+      const usedNames = this.agents.map(a => a.name);
+      const agent = createAgent(undefined, undefined, undefined, this.world, archetype as any, usedNames);
       // Assign LLM provider + role from config
       if (config?.agentLLMAssignments) {
         const assignment = config.agentLLMAssignments[i];
@@ -182,14 +183,29 @@ export class GameLoop {
       decayNeeds(agent);
 
       // Tamed animals nearby restore social need (companionship)
-      if (agent.needs.social < 80) {
+      {
         let nearbyTamed = 0;
         for (const animal of this.world.animals) {
           if (!animal.alive || animal.tamedBy !== agent.id) continue;
           if (Math.abs(animal.x - agent.x) + Math.abs(animal.y - agent.y) <= 5) nearbyTamed++;
         }
         if (nearbyTamed > 0) {
-          agent.needs.social = Math.min(80, agent.needs.social + nearbyTamed * 0.02);
+          agent.needs.social = Math.min(100, agent.needs.social + nearbyTamed * 0.1);
+        }
+      }
+
+      // Nearby allies restore social need (camaraderie)
+      {
+        const allies = agent.allies ?? [];
+        if (allies.length > 0) {
+          let nearbyAllies = 0;
+          for (const other of this.agents) {
+            if (!other.alive || !allies.includes(other.id)) continue;
+            if (Math.abs(other.x - agent.x) + Math.abs(other.y - agent.y) <= 8) nearbyAllies++;
+          }
+          if (nearbyAllies > 0) {
+            agent.needs.social = Math.min(100, agent.needs.social + nearbyAllies * 0.08);
+          }
         }
       }
 
@@ -911,7 +927,8 @@ export class GameLoop {
   spawnAgent(name?: string, personality?: PersonalityTrait[], ownerId?: string): AgentState | null {
     if (this.agents.filter(a => a.alive).length >= MAX_AGENTS) return null;
 
-    const agent = createAgent(name, personality, ownerId, this.world);
+    const usedNames = this.agents.map(a => a.name);
+    const agent = createAgent(name, personality, ownerId, this.world, undefined, usedNames);
     this.agents.push(agent);
     this.events.onAgentBorn(agent);
     this.events.onWorldEvent({
@@ -953,7 +970,8 @@ export class GameLoop {
 
     // Only spawn if we somehow have fewer agents than configured
     if (effectivePopulation < this.gameConfig.agentCount) {
-      const agent = createAgent(undefined, undefined, undefined, this.world);
+      const usedNames = this.agents.map(a => a.name);
+      const agent = createAgent(undefined, undefined, undefined, this.world, undefined, usedNames);
       this.agents.push(agent);
       this.events.onAgentBorn(agent);
       this.events.onWorldEvent({

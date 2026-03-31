@@ -1361,10 +1361,11 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
         leader = member;
       }
     }
-    // Non-leaders follow the leader
+    // Non-leaders follow the leader — but survival needs take priority
     if (leader.id !== agent.id) {
+      const hasUrgentNeed = agent.needs.thirst < 40 || agent.needs.plantHunger < 40 || agent.needs.proteinHunger < 40;
       const leaderDist = distance(agent.x, agent.y, leader.x, leader.y);
-      if (leaderDist > 3) {
+      if (leaderDist > 3 && !hasUrgentNeed) {
         // Follow with priority scaling by distance — farther = more urgent
         const followPriority = Math.min(45, 25 + leaderDist * 1.5);
         decisions.push({
@@ -1374,6 +1375,44 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
           reason: `following ally ${leader.name}`
         });
       }
+    }
+
+    // Leaders (and all agents): wait for allies/pets with urgent survival needs
+    // Check if any nearby ally or tamed animal is eating/drinking
+    const allyBusy = allianceGroup.some(m =>
+      m.id !== agent.id && distance(agent.x, agent.y, m.x, m.y) < 15
+      && (m.needs.thirst < 40 || m.needs.plantHunger < 40 || m.needs.proteinHunger < 40)
+    );
+    const petBusy = world.animals.some(a =>
+      a.alive && a.tamedBy === agent.id
+      && distance(agent.x, agent.y, a.x, a.y) < 15
+      && (a.thirst < 40 || a.plantHunger < 40 || a.proteinHunger < 40)
+    );
+    if (allyBusy || petBusy) {
+      // Wait in place — suppress wander so agent doesn't walk away
+      decisions.push({
+        action: 'idle',
+        priority: 20, // above default wander but below any real task
+        target: { x: ax, y: ay },
+        reason: allyBusy ? 'waiting for ally' : 'waiting for pet'
+      });
+    }
+  }
+
+  // Wait for tamed animals with urgent needs (for agents without alliances)
+  if (myAlliance.length === 0) {
+    const petBusy = world.animals.some(a =>
+      a.alive && a.tamedBy === agent.id
+      && distance(agent.x, agent.y, a.x, a.y) < 15
+      && (a.thirst < 40 || a.plantHunger < 40 || a.proteinHunger < 40)
+    );
+    if (petBusy) {
+      decisions.push({
+        action: 'idle',
+        priority: 20,
+        target: { x: ax, y: ay },
+        reason: 'waiting for pet'
+      });
     }
   }
 
@@ -1849,6 +1888,8 @@ export function executeAction(
                 const diffMod = clamp(preySpecies.attack / Math.max(1, 10 + agent.skills.combat.level * 0.5), 0.5, 3.0);
                 awardXP(agent.skills, 'combat', 3.0, diffMod);
                 awardXP(prey.skills, 'defense', 2.0, Math.min(3.0, damage / 5));
+                // Combat is a social experience — adrenaline, shared danger
+                agent.needs.social = clamp(agent.needs.social + 2, 0, 100);
                 // Mark animal as attacked by this agent
                 prey.lastAttackedBy = { type: 'agent', id: agent.id, tick: agent.age };
                 if (prey.health <= 0) {
@@ -1907,6 +1948,8 @@ export function executeAction(
 
                 awardXP(agent.skills, 'combat', 1.5);
                 awardXP(targetAgent.skills, 'defense', 1.0);
+                agent.needs.social = clamp(agent.needs.social + 2, 0, 100);
+                targetAgent.needs.social = clamp(targetAgent.needs.social + 1, 0, 100);
 
                 if (targetAgent.needs.health <= 0) {
                   targetAgent.alive = false;

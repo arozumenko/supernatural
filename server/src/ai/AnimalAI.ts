@@ -688,9 +688,10 @@ export function decideAnimalAction(
       animal.homeX = Math.floor(owner.x);
       animal.homeY = Math.floor(owner.y);
 
-      // Follow owner when too far
+      // Follow owner when too far — but survival needs (eat/drink) take priority
       const ownerDist = distance(animal.x, animal.y, owner.x, owner.y);
-      if (ownerDist > 3) {
+      const hasUrgentNeed = animal.thirst < 40 || animal.proteinHunger < 40 || animal.plantHunger < 40;
+      if (ownerDist > 3 && !hasUrgentNeed) {
         const followScore = 0.7 * Math.min(ownerDist / 8, 1); // stronger pull as distance grows
         candidates.push({
           action: 'following',

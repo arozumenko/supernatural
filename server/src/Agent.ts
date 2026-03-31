@@ -13,7 +13,8 @@ export function createAgent(
   personality?: PersonalityTrait[],
   ownerId?: string,
   world?: World,
-  archetype?: AgentArchetype
+  archetype?: AgentArchetype,
+  existingNames?: string[]
 ): AgentState {
   const traits: PersonalityTrait[] = personality ?? pickRandomTraits();
 
@@ -85,7 +86,7 @@ export function createAgent(
 
   const agent: AgentState = {
     id: generateId(),
-    name: name ?? randomName(),
+    name: name ?? randomName(existingNames),
     x: spawnX,
     y: spawnY,
     needs,

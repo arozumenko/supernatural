@@ -33,14 +33,14 @@ Dev API key: set `SUPERNATURAL_API_KEY=yourkey` env var
 Monorepo with three packages: `shared/`, `server/`, `client/`. All TypeScript (ES modules, strict mode). Uses `tsx` runtime for server (no tsc compilation needed for dev).
 
 ### shared/src/
-- **index.ts** — Central type hub. Re-exports from genome.ts, journal.ts, api-types.ts. Contains: world constants (120x90, 32px, 10Hz, max 50 agents), TileType enum (24 types including TOMBSTONE), AgentState (30+ fields including evolution: livesRemaining, genomeVersion, llmRole, activeStrategyRuleNames), GameConfig (with agentLLMAssignments carrying providerId + OrchestratorRole), OrchestratorRole type (7 roles), ROLE_PERMISSIONS const, Socket.IO event contracts.
+- **index.ts** — Central type hub. Re-exports from genome.ts, journal.ts, api-types.ts. Contains: world constants (120x90, 32px, 10Hz, max 50 agents), TileType enum (24 types including TOMBSTONE), AgentState (30+ fields including evolution: livesRemaining, genomeVersion, llmRole, activeStrategyRuleNames), GameConfig (with agentLLMAssignments carrying providerId + OrchestratorRole), OrchestratorRole type (7 roles), ROLE_PERMISSIONS const, Socket.IO event contracts. `randomName(existingNames?)` deduplicates agent names (26 base names + numeral suffixes for overflow).
 - **genome.ts** — BehaviorGenome (interrupt weights, medium priorities, thresholds, GOAP goal weights, action cost mods, fallback weights, strategy rules), StrategyRule/RuleCondition/RuleEffect, GENOME_BOUNDS safety limits, LLMProviderConfig (supports 6 providers: anthropic, openai, google, ollama, bedrock, openai_compatible).
 - **journal.ts** — LifeJournal, DeathCause (9 types), LifeMetrics, TimelineEntry, LifeEvent (18 types).
 - **api-types.ts** — ActionPlan/ActivePlan/PlanStep/PlanCondition, AgentSummary/WorldSummary/NearbyEntity, ApiKey/ApiRateLimit, LLMResponse/LLMAction, JsonPatch.
 
 ### server/src/
 - **index.ts** — Express + Socket.IO server on port 3001. Loads LLM providers, bootstraps dev API key, mounts API router (uses `() => game` getter pattern because game is reassigned on configure), instantiates OrchestratorLoop, handles agent:assign_llm/agent:remove_llm socket events, broadcasts agent:llm_action events.
-- **GameLoop.ts** — Central tick loop at 10Hz. Death handler: 9-way cause detection → journal finalization → lives calculation → permadeath check → evolution (LLM or fallback mutation) → corpse spawn → respawn queue. Journal sampling every 100/300 ticks. Genome hot-swap on respawn. EventEmitter for API SSE streaming.
+- **GameLoop.ts** — Central tick loop at 10Hz. Death handler: 9-way cause detection → journal finalization → lives calculation → permadeath check → evolution (LLM or fallback mutation) → corpse spawn → respawn queue. Journal sampling every 100/300 ticks. Genome hot-swap on respawn. EventEmitter for API SSE streaming. Passive social from nearby tamed animals (+0.1/tick within 5 tiles) and allies (+0.08/tick within 8 tiles).
 - **World.ts** — Procedural generation (9 passes), entity management, A* pathfinding, tile grid queries (findNearest*, get*At).
 - **Agent.ts** — Factory with genome (`createDefaultGenome()`), lives (100), journal, all evolution fields. `llmRole: 'none'` default.
 - **Progression.ts** — XP/leveling, effective stats, combat formulas, metabolism helpers.
@@ -49,9 +49,9 @@ Monorepo with three packages: `shared/`, `server/`, `client/`. All TypeScript (E
 - **ItemDefinitions.ts** — 52 items. **RecipeDefinitions.ts** — 53 recipes.
 
 ### server/src/ai/
-- **NeedsSystem.ts** — Genome-driven decision engine. All priorities/thresholds read from `agent.currentGenome` (via `(agent as any).currentGenome`). Flow: player messages → threats/flee → self-defense → critical survival → **pending plan execution** → GOAP → fallback priorities → strategy rules → wander. Sets `agent.lastDecisionReason`.
+- **NeedsSystem.ts** — Genome-driven decision engine. All priorities/thresholds read from `agent.currentGenome` (via `(agent as any).currentGenome`). Flow: player messages → threats/flee → self-defense → critical survival → **pending plan execution** → GOAP → fallback priorities → alliance following → wait for allies/pets → strategy rules → wander. Alliance followers suppress follow when hungry/thirsty (< 40). Leaders/owners idle when allies/pets have urgent needs. Combat gives social (+2/hit). Sets `agent.lastDecisionReason`.
 - **GOAPPlanner.ts** — 8 goals with genome-weighted urgency, genome-modified action costs, genome-driven relevance thresholds.
-- **AnimalAI.ts** — Utility AI, 3-sense awareness, special abilities, flocking.
+- **AnimalAI.ts** — Utility AI, 3-sense awareness, special abilities, flocking. Tamed animals suppress follow-owner when hungry/thirsty (< 40) to handle survival first.
 - **BehaviorGenome.ts** — `createDefaultGenome()` (all current hardcoded values), `validateGenome()`, `clampGenome()`.
 - **LifeJournal.ts** — `initJournal()`, `recordTimelineEntry()`, `recordHeatmapEntry()`, `recordLifeEvent()`, `detectDeathCause()` (9-way), `finalizeJournal()`, metrics tracking. Emits to `apiEventEmitter` for SSE.
 - **LivesEconomy.ts** — `calculateLivesChange()`, achievements, Highlander check.
