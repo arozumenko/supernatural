@@ -899,7 +899,10 @@ export function decideAnimalAction(
   // Hunting (predators + ambush) — now includes agents via findPrey
   // ──────────────────────────────────────────────
   if (species.hunts.length > 0) {
-    const huntHunger = species.diet === 'herbivore' ? 100 : animal.proteinHunger;
+    // Omnivores also hunt when plant-hungry with no plants — meat gives some plant hunger
+    const huntHunger = species.diet === 'herbivore' ? 100
+      : species.diet === 'omnivore' ? Math.min(animal.proteinHunger, animal.plantHunger)
+      : animal.proteinHunger;
     const huntBase = (genome?.fallbackWeights?.huntAnimal ?? 40) / 100;
     const huntScore = quadratic(huntHunger) * species.utilityWeights.aggression * huntBase;
     if (huntScore > 0.05) {
@@ -948,13 +951,16 @@ export function decideAnimalAction(
   // Scavenge corpses (all meat-eaters, not just isScavenger)
   // ──────────────────────────────────────────────
   if (species.diet !== 'herbivore') {
-    const scavengeRange = animal.proteinHunger < 20 ? 40 : species.detectionRange;
+    // Omnivores also scavenge when plant-hungry — meat gives partial plant hunger
+    const scavengeHunger = species.diet === 'omnivore'
+      ? Math.min(animal.proteinHunger, animal.plantHunger) : animal.proteinHunger;
+    const scavengeRange = scavengeHunger < 20 ? 40 : species.detectionRange;
     const corpse = world.findNearestCorpse(ax, ay, scavengeRange);
     if (corpse && corpse.materials.meat && corpse.materials.meat > 0) {
       // Scavenging is safer than hunting — bonus priority
-      let scavengeScore = quadratic(animal.proteinHunger) * species.utilityWeights.food * 1.5;
+      let scavengeScore = quadratic(scavengeHunger) * species.utilityWeights.food * 1.5;
       // Starving: scavenge score at least 0.8 (overrides most other actions)
-      if (animal.proteinHunger < 20) scavengeScore = Math.max(scavengeScore, 0.8);
+      if (scavengeHunger < 20) scavengeScore = Math.max(scavengeScore, 0.8);
       candidates.push({
         action: 'grazing',
         target: { x: Math.floor(corpse.x), y: Math.floor(corpse.y) },
@@ -969,9 +975,13 @@ export function decideAnimalAction(
   // ──────────────────────────────────────────────
   if (species.diet !== 'carnivore') {
     const isCriticalHunger = animal.plantHunger < 20;
-    const foodSearchRange = isCriticalHunger ? 40 : species.detectionRange;
+    const isModerateHunger = animal.plantHunger < 40;
+    const foodSearchRange = isCriticalHunger ? 40 : isModerateHunger ? 25 : species.detectionRange;
     const foodScore = quadratic(animal.plantHunger) * species.utilityWeights.food;
-    const foodUrgency = isCriticalHunger ? Math.max(foodScore, 2.0) : foodScore;
+    // Tiered urgency: moderate hunger gets a floor of 0.75, critical gets 2.0
+    const foodUrgency = isCriticalHunger ? Math.max(foodScore, 2.0)
+      : isModerateHunger ? Math.max(foodScore, 0.75)
+      : foodScore;
     if (foodUrgency > 0.05) {
       const foodPlant = world.findNearestPlant(ax, ay, [
         PlantType.BERRY_BUSH, PlantType.MUSHROOM,
@@ -994,8 +1004,8 @@ export function decideAnimalAction(
             priority: Math.floor(foodUrgency * 70),
           });
         }
-      } else if (isCriticalHunger) {
-        // Desperate search: wander randomly looking for food
+      } else if (isModerateHunger) {
+        // No food nearby — wander to search for food
         candidates.push({
           action: 'wandering',
           target: { x: ax + Math.floor(Math.random() * 20) - 10, y: ay + Math.floor(Math.random() * 20) - 10 },
@@ -1010,10 +1020,13 @@ export function decideAnimalAction(
   // ──────────────────────────────────────────────
   // Critical needs get wider search range (like agents)
   const isCriticalThirst = animal.thirst < 20;
-  const searchRange = isCriticalThirst ? 40 : species.detectionRange;
+  const isModerateThirst = animal.thirst < 40;
+  const searchRange = isCriticalThirst ? 40 : isModerateThirst ? 25 : species.detectionRange;
   const waterScore = linear(animal.thirst) * 1.2 * species.utilityWeights.water;
-  // Boost score when critically thirsty to override everything else
-  const waterUrgency = isCriticalThirst ? Math.max(waterScore, 2.0) : waterScore;
+  // Tiered urgency: moderate thirst gets a floor of 0.75, critical gets 2.0
+  const waterUrgency = isCriticalThirst ? Math.max(waterScore, 2.0)
+    : isModerateThirst ? Math.max(waterScore, 0.75)
+    : waterScore;
   if (waterUrgency > 0.05) {
     const waterTile = world.findNearest(ax, ay, TileType.WATER, searchRange);
     if (waterTile) {
@@ -1028,8 +1041,8 @@ export function decideAnimalAction(
           priority: Math.floor(waterUrgency * 70),
         });
       }
-    } else if (isCriticalThirst) {
-      // Desperate: wander randomly looking for water
+    } else if (isModerateThirst) {
+      // No water nearby — wander to search
       candidates.push({
         action: 'wandering',
         target: { x: ax + Math.floor(Math.random() * 20) - 10, y: ay + Math.floor(Math.random() * 20) - 10 },
@@ -1059,11 +1072,11 @@ export function decideAnimalAction(
   // ──────────────────────────────────────────────
   let restScore = quadratic(animal.stamina) * 0.8;
   if (!active) restScore += 0.5;
-  // Suppress sleep when critically hungry/thirsty — survival takes priority
-  const critProtein = (species.diet !== 'herbivore') && animal.proteinHunger < 20;
-  const critPlant = (species.diet !== 'carnivore') && animal.plantHunger < 20;
-  if (critProtein || critPlant || animal.thirst < 20) {
-    restScore *= 0.1; // drastically reduce sleep desire when starving/dehydrated
+  // Suppress sleep when hungry/thirsty — survival takes priority
+  const critProtein = (species.diet !== 'herbivore') && animal.proteinHunger < 40;
+  const critPlant = (species.diet !== 'carnivore') && animal.plantHunger < 40;
+  if (critProtein || critPlant || animal.thirst < 40) {
+    restScore *= 0.1; // drastically reduce sleep desire when hungry/dehydrated
   }
   if (restScore > 0.1) {
     candidates.push({ action: 'sleeping', priority: Math.floor(restScore * 100) });
@@ -1290,6 +1303,10 @@ export function executeAnimalAction(
           if (animal.age % 3 === 0) {
             corpse.materials.meat -= 1;
             animal.proteinHunger = clamp(animal.proteinHunger + 10, 0, 100);
+            // Omnivores get partial plant hunger from meat
+            if (species.diet === 'omnivore') {
+              animal.plantHunger = clamp(animal.plantHunger + 3, 0, 100);
+            }
             rememberFood(animal, corpse.x, corpse.y, tickCount);
           }
           // Remove corpse if all materials depleted
@@ -1382,6 +1399,9 @@ export function executeAnimalAction(
           prey.alive = false;
           prey.action = 'dying';
           animal.proteinHunger = clamp(animal.proteinHunger + preySpec.foodDrop * 10, 0, 100);
+          if (species.diet === 'omnivore') {
+            animal.plantHunger = clamp(animal.plantHunger + preySpec.foodDrop * 3, 0, 100);
+          }
         } else {
           forceFleeWithPush(prey, animal, world);
         }
@@ -1500,6 +1520,9 @@ export function executeAnimalAction(
           prey.alive = false;
           prey.action = 'dying';
           animal.proteinHunger = clamp(animal.proteinHunger + preySpec.foodDrop * 10, 0, 100);
+          if (species.diet === 'omnivore') {
+            animal.plantHunger = clamp(animal.plantHunger + preySpec.foodDrop * 3, 0, 100);
+          }
         } else {
           forceFleeWithPush(prey, animal, world);
         }
@@ -1800,6 +1823,16 @@ function moveAnimalPathfind(
         world.damageStructure(structure.id, bashDamage);
         break;
       }
+    }
+  } else {
+    // Pathfinding failed — fall back to direct movement toward target
+    const dx = tx - animal.x;
+    const dy = ty - animal.y;
+    const d = Math.sqrt(dx * dx + dy * dy);
+    if (d > 0) {
+      const step = Math.min(speed, d);
+      animal.x += (dx / d) * step;
+      animal.y += (dy / d) * step;
     }
   }
 

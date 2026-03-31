@@ -993,8 +993,11 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
 
   // --- Hunt animals for food — utility-scored risk/reward ---
   // Desperate mode: when starving, hunt at much higher priority and accept more risk
-  const isStarving = agent.needs.proteinHunger < 15;
-  if (agent.needs.proteinHunger < genome.goalThresholds.proteinRelevant) {
+  // Also hunt when plant-hungry with no plant food — meat gives partial plant hunger
+  const isStarving = agent.needs.proteinHunger < 15 || (agent.needs.plantHunger < 15 && agent.resources.food === 0);
+  const needsFood = agent.needs.proteinHunger < genome.goalThresholds.proteinRelevant
+    || (agent.needs.plantHunger < genome.thresholds.criticalHunger && agent.resources.food === 0);
+  if (needsFood) {
     let bestHunt: { priority: number; animal: typeof world.animals[0]; species: ReturnType<typeof getSpecies>; dist: number } | null = null;
     for (const animal of world.animals) {
       if (!animal.alive) continue;
@@ -1673,10 +1676,11 @@ export function executeAction(
 
   switch (decision.action) {
     case 'eating': {
-      // Diet-aware eating: meat → protein, food → plant, agents are omnivores
+      // Diet-aware eating: agents are omnivores, any food partially fills both hungers
       if (agent.needs.proteinHunger < agent.needs.plantHunger && agent.resources.meat > 0) {
         agent.resources.meat -= 1;
         agent.needs.proteinHunger = clamp(agent.needs.proteinHunger + EAT_RESTORE, 0, 100);
+        agent.needs.plantHunger = clamp(agent.needs.plantHunger + EAT_RESTORE * 0.2, 0, 100);
       } else if (agent.resources.food > 0) {
         agent.resources.food -= 1;
         agent.needs.plantHunger = clamp(agent.needs.plantHunger + EAT_RESTORE * 0.7, 0, 100);
@@ -1684,6 +1688,7 @@ export function executeAction(
       } else if (agent.resources.meat > 0) {
         agent.resources.meat -= 1;
         agent.needs.proteinHunger = clamp(agent.needs.proteinHunger + EAT_RESTORE, 0, 100);
+        agent.needs.plantHunger = clamp(agent.needs.plantHunger + EAT_RESTORE * 0.2, 0, 100);
       }
       break;
     }
@@ -1917,6 +1922,8 @@ export function executeAction(
                   prey.action = 'dying';
                   agent.resources.food += preySpecies.foodDrop;
                   agent.needs.proteinHunger = clamp(agent.needs.proteinHunger + preySpecies.foodDrop * 5, 0, 100);
+                  // Omnivore agents get partial plant hunger from fresh kill
+                  agent.needs.plantHunger = clamp(agent.needs.plantHunger + preySpecies.foodDrop * 1.5, 0, 100);
                 }
               } else {
                 moveTowards(agent, prey.x, prey.y, world);
