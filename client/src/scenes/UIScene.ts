@@ -831,22 +831,45 @@ export class UIScene extends Phaser.Scene {
     }
     addLine(agent.personality.join(' / '), '#607860', '12px');
 
-    // Equipped weapon/tool
+    // Equipped weapon/tool with stat bonuses
     {
-      const parts: string[] = [];
+      const ITEM_BONUSES: Record<string, Record<string, number>> = {
+        wooden_shovel: { harvest: 0.3 },
+        wooden_club: { atk: 3 }, wooden_spear: { atk: 5, range: 2 },
+        stone_axe: { wood: 0.5, atk: 4 }, stone_pickaxe: { mine: 0.5 },
+        stone_knife: { atk: 4, harvest: 0.2 }, stone_shovel: { harvest: 0.6 },
+        bone_knife: { atk: 5, harvest: 0.25 }, bone_axe: { wood: 0.6, atk: 5 },
+        bone_pickaxe: { mine: 0.6 }, bone_spear: { atk: 10, range: 2 },
+        tooth_club: { atk: 8 }, bow: { atk: 7, range: 5 },
+        iron_sword: { atk: 15 }, iron_axe: { wood: 1.0, atk: 8 },
+        iron_pickaxe: { mine: 1.0 }, iron_shovel: { harvest: 1.0 },
+        hide_vest: { def: 5 }, hide_boots: { spd: 0.05 },
+        fur_cloak: { def: 8 }, scale_shield: { def: 15 },
+        scale_armor: { def: 20 }, iron_plate: { def: 18 },
+        fat_torch: {},
+      };
       const mh = agent.inventory?.equipped?.mainHand;
       if (mh) {
         const name = mh.itemId.replace(/_/g, ' ');
-        parts.push(`\u2694 ${name}`);
-        if (mh.durability !== undefined) parts[parts.length - 1] += ` (${mh.durability})`;
+        const bonuses = ITEM_BONUSES[mh.itemId] ?? {};
+        const bonusStr = Object.entries(bonuses).map(([k, v]) => `+${v}${k}`).join(' ');
+        const durStr = mh.durability !== undefined ? ` (${mh.durability})` : '';
+        addLine(`\u2694 ${name}${durStr} ${bonusStr}`, '#aa9966', '10px');
       }
       const body = agent.inventory?.equipped?.body;
       if (body) {
         const name = body.itemId.replace(/_/g, ' ');
-        parts.push(`\uD83D\uDEE1 ${name}`);
+        const bonuses = ITEM_BONUSES[body.itemId] ?? {};
+        const bonusStr = Object.entries(bonuses).map(([k, v]) => `+${v}${k}`).join(' ');
+        const durStr = body.durability !== undefined ? ` (${body.durability})` : '';
+        addLine(`\uD83D\uDEE1 ${name}${durStr} ${bonusStr}`, '#aa9966', '10px');
       }
-      if (parts.length > 0) {
-        addLine(parts.join('  '), '#aa9966', '10px');
+      const acc = agent.inventory?.equipped?.accessory;
+      if (acc) {
+        const name = acc.itemId.replace(/_/g, ' ');
+        const bonuses = ITEM_BONUSES[acc.itemId] ?? {};
+        const bonusStr = Object.entries(bonuses).map(([k, v]) => `+${v}${k}`).join(' ');
+        addLine(`\u2728 ${name} ${bonusStr}`, '#aa9966', '10px');
       }
     }
 
