@@ -338,6 +338,19 @@ function findPrey(
     }
   }
 
+  // Desperate predators: if still no prey and starving, mid-predators (fox, dog, cat) may attack agents
+  // They don't normally hunt agents, but starvation overrides instinct
+  if (!best && animal.proteinHunger < 15 && species.hunts.length > 0 && !species.hunts.includes('agent') && allAgents) {
+    for (const agent of allAgents) {
+      if (!agent.alive) continue;
+      const d = distance(animal.x, animal.y, agent.x, agent.y);
+      if (d > species.detectionRange * 0.7) continue; // shorter range — desperate, not predatory
+      if (!best || d < best.dist) {
+        best = { entity: agent, dist: d, type: 'agent' };
+      }
+    }
+  }
+
   return best;
 }
 
