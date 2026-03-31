@@ -76,6 +76,7 @@ export class UIScene extends Phaser.Scene {
   }[] = [];
   private sidebarAnimalTexts: Phaser.GameObjects.Text[] = [];
   private speciesCountText: Phaser.GameObjects.Text | null = null;
+  private speciesLabelText: Phaser.GameObjects.Text | null = null;
   private sidebarBuilt = false;
   private sidebarAgentCount = 0;
 
@@ -367,6 +368,7 @@ export class UIScene extends Phaser.Scene {
       this.sidebarAgentRows = [];
       this.sidebarAnimalTexts = [];
       this.speciesCountText = null;
+      this.speciesLabelText = null;
       this.sidebarContainer.removeAll(true);
       this.sidebarAgentCount = agents.length;
       this.buildSidebarStructure(agents, animals);
@@ -522,17 +524,17 @@ export class UIScene extends Phaser.Scene {
       divS.lineBetween(10, y, SIDEBAR_W - 10, y);
       this.sidebarContainer.add(divS);
       y += 4;
-      const speciesLabel = this.add.text(12, y, 'SPECIES', {
+      this.speciesLabelText = this.add.text(12, y, 'SPECIES', {
         fontFamily: PIXEL_FONT, fontSize: '9px', color: '#667766',
       });
-      this.sidebarContainer.add(speciesLabel);
+      this.sidebarContainer.add(this.speciesLabelText);
       y += 12;
       // Create text for species counts (filled by updateSidebarValues)
       this.speciesCountText = this.add.text(12, y, '', {
         fontFamily: PIXEL_FONT, fontSize: '9px', color: '#909890', lineSpacing: 2,
       });
       this.sidebarContainer.add(this.speciesCountText);
-      y += 60; // reserve space
+      y += 120; // reserve space for ~10 rows of species
     }
 
     this.sidebarContentHeight = y;
@@ -668,17 +670,23 @@ export class UIScene extends Phaser.Scene {
       // Update species count table
       if (this.speciesCountText) {
         const counts: Record<string, number> = {};
+        let total = 0;
         for (const a of animals) {
           if (!(a as any).alive) continue;
           counts[(a as any).species] = (counts[(a as any).species] || 0) + 1;
+          total++;
         }
         const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
         const rows: string[] = [];
-        for (let i = 0; i < entries.length; i += 3) {
-          const chunk = entries.slice(i, i + 3);
+        for (let i = 0; i < entries.length; i += 2) {
+          const chunk = entries.slice(i, i + 2);
           rows.push(chunk.map(([s, c]) => `${s}:${c}`).join('  '));
         }
         this.speciesCountText.setText(rows.join('\n'));
+        // Update header with total
+        if (this.speciesLabelText) {
+          this.speciesLabelText.setText(`SPECIES (${total})`);
+        }
       }
     }
   }
