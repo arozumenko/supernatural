@@ -714,12 +714,13 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
     }
   }
 
-  // --- Defend tamed animals under attack ---
+  // --- Defend tamed animals under attack + avenge killed pets ---
   {
+    // Defend living pets
     const myTamed = world.animals.filter(a => a.alive && a.tamedBy === agent.id);
     for (const pet of myTamed) {
       if (!pet.lastAttackedBy) continue;
-      if (agent.age - pet.lastAttackedBy.tick > 30) continue; // recent only
+      if (agent.age - pet.lastAttackedBy.tick > 30) continue;
       const petDist = distance(agent.x, agent.y, pet.x, pet.y);
       if (petDist > 12) continue;
       if (pet.lastAttackedBy.type === 'animal') {
@@ -743,6 +744,36 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
             target: { x: Math.floor(attackerAgent.x), y: Math.floor(attackerAgent.y) },
             targetAgentId: attackerAgent.id,
             reason: `protecting tamed ${getSpecies(pet.species).name}`
+          });
+          break;
+        }
+      }
+    }
+    // Avenge recently killed pets — attack the killer
+    const killedPets = world.animals.filter(a => !a.alive && a.tamedBy === agent.id && a.lastAttackedBy
+      && (agent.age - a.lastAttackedBy.tick) < 100);
+    for (const dead of killedPets) {
+      if (dead.lastAttackedBy!.type === 'agent') {
+        const killer = allAgents.find(a => a.id === dead.lastAttackedBy!.id && a.alive);
+        if (killer && distance(agent.x, agent.y, killer.x, killer.y) < 20) {
+          decisions.push({
+            action: 'harvesting',
+            priority: genome.interruptWeights.groupDefense + 5,
+            target: { x: Math.floor(killer.x), y: Math.floor(killer.y) },
+            targetAgentId: killer.id,
+            reason: `avenging killed pet`
+          });
+          break;
+        }
+      } else if (dead.lastAttackedBy!.type === 'animal') {
+        const killer = world.animals.find(a => a.id === dead.lastAttackedBy!.id && a.alive);
+        if (killer && distance(agent.x, agent.y, killer.x, killer.y) < 20) {
+          decisions.push({
+            action: 'harvesting',
+            priority: genome.interruptWeights.groupDefense + 5,
+            target: { x: Math.floor(killer.x), y: Math.floor(killer.y) },
+            targetAnimalId: killer.id,
+            reason: `avenging killed pet`
           });
           break;
         }
@@ -1240,13 +1271,15 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
     const nearCampfireD = isAdjacentToTile(ax, ay, TileType.CAMPFIRE, world);
     const nearForgeD = isAdjacentToTile(ax, ay, TileType.FORGE, world);
 
-    if (nearWorkbenchD || nearCampfireD || nearForgeD) {
+    {
       for (const recipe of NEW_RECIPES) {
         const skillLevel = recipe.skillType === 'crafting' ? agent.skills.crafting.level : agent.skills.building.level;
         if (skillLevel < recipe.skillRequired) continue;
         if (recipe.station === 'campfire' && !nearCampfireD) continue;
         if (recipe.station === 'workbench' && !nearWorkbenchD) continue;
         if (recipe.station === 'forge' && !nearForgeD) continue;
+        // Skip building recipes here (handled by building decision)
+        if (recipe.skillType === 'building' && recipe.produces.type === 'tile') continue;
 
         let canCraft = true;
         for (const [mat, qty] of Object.entries(recipe.requires)) {

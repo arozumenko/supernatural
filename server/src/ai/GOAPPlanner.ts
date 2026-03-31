@@ -450,7 +450,7 @@ export const GOAP_ACTIONS: GOAPAction[] = [
     cost: () => 10,
     estimatedTicks: 20,
     agentAction: 'crafting',
-    isValid: (s) => s.wood >= 2 && s.stone >= 3,
+    isValid: (s) => s.wood >= 2 && s.stone >= 3 && s.craftingLevel >= 5,
   },
   {
     id: 'craft_stone_pickaxe',
@@ -460,7 +460,7 @@ export const GOAP_ACTIONS: GOAPAction[] = [
     cost: () => 10,
     estimatedTicks: 20,
     agentAction: 'crafting',
-    isValid: (s) => s.wood >= 2 && s.stone >= 3,
+    isValid: (s) => s.wood >= 2 && s.stone >= 3 && s.craftingLevel >= 5,
   },
   {
     id: 'craft_weapon',

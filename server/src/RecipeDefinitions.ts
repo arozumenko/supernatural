@@ -35,6 +35,23 @@ export const RECIPES: CraftingRecipeNew[] = [
     craftTime: 20, staminaCost: 3,
   },
 
+  // ─── Tier 0: Hand-crafted (no station) ───
+
+  {
+    id: 'wooden_spear_basic', name: 'Sharp Stick',
+    requires: { wood: 2 },
+    produces: { type: 'item', itemId: 'wooden_spear', quantity: 1 },
+    station: 'none', skillType: 'crafting', skillRequired: 0,
+    craftTime: 10, staminaCost: 1,
+  },
+  {
+    id: 'stone_knife_basic', name: 'Flint Knife',
+    requires: { stone: 2 },
+    produces: { type: 'item', itemId: 'stone_knife', quantity: 1 },
+    station: 'none', skillType: 'crafting', skillRequired: 0,
+    craftTime: 10, staminaCost: 1,
+  },
+
   // ─── Tier 1: Wood Tools (workbench) ───
 
   {

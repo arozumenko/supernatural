@@ -1508,6 +1508,9 @@ export class UIScene extends Phaser.Scene {
     };
 
     const structureNames: Record<number, { name: string; color: string; desc: string }> = {
+      [TileType.CAMPFIRE]: { name: 'CAMPFIRE', color: '#cc8844', desc: 'Provides shelter. Enables campfire crafting.' },
+      [TileType.WORKBENCH]: { name: 'WORKBENCH', color: '#c8a060', desc: 'Enables tool and item crafting.' },
+      [TileType.FORGE]: { name: 'FORGE', color: '#cc6644', desc: 'Enables iron smelting and forging.' },
       [TileType.BUILT_WALL]: { name: 'WOODEN WALL', color: '#c8a060', desc: 'Blocks movement. Decays over time.' },
       [TileType.STONE_WALL]: { name: 'STONE WALL', color: '#b0b0b0', desc: 'Strong wall. Does not decay.' },
       [TileType.IRON_WALL]: { name: 'IRON WALL', color: '#8888cc', desc: 'Very strong wall. Does not decay.' },
@@ -1515,6 +1518,8 @@ export class UIScene extends Phaser.Scene {
       [TileType.BONE_FENCE]: { name: 'BONE FENCE', color: '#ccccaa', desc: 'Blocks movement. Does not decay.' },
       [TileType.STORAGE]: { name: 'STORAGE', color: '#aa8855', desc: 'Stores items. Decays over time.' },
       [TileType.TENT]: { name: 'TENT', color: '#88aa88', desc: 'Provides shelter.' },
+      [TileType.BEDROLL]: { name: 'BEDROLL', color: '#88aa88', desc: 'Provides shelter and rest.' },
+      [TileType.ANIMAL_PEN]: { name: 'ANIMAL PEN', color: '#aa8855', desc: 'Keeps tamed animals.' },
     };
 
     const info = structureNames[structure.tileType] ?? { name: 'STRUCTURE', color: '#c8d0c8', desc: '' };
@@ -1533,7 +1538,9 @@ export class UIScene extends Phaser.Scene {
 
     if (structure.ownerId) {
       y += 4;
-      addLine(`Builder: ${structure.ownerId}`, '#888880', '12px');
+      const builder = this.agents?.find((a: any) => a.id === structure.ownerId);
+      const builderName = builder ? (builder as any).name : structure.ownerId;
+      addLine(`Builder: ${builderName}`, '#888880', '12px');
     }
 
     // Storage contents
