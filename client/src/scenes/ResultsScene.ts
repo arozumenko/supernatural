@@ -212,11 +212,26 @@ export class ResultsScene extends Phaser.Scene {
     const colStart = 140;
     const colW = Math.min(90, (leftW - (colStart - col0) - 10) / Math.max(agents.length, 1));
 
-    // Agent name header
+    // Agent name header with per-agent download button
     this.addText(col0, y, '', '#556655', '9px');
     agents.forEach((a, i) => {
       const c = a.rank === 1 ? '#ffd700' : '#aaaaaa';
       this.addText(colStart + i * colW, y, a.name, c, '9px');
+      // Small save button per agent
+      const saveBtn = this.add.text(colStart + i * colW + a.name.length * 6 + 4, y, '\u2B07', {
+        fontFamily: PIXEL_FONT, fontSize: '9px', color: '#556655',
+      }).setInteractive({ useHandCursor: true });
+      saveBtn.on('pointerover', () => saveBtn.setColor('#80c080'));
+      saveBtn.on('pointerout', () => saveBtn.setColor('#556655'));
+      saveBtn.on('pointerup', () => {
+        const g = (a as any).genome;
+        if (!g) return;
+        const blob = new Blob([JSON.stringify(g, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const el = document.createElement('a');
+        el.href = url; el.download = `${a.name}-genome.json`; el.click();
+        URL.revokeObjectURL(url);
+      });
     });
     let leftY = y + 16;
 
