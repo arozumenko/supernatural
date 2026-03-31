@@ -13,6 +13,7 @@ export class ResultsScene extends Phaser.Scene {
   private tabButtons: Phaser.GameObjects.Text[] = [];
   private scrollContainer: Phaser.GameObjects.Container | null = null;
   private scrollMask: Phaser.Display.Masks.GeometryMask | null = null;
+  private scrollMaskShape: Phaser.GameObjects.Graphics | null = null;
   private scrollY: number = 0;
   private scrollMaxY: number = 0;
 
@@ -35,6 +36,7 @@ export class ResultsScene extends Phaser.Scene {
     this.scrollMaxY = 0;
     this.scrollContainer = null;
     this.scrollMask = null;
+    this.scrollMaskShape = null;
 
     // Header
     this.add.text(width / 2, 30, 'GAME OVER', {
@@ -100,7 +102,11 @@ export class ResultsScene extends Phaser.Scene {
 
   private renderContent(): void {
     this.contentContainer.removeAll(true);
-    // Clean up scroll state
+    // Clean up scroll state — destroy mask shape AND mask
+    if (this.scrollMaskShape) {
+      this.scrollMaskShape.destroy();
+      this.scrollMaskShape = null;
+    }
     if (this.scrollMask) {
       this.scrollMask.destroy();
       this.scrollMask = null;
@@ -433,10 +439,12 @@ export class ResultsScene extends Phaser.Scene {
       const { height } = this.scale;
       const scrollAreaH = height - y - 80; // leave room for bottom buttons
 
-      // Mask shape
+      // Mask shape (invisible — only used for clipping geometry)
       const maskShape = this.add.graphics();
       maskShape.fillStyle(0xffffff);
       maskShape.fillRect(scrollAreaX, scrollAreaY, scrollAreaW, scrollAreaH);
+      maskShape.setVisible(false);
+      this.scrollMaskShape = maskShape;
       this.scrollMask = maskShape.createGeometryMask();
 
       // Scrollable container
