@@ -348,6 +348,8 @@ export interface AgentState {
   baseStats: BaseStats;
   skills: SkillSet;
   totalDeaths: number;
+  agentKills: number;        // agents killed
+  animalKills: number;       // animals killed
   socialScore: number;       // how important other agents think this agent is
   relationships: Record<string, number>; // agentId -> opinion (-100 to 100)
   lastAttackedBy?: { type: 'animal' | 'agent'; id: string; tick: number };

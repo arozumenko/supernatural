@@ -20,7 +20,7 @@ export function createDefaultGenome(tick: number = 0): BehaviorGenome {
       staminaHerb: 82,
       exhaustionRest: 80,
       groupDefense: 75,
-      fleeBase: 75,         // was 70 — flee earlier from threats
+      fleeBase: 55,         // was 75 — armed/skilled agents should stand and fight more often
     },
 
     mediumPriorityWeights: {
@@ -220,7 +220,7 @@ export function validateGenome(genome: BehaviorGenome): ValidationResult {
 }
 
 /** Clamp all genome values to safety bounds (mutates in place) */
-export function clampGenome(genome: BehaviorGenome): void {
+export function clampGenome(genome: BehaviorGenome, totalLevel: number = 0): void {
   const B = GENOME_BOUNDS;
   const c = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
 
@@ -257,6 +257,122 @@ export function clampGenome(genome: BehaviorGenome): void {
   if (genome.strategyRules.length > B.strategyRules.maxCount) {
     genome.strategyRules.length = B.strategyRules.maxCount;
   }
+
+  // --- Group budget enforcement ---
+  // Mutation floors (from mutationTiers) are respected; excess trimmed proportionally.
+  // Budget grows +1% per total skill level (e.g. level 50 = +50% budget headroom)
+  const levelScale = 1 + totalLevel * 0.01;
+  const baseBudgets = B.groupBudgets;
+  const floors = genome.mutationTiers ? getMutationFloors(genome) : {};
+
+  enforceGroupBudget(genome.interruptWeights, baseBudgets.interruptWeights * levelScale, B.interruptWeights.min, floors.interruptWeights);
+  enforceGroupBudget(genome.mediumPriorityWeights, baseBudgets.mediumPriorityWeights * levelScale, B.mediumPriorityWeights.min, floors.mediumPriorityWeights);
+  enforceGroupBudget(genome.goalWeights, baseBudgets.goalWeights * levelScale, B.goalWeights.min, floors.goalWeights);
+  enforceGroupBudget(genome.fallbackWeights, baseBudgets.fallbackWeights * levelScale, B.fallbackWeights.min, floors.fallbackWeights);
+}
+
+/**
+ * Enforce a total budget on a group of parameters.
+ * Each parameter has a floor (from mutations or group min). Values above floors
+ * are trimmed proportionally if the total exceeds the budget.
+ */
+function enforceGroupBudget(
+  group: Record<string, number>,
+  budget: number,
+  groupMin: number,
+  paramFloors?: Record<string, number>
+): void {
+  const keys = Object.keys(group);
+  const total = keys.reduce((sum, k) => sum + group[k], 0);
+  if (total <= budget) return;
+
+  // Calculate each parameter's floor (mutation floor or group min)
+  const floorSum = keys.reduce((sum, k) => sum + Math.max(groupMin, paramFloors?.[k] ?? groupMin), 0);
+  if (floorSum >= budget) return; // floors alone exceed budget — can't trim further
+
+  // Trim excess proportionally from values above their floors
+  const excess = total - budget;
+  const aboveFloor: { key: string; surplus: number }[] = [];
+  let totalSurplus = 0;
+  for (const k of keys) {
+    const floor = Math.max(groupMin, paramFloors?.[k] ?? groupMin);
+    const surplus = group[k] - floor;
+    if (surplus > 0) {
+      aboveFloor.push({ key: k, surplus });
+      totalSurplus += surplus;
+    }
+  }
+  if (totalSurplus <= 0) return;
+
+  for (const { key, surplus } of aboveFloor) {
+    const trimAmount = (surplus / totalSurplus) * excess;
+    const floor = Math.max(groupMin, paramFloors?.[key] ?? groupMin);
+    group[key] = Math.max(floor, group[key] - trimAmount);
+  }
+}
+
+/**
+ * Derive per-parameter mutation floors from mutation tiers.
+ * These represent the minimum values earned through evolution that can't be taken away.
+ */
+function getMutationFloors(genome: BehaviorGenome): Record<string, Record<string, number>> {
+  const tiers = genome.mutationTiers ?? {};
+  const floors: Record<string, Record<string, number>> = {
+    interruptWeights: {},
+    mediumPriorityWeights: {},
+    goalWeights: {},
+    fallbackWeights: {},
+  };
+
+  // starvation_protein mutations set floors on hunt-related params
+  const sp = tiers['starvation_protein'] ?? 0;
+  if (sp > 0) {
+    floors.fallbackWeights['huntAnimal'] = 40 + sp * 2;
+    floors.goalWeights['survive_protein'] = 1.2 + sp * 0.3;
+  }
+
+  // starvation_plant mutations set floors on forage/plant params
+  const spl = tiers['starvation_plant'] ?? 0;
+  if (spl > 0) {
+    floors.mediumPriorityWeights['forageMedium'] = 58 + spl * 2;
+    floors.fallbackWeights['plantSeeds'] = 20 + spl * 3;
+    floors.goalWeights['survive_plant'] = 1.2 + spl * 0.3;
+  }
+
+  // starvation_both
+  const sb = tiers['starvation_both'] ?? 0;
+  if (sb > 0) {
+    floors.fallbackWeights['huntAnimal'] = Math.max(floors.fallbackWeights['huntAnimal'] ?? 0, 40 + sb * 2);
+    floors.mediumPriorityWeights['forageMedium'] = Math.max(floors.mediumPriorityWeights['forageMedium'] ?? 0, 58 + sb * 2);
+  }
+
+  // dehydration
+  const dh = tiers['dehydration'] ?? 0;
+  if (dh > 0) {
+    floors.mediumPriorityWeights['drinkMedium'] = 63 + dh * 2;
+    floors.goalWeights['survive_thirst'] = 1.3 + dh * 0.3;
+  }
+
+  // exhaustion
+  const ex = tiers['exhaustion'] ?? 0;
+  if (ex > 0) {
+    floors.goalWeights['rest'] = 1.1 + ex * 0.3;
+    floors.interruptWeights['exhaustionRest'] = 80 + ex * 1;
+  }
+
+  // killed_by_animal — high tiers set fight-back floors
+  const ka = tiers['killed_by_animal'] ?? 0;
+  if (ka >= 5) {
+    floors.interruptWeights['fightBack'] = 93 + (ka - 4) * 2;
+  }
+
+  // killed_by_agent — high tiers set fight-back floors
+  const kag = tiers['killed_by_agent'] ?? 0;
+  if (kag >= 4) {
+    floors.interruptWeights['fightBack'] = Math.max(floors.interruptWeights['fightBack'] ?? 0, 93 + (kag - 3) * 2);
+  }
+
+  return floors;
 }
 
 /**

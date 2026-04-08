@@ -59,15 +59,17 @@ Consider:
 IMPORTANT: The agent has ${agent.livesRemaining ?? 100} lives left. If lives are low (<20), prioritize survival over everything. If lives are high (>70), it can afford to take risks to learn.
 
 ## Safety Bounds
-- Interrupt weights: [60, 99]
-- Medium priority weights: [40, 70]
+- Interrupt weights: [60, 99], GROUP BUDGET: sum ≤ 790
+- Medium priority weights: [40, 70], GROUP BUDGET: sum ≤ 210
 - Need thresholds: [5, 95]
 - Resource minimums: [0, 50]
 - Detection ranges: [3, 30]
-- Goal weights: [0.1, 5.0] (survival goals min 0.3)
+- Goal weights: [0.1, 5.0] (survival goals min 0.3), GROUP BUDGET: sum ≤ 14.0
 - Action cost mods: [0.2, 5.0]
-- Fallback weights: [5, 70]
+- Fallback weights: [5, 70], GROUP BUDGET: sum ≤ 500
 - Max 15 strategy rules, priority [1, 99]
+
+IMPORTANT: You cannot max all parameters. Each group has a total budget — you must SPECIALIZE. Raising one parameter means lowering others. Mutation-earned floors cannot be reduced.
 
 Respond with ONLY the updated BehaviorGenome as valid JSON. No explanation needed.
 `.trim();

@@ -670,15 +670,31 @@ export class World {
             this.adjustFertility(corpse.x + dx, corpse.y + dy, 0.3);
           }
         }
-        // Add seeds to the soil bank from decomposing plant matter
-        const region = this.getRegion(corpse.x, corpse.y);
-        if (region.seedBank) {
-          // Decomposing corpses slightly fertilize seed bank with random plant type
-          if (Math.random() < 0.3) {
-            const plantTypes = [PlantType.MUSHROOM, PlantType.FLOWER, PlantType.HUNGER_HERB, PlantType.EDIBLE_FLOWER];
-            const type = plantTypes[randomInt(0, plantTypes.length - 1)];
-            this.addSeedToBank(corpse.x, corpse.y, type);
+        // Carried seeds sprout as plants near the corpse
+        const carried = corpse.carriedResources;
+        if (carried) {
+          const treeSeedCount = Math.floor(carried.treeSeed ?? 0);
+          const plantSeedCount = Math.floor(carried.plantSeed ?? 0);
+          // Tree seeds → try to place saplings in nearby tiles
+          for (let s = 0; s < Math.min(treeSeedCount, 3); s++) {
+            const ox = randomInt(-2, 2);
+            const oy = randomInt(-2, 2);
+            this.placeTree(corpse.x + ox, corpse.y + oy, Math.random() < 0.5 ? 0 : 1, GrowthStage.SPROUT);
           }
+          // Plant seeds → sprout edible plants nearby
+          const plantTypes: PlantType[] = [PlantType.BERRY_BUSH, PlantType.MUSHROOM, PlantType.HUNGER_HERB, PlantType.EDIBLE_FLOWER, PlantType.FLOWER];
+          for (let s = 0; s < Math.min(plantSeedCount, 4); s++) {
+            const ox = randomInt(-2, 2);
+            const oy = randomInt(-2, 2);
+            const type = plantTypes[randomInt(0, plantTypes.length - 1)];
+            this.placePlant(corpse.x + ox, corpse.y + oy, type, GrowthStage.SPROUT);
+          }
+        }
+        // Decomposing corpses also slightly fertilize seed bank with random plant type
+        if (Math.random() < 0.3) {
+          const plantTypes = [PlantType.MUSHROOM, PlantType.FLOWER, PlantType.HUNGER_HERB, PlantType.EDIBLE_FLOWER];
+          const type = plantTypes[randomInt(0, plantTypes.length - 1)];
+          this.addSeedToBank(corpse.x, corpse.y, type);
         }
         this.corpses.splice(i, 1);
       }

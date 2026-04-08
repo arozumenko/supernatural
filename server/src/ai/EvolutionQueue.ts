@@ -44,7 +44,8 @@ export class EvolutionQueue {
     if (!client) {
       console.log(`No LLM client for provider "${providerId}" — using fallback`);
       const genome: BehaviorGenome = (agent as any).currentGenome ?? createDefaultGenome();
-      applyFallbackMutation(genome, journal.deathCause);
+      const totalLvl = Object.values(agent.skills).reduce((sum, s) => sum + s.level, 0);
+      applyFallbackMutation(genome, journal.deathCause, totalLvl);
       this.pending.set(agent.id, { agentId: agent.id, genome, status: 'done' });
       return;
     }
@@ -77,7 +78,8 @@ export class EvolutionQueue {
     if (!responseText) {
       console.log(`[Evolution] LLM returned no response for ${agent.name} — using fallback`);
       const fallbackGenome = structuredClone(currentGenome);
-      applyFallbackMutation(fallbackGenome, journal.deathCause);
+      const lvl = Object.values(agent.skills).reduce((sum, s) => sum + s.level, 0);
+      applyFallbackMutation(fallbackGenome, journal.deathCause, lvl);
       entry.genome = fallbackGenome;
       entry.status = 'done';
       return;
@@ -95,23 +97,25 @@ export class EvolutionQueue {
     } catch (err) {
       console.error(`[Evolution] Failed to parse LLM response for ${agent.name}:`, err);
       const fallbackGenome = structuredClone(currentGenome);
-      applyFallbackMutation(fallbackGenome, journal.deathCause);
+      const lvl2 = Object.values(agent.skills).reduce((sum, s) => sum + s.level, 0);
+      applyFallbackMutation(fallbackGenome, journal.deathCause, lvl2);
       entry.genome = fallbackGenome;
       entry.status = 'done';
       return;
     }
 
     // Validate
+    const agentLevel = Object.values(agent.skills).reduce((sum, s) => sum + s.level, 0);
     const validation = validateGenome(parsed);
     if (!validation.valid) {
       console.warn(`[Evolution] LLM genome validation failed for ${agent.name}:`, validation.errors);
       // Attempt to clamp rather than reject entirely
-      clampGenome(parsed);
+      clampGenome(parsed, agentLevel);
       const revalidation = validateGenome(parsed);
       if (!revalidation.valid) {
         console.error(`[Evolution] Genome still invalid after clamping — using fallback`);
         const fallbackGenome = structuredClone(currentGenome);
-        applyFallbackMutation(fallbackGenome, journal.deathCause);
+        applyFallbackMutation(fallbackGenome, journal.deathCause, agentLevel);
         entry.genome = fallbackGenome;
         entry.status = 'done';
         return;

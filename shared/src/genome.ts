@@ -118,6 +118,7 @@ export interface CreatureGenome {
   // === META ===
   createdAt: number;
   mutatedAt: number;
+  mutationTiers?: Record<string, number>;
   fitnessScore: number;
 }
 
@@ -175,6 +176,15 @@ export const GENOME_BOUNDS = {
   strategyRules: { maxCount: 15 },
   rulePriority: { min: 1, max: 99 },
   survivalGoalMinWeight: 0.3,
+  // Group budgets: sum of all values in group cannot exceed budget.
+  // Set ~25% above defaults to allow specialization but prevent supersoldiers.
+  // Mutations set floors per-parameter; remaining budget distributed freely.
+  groupBudgets: {
+    interruptWeights: 790,       // default 658, max possible 792 (8×99)
+    mediumPriorityWeights: 210,  // default 179, max possible 210 (3×70)
+    goalWeights: 14.0,           // default 10.8, max possible 50.0 (10×5.0)
+    fallbackWeights: 500,        // default 403, max possible 840 (12×70)
+  },
 } as const;
 
 // --- LLM Provider Config ---

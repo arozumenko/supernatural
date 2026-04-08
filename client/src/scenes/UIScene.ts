@@ -52,6 +52,8 @@ export class UIScene extends Phaser.Scene {
   private stopBg!: Phaser.GameObjects.Graphics;
   private stopText!: Phaser.GameObjects.Text;
   private stopZone!: Phaser.GameObjects.Zone;
+  private tooltipText!: Phaser.GameObjects.Text;
+  private emojiHitZones: { x: number; y: number; w: number; h: number; hint: string }[] = [];
 
   // Left sidebar
   private sidebarBg!: Phaser.GameObjects.Graphics;
@@ -166,6 +168,32 @@ export class UIScene extends Phaser.Scene {
       if (gameScene?.client?.stopGame) {
         gameScene.client.stopGame();
       }
+    });
+
+    // Tooltip for emoji hover
+    this.tooltipText = this.add.text(0, 0, '', {
+      fontFamily: PIXEL_FONT,
+      fontSize: '10px',
+      color: '#ffffff',
+      backgroundColor: '#000000cc',
+      padding: { x: 6, y: 4 },
+    }).setDepth(2000).setVisible(false);
+
+    // Scene-level pointer move for tooltip hit-testing
+    this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
+      const zones = this.emojiHitZones;
+      const px = pointer.x;
+      const py = pointer.y;
+      for (let i = 0; i < zones.length; i++) {
+        const z = zones[i];
+        if (px >= z.x && px <= z.x + z.w && py >= z.y && py <= z.y + z.h) {
+          this.tooltipText.setText(z.hint);
+          this.tooltipText.setPosition(px + 10, py - 20);
+          this.tooltipText.setVisible(true);
+          return;
+        }
+      }
+      this.tooltipText.setVisible(false);
     });
 
     // Fetch LLM provider labels
@@ -694,6 +722,8 @@ export class UIScene extends Phaser.Scene {
 
   private updateInfoPanel(): void {
     this.infoPanelContainer.removeAll(true);
+    this.tooltipText.setVisible(false);
+    this.emojiHitZones = [];
 
     // Show animal panel
     if (this.selectedAnimal && !this.selectedAgent) {
@@ -758,7 +788,7 @@ export class UIScene extends Phaser.Scene {
     let y = 46;
     const contentW = PANEL_W - 28;
 
-    const addLine = (text: string, color = '#c8d0c8', size = '13px', yGap = 0) => {
+    const addLine = (text: string, color = '#c8d0c8', size = '12px', yGap = 0) => {
       y += yGap;
       const t = this.add.text(14, y, text, {
         fontFamily: PIXEL_FONT,
@@ -794,10 +824,33 @@ export class UIScene extends Phaser.Scene {
       y += 8;
     };
 
-    // Agent name + archetype + lives + deaths on one line
+    // Helper: row of emoji items with hover tooltips (hit zones, no setInteractive)
+    const containerX = this.infoPanelContainer.x;
+    const containerY = this.infoPanelContainer.y;
+    const addEmojiRow = (items: { emoji: string; value: string; hint: string; color?: string }[], size = '14px') => {
+      let xOff = 14;
+      for (const item of items) {
+        const label = `${item.emoji}${item.value}`;
+        const t = this.add.text(xOff, y, label, {
+          fontFamily: PIXEL_FONT,
+          fontSize: size,
+          color: item.color ?? '#b0a890',
+        });
+        this.infoPanelContainer.add(t);
+        this.emojiHitZones.push({
+          x: containerX + xOff,
+          y: containerY + y,
+          w: t.width,
+          h: t.height,
+          hint: item.hint,
+        });
+        xOff += t.width + 12;
+      }
+      y += parseInt(size) + 10;
+    };
+
+    // Agent name + stats on one line
     {
-      const lives = agent.livesRemaining ?? 100;
-      const livesColor = lives > 50 ? '#44cc44' : lives > 20 ? '#cccc44' : '#cc4444';
       const WEAPON_ICONS: Record<string, string> = {
         wooden_spear: '\uD83C\uDF34', stone_knife: '\uD83D\uDD2A', wooden_club: '\uD83E\uDE93',
         stone_axe: '\uD83E\uDE93', bone_axe: '\uD83E\uDE93', stone_pickaxe: '\u26CF\uFE0F',
@@ -815,17 +868,23 @@ export class UIScene extends Phaser.Scene {
         fontFamily: PIXEL_FONT, fontSize: '14px', color: '#80d880',
       });
       this.infoPanelContainer.add(nameT);
-      let xOff = 14 + nameT.width + 10;
-      const livesT = this.add.text(xOff, y, `\u2764${lives}`, {
-        fontSize: '13px', color: livesColor,
-      });
-      this.infoPanelContainer.add(livesT);
-      if (agent.totalDeaths > 0) {
-        xOff += livesT.width + 10;
-        const deathT = this.add.text(xOff, y, `\uD83D\uDC80${agent.totalDeaths}`, {
-          fontSize: '13px', color: '#aa8888',
+      let xOff = 14 + nameT.width + 8;
+
+      const lives = agent.livesRemaining ?? 100;
+      const livesColor = lives > 50 ? '#44cc44' : lives > 20 ? '#cccc44' : '#cc4444';
+      const statsItems = [
+        { text: `\u2764\uFE0F${lives}`, color: livesColor, hint: 'Lives Remaining' },
+        { text: `\uD83D\uDC80${agent.totalDeaths}`, color: '#cc8888', hint: 'Total Deaths' },
+        { text: `\u2694\uFE0F${(agent as any).agentKills ?? 0}`, color: '#cc6666', hint: 'Agent Kills' },
+        { text: `\uD83D\uDC3E${(agent as any).animalKills ?? 0}`, color: '#cc9966', hint: 'Animal Kills' },
+      ];
+      for (const si of statsItems) {
+        const t = this.add.text(xOff, y + 2, si.text, {
+          fontFamily: PIXEL_FONT, fontSize: '11px', color: si.color,
         });
-        this.infoPanelContainer.add(deathT);
+        this.infoPanelContainer.add(t);
+        this.emojiHitZones.push({ x: containerX + xOff, y: containerY + y + 2, w: t.width, h: t.height, hint: si.hint });
+        xOff += t.width + 6;
       }
       y += 22;
     }
@@ -919,65 +978,91 @@ export class UIScene extends Phaser.Scene {
 
     // Resources — show all non-zero
     addLine('INVENTORY', '#556655', '12px');
-    const resEntries: [string, number, string][] = [
-      ['Wood', agent.resources.wood, '#b0a890'],
-      ['Stone', agent.resources.stone, '#a0a0a0'],
-      ['Food', agent.resources.food, '#88cc44'],
-      ['Water', agent.resources.water, '#4488cc'],
-      ['TSeed', agent.resources.treeSeed, '#88aa44'],
-      ['PSeed', agent.resources.plantSeed, '#88cc44'],
-      ['Iron Ore', agent.resources.iron_ore, '#c06030'],
-      ['Iron Ingot', agent.resources.iron_ingot, '#a0a8b0'],
-      ['Meat', agent.resources.meat, '#cc8866'],
-      ['Bone', agent.resources.bone, '#ccccaa'],
-      ['Hide', agent.resources.hide, '#aa8855'],
-      ['Sinew', agent.resources.sinew, '#bb9977'],
-      ['Fat', agent.resources.fat, '#ddcc88'],
-      ['Feathers', agent.resources.feathers, '#aabbcc'],
-      ['Teeth', agent.resources.teeth_claws, '#ccaaaa'],
-      ['Scales', agent.resources.scales, '#88aaaa'],
+    const resEntries: { emoji: string; value: number; hint: string; color?: string }[] = [
+      { emoji: '\uD83E\uDEB5', value: agent.resources.wood, hint: 'Wood' },
+      { emoji: '\u26F0\uFE0F', value: agent.resources.stone, hint: 'Stone', color: '#a0a0a0' },
+      { emoji: '\uD83C\uDF4E', value: agent.resources.food, hint: 'Food', color: '#88cc44' },
+      { emoji: '\uD83D\uDCA7', value: agent.resources.water, hint: 'Water', color: '#4488cc' },
+      { emoji: '\uD83C\uDF31', value: agent.resources.treeSeed, hint: 'Tree Seed', color: '#88aa44' },
+      { emoji: '\uD83C\uDF3F', value: agent.resources.plantSeed, hint: 'Plant Seed', color: '#88cc44' },
+      { emoji: '\uD83E\uDEA8', value: agent.resources.iron_ore, hint: 'Iron Ore', color: '#c06030' },
+      { emoji: '\uD83D\uDD29', value: agent.resources.iron_ingot, hint: 'Iron Ingot', color: '#a0a8b0' },
+      { emoji: '\uD83E\uDD69', value: agent.resources.meat, hint: 'Meat', color: '#cc8866' },
+      { emoji: '\uD83E\uDDB4', value: agent.resources.bone, hint: 'Bone', color: '#ccccaa' },
+      { emoji: '\uD83E\uDDE8', value: agent.resources.hide, hint: 'Hide', color: '#aa8855' },
+      { emoji: '\uD83E\uDDF5', value: agent.resources.sinew, hint: 'Sinew', color: '#bb9977' },
+      { emoji: '\uD83E\uDDC8', value: agent.resources.fat, hint: 'Fat', color: '#ddcc88' },
+      { emoji: '\uD83E\uDEB6', value: agent.resources.feathers, hint: 'Feathers', color: '#aabbcc' },
+      { emoji: '\uD83E\uDDB7', value: agent.resources.teeth_claws, hint: 'Teeth & Claws', color: '#ccaaaa' },
+      { emoji: '\uD83D\uDC1A', value: agent.resources.scales, hint: 'Scales', color: '#88aaaa' },
     ];
-    const nonZeroRes = resEntries.filter(([, val]) => val > 0);
+    const nonZeroRes = resEntries.filter(r => r.value > 0);
     if (nonZeroRes.length > 0) {
-      // Show in compact rows of 3
-      for (let i = 0; i < nonZeroRes.length; i += 3) {
-        const row = nonZeroRes.slice(i, i + 3).map(([n, v]) => `${n}:${Math.floor(v as number)}`).join('  ');
-        addLine(row, '#b0a890', '12px');
+      const half = Math.ceil(nonZeroRes.length / 2);
+      for (let i = 0; i < nonZeroRes.length; i += half) {
+        addEmojiRow(nonZeroRes.slice(i, i + half).map(r => ({
+          emoji: r.emoji, value: `${Math.floor(r.value)}`, hint: r.hint, color: r.color,
+        })));
       }
     } else {
       addLine('(empty)', '#667766', '12px');
     }
+
+    // Item emoji lookup
+    const ITEM_EMOJI: Record<string, string> = {
+      wooden_spear: '\uD83C\uDF34', stone_knife: '\uD83D\uDD2A', wooden_club: '\uD83E\uDE93',
+      stone_axe: '\uD83E\uDE93', bone_axe: '\uD83E\uDE93', stone_pickaxe: '\u26CF\uFE0F',
+      bone_pickaxe: '\u26CF\uFE0F', iron_pickaxe: '\u26CF\uFE0F', iron_axe: '\uD83E\uDE93',
+      bone_spear: '\uD83C\uDF34', wooden_shovel: '\uD83E\uDEA3', stone_shovel: '\uD83E\uDEA3',
+      iron_shovel: '\uD83E\uDEA3', bow: '\uD83C\uDFF9', bone_knife: '\uD83D\uDD2A',
+      iron_sword: '\u2694\uFE0F', tooth_club: '\uD83E\uDE93', fat_torch: '\uD83D\uDD25',
+      bone_spear_alt: '\uD83C\uDF34', iron_shield: '\uD83D\uDEE1\uFE0F', scale_shield: '\uD83D\uDEE1\uFE0F',
+      arrows: '\u27B6', iron_tipped_arrows: '\u27B6',
+      hide_vest: '\uD83E\uDDE5', hide_boots: '\uD83D\uDC62', fur_cloak: '\uD83E\uDDE5',
+      scale_armor: '\uD83E\uDDE5', leather_sack: '\uD83C\uDF92', tooth_necklace: '\uD83D\uDCFF',
+      feather_crown: '\uD83D\uDC51', scale_pendant: '\uD83D\uDCFF',
+      cooked_meat: '\uD83C\uDF56', stew: '\uD83C\uDF72', jerky: '\uD83E\uDD53',
+      bone_broth: '\uD83C\uDF75', fat_rations: '\uD83C\uDF5E', berry_salad: '\uD83E\uDD57',
+      herb_mix: '\uD83C\uDF3F', meat: '\uD83E\uDD69', rotten_meat: '\uD83E\uDDA0',
+      sinew_rope: '\uD83E\uDDF6', tallow_candle: '\uD83D\uDD6F\uFE0F',
+    };
+    const itemIcon = (id: string) => ITEM_EMOJI[id] ?? '\uD83D\uDCE6';
 
     // Inventory - equipped items
     if (agent.inventory?.equipped) {
       const eq = agent.inventory.equipped;
       if (eq.mainHand || eq.body || eq.accessory) {
         addDivider();
-        addLine('EQUIPPED', '#556655', '12px');
+        addLine('EQUIPPED', '#556655', '10px');
+        const eqItems: { emoji: string; value: string; hint: string }[] = [];
         if (eq.mainHand) {
-          const dur = eq.mainHand.durability !== undefined ? ` (${eq.mainHand.durability})` : '';
-          addLine(`Hand: ${eq.mainHand.itemId.replace(/_/g, ' ')}${dur}`, '#b0a890', '12px');
+          const dur = eq.mainHand.durability !== undefined ? `(${eq.mainHand.durability})` : '';
+          eqItems.push({ emoji: `\u270B${itemIcon(eq.mainHand.itemId)}`, value: dur, hint: `Hand: ${eq.mainHand.itemId.replace(/_/g, ' ')}` });
         }
         if (eq.body) {
-          const dur = eq.body.durability !== undefined ? ` (${eq.body.durability})` : '';
-          addLine(`Body: ${eq.body.itemId.replace(/_/g, ' ')}${dur}`, '#b0a890', '12px');
+          const dur = eq.body.durability !== undefined ? `(${eq.body.durability})` : '';
+          eqItems.push({ emoji: `\uD83D\uDC55${itemIcon(eq.body.itemId)}`, value: dur, hint: `Body: ${eq.body.itemId.replace(/_/g, ' ')}` });
         }
         if (eq.accessory) {
-          addLine(`Acc: ${eq.accessory.itemId.replace(/_/g, ' ')}`, '#b0a890', '12px');
+          eqItems.push({ emoji: `\u2728${itemIcon(eq.accessory.itemId)}`, value: '', hint: `Acc: ${eq.accessory.itemId.replace(/_/g, ' ')}` });
         }
+        addEmojiRow(eqItems);
       }
     }
 
     // Inventory - carried items (non-zero)
     if (agent.inventory?.items?.length > 0) {
       addLine('ITEMS', '#556655', '12px');
-      for (const item of agent.inventory.items.slice(0, 6)) { // show max 6
-        const dur = item.durability !== undefined ? ` [${item.durability}]` : '';
+      const carriedItems = agent.inventory.items.slice(0, 8).map((item: any) => {
+        const dur = item.durability !== undefined ? `[${item.durability}]` : '';
         const qty = item.quantity > 1 ? `×${item.quantity}` : '';
-        addLine(`${item.itemId.replace(/_/g, ' ')} ${qty}${dur}`, '#909890', '12px');
+        return { emoji: itemIcon(item.itemId), value: `${qty}${dur}`, hint: item.itemId.replace(/_/g, ' ') };
+      });
+      for (let i = 0; i < carriedItems.length; i += 4) {
+        addEmojiRow(carriedItems.slice(i, i + 4));
       }
-      if (agent.inventory.items.length > 6) {
-        addLine(`...+${agent.inventory.items.length - 6} more`, '#667766', '12px');
+      if (agent.inventory.items.length > 8) {
+        addLine(`+${agent.inventory.items.length - 8} more`, '#667766');
       }
     }
 
@@ -985,20 +1070,28 @@ export class UIScene extends Phaser.Scene {
     if (agent.carryWeight !== undefined && agent.carryCapacity !== undefined) {
       const weightPct = Math.floor((agent.carryWeight / Math.max(1, agent.carryCapacity)) * 100);
       const weightColor = weightPct > 90 ? '#cc4444' : weightPct > 60 ? '#ccaa44' : '#888880';
-      addLine(`Weight: ${Math.floor(agent.carryWeight)}/${Math.floor(agent.carryCapacity)}`, weightColor, '12px');
+      addEmojiRow([{ emoji: '\uD83C\uDFCB\uFE0F', value: `${Math.floor(agent.carryWeight)}/${Math.floor(agent.carryCapacity)}`, hint: 'Carry Weight', color: weightColor }]);
     }
 
-    // Skills
+    // Skills — emoji compact (2 rows)
     y += 4;
     addLine('SKILLS', '#556655', '12px');
-    addLine(`Combat:${agent.skills.combat.level}  Def:${agent.skills.defense.level}  Ath:${agent.skills.athletics.level}`, '#909890', '12px');
-    addLine(`Wood:${agent.skills.woodcutting.level}  Mine:${agent.skills.mining.level}  For:${agent.skills.foraging.level}`, '#909890', '12px');
-    addLine(`Build:${agent.skills.building.level}  Craft:${agent.skills.crafting.level}`, '#909890', '12px');
-    addLine(`Surv:${agent.skills.survival.level}  Soc:${agent.skills.social.level}`, '#909890', '12px');
-
-    // Obedience
-    y += 4;
-    addLine(`Obedience: ${agent.obedience}%`, '#888880', '12px');
+    const s = agent.skills;
+    addEmojiRow([
+      { emoji: '\u2694\uFE0F', value: `${s.combat.level}`, hint: 'Combat' },
+      { emoji: '\uD83D\uDEE1\uFE0F', value: `${s.defense.level}`, hint: 'Defense' },
+      { emoji: '\uD83C\uDFC3', value: `${s.athletics.level}`, hint: 'Athletics' },
+      { emoji: '\uD83E\uDE93', value: `${s.woodcutting.level}`, hint: 'Woodcutting' },
+      { emoji: '\u26CF\uFE0F', value: `${s.mining.level}`, hint: 'Mining' },
+      { emoji: '\uD83C\uDF3F', value: `${s.foraging.level}`, hint: 'Foraging' },
+    ]);
+    addEmojiRow([
+      { emoji: '\uD83C\uDFD7\uFE0F', value: `${s.building.level}`, hint: 'Building' },
+      { emoji: '\uD83D\uDD28', value: `${s.crafting.level}`, hint: 'Crafting' },
+      { emoji: '\uD83C\uDFD5\uFE0F', value: `${s.survival.level}`, hint: 'Survival' },
+      { emoji: '\uD83E\uDDD1\u200D\uD83E\uDD1D\u200D\uD83E\uDDD1', value: `${s.social.level}`, hint: 'Social' },
+      { emoji: '\uD83D\uDE4F', value: `${agent.obedience}%`, hint: 'Obedience' },
+    ]);
 
     // ─── EVOLUTION ───
     addDivider();
@@ -1118,7 +1211,7 @@ export class UIScene extends Phaser.Scene {
     let y = 46;
     const contentW = PANEL_W - 28;
 
-    const addLine = (text: string, color = '#c8d0c8', size = '13px', yGap = 0) => {
+    const addLine = (text: string, color = '#c8d0c8', size = '12px', yGap = 0) => {
       y += yGap;
       const t = this.add.text(14, y, text, {
         fontFamily: PIXEL_FONT,
@@ -1167,7 +1260,7 @@ export class UIScene extends Phaser.Scene {
     let y = 46;
     const contentW = PANEL_W - 28;
 
-    const addLine = (text: string, color = '#c8d0c8', size = '13px', yGap = 0) => {
+    const addLine = (text: string, color = '#c8d0c8', size = '12px', yGap = 0) => {
       y += yGap;
       const t = this.add.text(14, y, text, {
         fontFamily: PIXEL_FONT,
@@ -1215,7 +1308,7 @@ export class UIScene extends Phaser.Scene {
     let y = 46;
     const contentW = PANEL_W - 28;
 
-    const addLine = (text: string, color = '#c8d0c8', size = '13px', yGap = 0) => {
+    const addLine = (text: string, color = '#c8d0c8', size = '12px', yGap = 0) => {
       y += yGap;
       const t = this.add.text(14, y, text, {
         fontFamily: PIXEL_FONT,
@@ -1273,7 +1366,7 @@ export class UIScene extends Phaser.Scene {
     let y = 46;
     const contentW = PANEL_W - 28;
 
-    const addLine = (text: string, color = '#c8d0c8', size = '13px', yGap = 0) => {
+    const addLine = (text: string, color = '#c8d0c8', size = '12px', yGap = 0) => {
       y += yGap;
       const t = this.add.text(14, y, text, {
         fontFamily: PIXEL_FONT,
@@ -1460,7 +1553,7 @@ export class UIScene extends Phaser.Scene {
     let y = 46;
     const contentW = PANEL_W - 28;
 
-    const addLine = (text: string, color = '#c8d0c8', size = '13px', yGap = 0) => {
+    const addLine = (text: string, color = '#c8d0c8', size = '12px', yGap = 0) => {
       y += yGap;
       const t = this.add.text(14, y, text, {
         fontFamily: PIXEL_FONT,
@@ -1526,7 +1619,7 @@ export class UIScene extends Phaser.Scene {
     let y = 46;
     const contentW = PANEL_W - 28;
 
-    const addLine = (text: string, color = '#c8d0c8', size = '13px', yGap = 0) => {
+    const addLine = (text: string, color = '#c8d0c8', size = '12px', yGap = 0) => {
       y += yGap;
       const t = this.add.text(14, y, text, {
         fontFamily: PIXEL_FONT,
@@ -1611,7 +1704,7 @@ export class UIScene extends Phaser.Scene {
     let y = 46;
     const contentW = PANEL_W - 28;
 
-    const addLine = (text: string, color = '#c8d0c8', size = '13px', yGap = 0) => {
+    const addLine = (text: string, color = '#c8d0c8', size = '12px', yGap = 0) => {
       y += yGap;
       const t = this.add.text(14, y, text, {
         fontFamily: PIXEL_FONT,
@@ -1642,7 +1735,7 @@ export class UIScene extends Phaser.Scene {
     let y = 46;
     const contentW = PANEL_W - 28;
 
-    const addLine = (text: string, color = '#c8d0c8', size = '13px', yGap = 0) => {
+    const addLine = (text: string, color = '#c8d0c8', size = '12px', yGap = 0) => {
       y += yGap;
       const t = this.add.text(14, y, text, {
         fontFamily: PIXEL_FONT,

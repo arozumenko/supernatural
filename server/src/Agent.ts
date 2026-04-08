@@ -97,6 +97,8 @@ export function createAgent(
     baseStats,
     skills,
     totalDeaths: 0,
+    agentKills: 0,
+    animalKills: 0,
     socialScore: 0,
     relationships: {},
     attackCooldown: 0,

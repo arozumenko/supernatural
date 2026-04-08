@@ -7,16 +7,10 @@ import type { AgentState, LifeJournal } from '../../shared/src/index.ts';
 export function calculateLivesChange(journal: LifeJournal, agent: AgentState): number {
   let change = -1; // base death cost
 
-  // Skill level bonus: +1 per 10 total skill levels gained THIS life
-  const currentTotal = sumSkillLevels(agent);
-  const birthTotal = Object.values(journal.birthSkills).reduce((a, b) => a + b, 0);
-  const levelsGained = currentTotal - birthTotal;
-  change += Math.floor(levelsGained / 10);
-
-  // Survival milestone bonuses (largest applicable only)
-  if (journal.survivalTicks >= 50000) change += 25;
-  else if (journal.survivalTicks >= 10000) change += 10;
-  else if (journal.survivalTicks >= 1000) change += 5;
+  // Survival bonus: long lives earn back the death cost (but never profit)
+  // Need 3000+ ticks (~5 min) just to break even
+  if (journal.survivalTicks >= 6000) change += 1;      // 10+ min: net 0
+  else if (journal.survivalTicks >= 3000) change += 1;  // 5+ min: net 0
 
   // Achievement bonuses (one-time per agent lifetime)
   const achievements = agent.achievements ?? [];
@@ -40,28 +34,13 @@ function checkAchievements(agent: AgentState, achievements: string[]): number {
     }
   };
 
-  // Check iron tool
-  const hasIronTool = agent.inventory.items.some(i =>
-    i.itemId.startsWith('iron_') || i.itemId === 'iron_axe' || i.itemId === 'iron_pickaxe'
-  );
-  if (hasIronTool) award('first_iron_tool', 10);
-
-  // Taming (check if any animal is tamed by this agent — tracked via metric)
-  const metricsAccum = (agent as any)._metricsAccum;
-  if (metricsAccum?.animalsTamed > 0) award('first_tame', 5);
-
-  // Social leader
-  if (agent.socialScore > 50) award('social_leader', 10);
-
-  // Master crafter
-  if (agent.skills.crafting.level >= 50) award('master_crafter', 15);
-
   // Killed apex predator
+  const metricsAccum = (agent as any)._metricsAccum;
   if (metricsAccum?.animalsKilledBySpecies) {
     const apexSpecies = ['bear', 'tiger', 'alligator'];
     for (const apex of apexSpecies) {
       if ((metricsAccum.animalsKilledBySpecies[apex] ?? 0) > 0) {
-        award('killed_apex', 5);
+        award('killed_apex', 3);
         break;
       }
     }

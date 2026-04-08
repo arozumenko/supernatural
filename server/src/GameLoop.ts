@@ -18,6 +18,7 @@ import { calculateLivesChange, checkHighlander } from './ai/LivesEconomy.ts';
 import { applyFallbackMutation } from './ai/FallbackEvolution.ts';
 import { createAnimalGenome, mutateGenomeBreeding } from './ai/BehaviorGenome.ts';
 import { EvolutionQueue } from './ai/EvolutionQueue.ts';
+import { applyGenomeGrowth, getTotalLevel } from './ai/GenomeGrowth.ts';
 
 import type { TreeState, RockState, PlantState, AnimalState, CorpseState, StructureState, SkillSet, Season, BehaviorGenome } from '../shared/src/index.ts';
 
@@ -255,6 +256,12 @@ export class GameLoop {
         const score = totalSkills * 2 + Math.floor(agent.needs.health);
         if (!this.agentScoreHistory.has(agent.id)) this.agentScoreHistory.set(agent.id, []);
         this.agentScoreHistory.get(agent.id)!.push({ tick: this.tickCount, score });
+
+        // Genome growth: parameters scale with level based on archetype
+        const genome = (agent as any).currentGenome;
+        if (genome) {
+          applyGenomeGrowth(genome, totalSkills, agent.archetype ?? 'random', false);
+        }
       }
       // Heatmap sampling (every 300 ticks)
       if (this.tickCount % 300 === 0) {
@@ -464,6 +471,19 @@ export class GameLoop {
         }
       }
       this.world.animals.push(...animalOffspring);
+    }
+
+    // Animal genome growth (every 100 ticks)
+    if (this.tickCount % 100 === 0) {
+      for (const animal of this.world.animals) {
+        if (!animal.alive) continue;
+        const animalGenome = (animal as any).currentGenome;
+        if (animalGenome) {
+          const animalTotalLevel = getTotalLevel(animal.skills);
+          const species = getSpecies(animal.species);
+          applyGenomeGrowth(animalGenome, animalTotalLevel, species.diet, true);
+        }
+      }
     }
 
     // Handle breeding: spawn offspring from animals that just finished breeding
@@ -815,7 +835,8 @@ export class GameLoop {
     } else {
       const genome: BehaviorGenome = (agent as any).currentGenome;
       if (genome) {
-        applyFallbackMutation(genome, deathCause);
+        const agentTotalLevel = Object.values(agent.skills).reduce((sum, s) => sum + s.level, 0);
+        applyFallbackMutation(genome, deathCause, agentTotalLevel);
         agent.genomeVersion = genome.version;
       }
     }

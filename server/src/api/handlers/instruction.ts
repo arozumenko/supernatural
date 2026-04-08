@@ -207,7 +207,8 @@ export function patchGenome(getGame: () => GameLoop) {
     if (!draft.lineage) draft.lineage = [];
     draft.lineage.push('api: ' + (reason ?? 'manual patch'));
 
-    clampGenome(draft);
+    const totalLvl = Object.values(agent.skills).reduce((sum, s) => sum + s.level, 0);
+    clampGenome(draft, totalLvl);
     (agent as any).currentGenome = draft;
     agent.genomeVersion = draft.version;
     agent.activeStrategyRuleNames = draft.strategyRules

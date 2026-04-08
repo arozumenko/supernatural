@@ -1,0 +1,195 @@
+{
+  "emoji": "🧱",
+  "archetype": "settler",
+  "description": "STR+END build focus — gathers materials, builds settlements",
+  "stats": {
+    "strength": 13,
+    "toughness": 10,
+    "agility": 10,
+    "endurance": 13,
+    "perception": 11,
+    "charisma": 9
+  },
+  "version": 1,
+  "generation": 0,
+  "lineage": [
+    "archetype: settler"
+  ],
+  "interruptWeights": {
+    "criticalThirst": 95,
+    "fightBack": 90,
+    "criticalHunger": 90,
+    "lowHealth": 88,
+    "staminaHerb": 82,
+    "exhaustionRest": 80,
+    "groupDefense": 75,
+    "fleeBase": 78
+  },
+  "mediumPriorityWeights": {
+    "drinkMedium": 63,
+    "eatMedium": 58,
+    "forageMedium": 58
+  },
+  "thresholds": {
+    "criticalThirst": 30,
+    "criticalHunger": 30,
+    "criticalStamina": 20,
+    "criticalHealth": 40,
+    "moderateHealth": 60,
+    "fleeHealthPanic": 0.4,
+    "fightBackMinRatio": 0.6,
+    "groupDefenseRange": 8,
+    "meatMinimum": 3,
+    "woodMinimum": 15,
+    "stoneMinimum": 10,
+    "ironOreMinimum": 4,
+    "foodTarget": 6,
+    "woodTarget": 25,
+    "stoneTarget": 15,
+    "stockpileUrgent": 55,
+    "plantHungerTrigger": 60,
+    "woodToKeepBeforePlanting": 10,
+    "threatDetectBase": 4,
+    "huntDetectRange": 12,
+    "socialDetectRange": 15,
+    "corpseDetectRange": 12,
+    "ironDetectRange": 25
+  },
+  "goalWeights": {
+    "survive_thirst": 1.3,
+    "survive_protein": 1.2,
+    "survive_plant": 1.2,
+    "rest": 1.1,
+    "get_shelter": 2,
+    "get_equipped": 1.8,
+    "socialize": 0.6,
+    "stockpile_wood": 1.5,
+    "stockpile_stone": 1.5,
+    "cook_food": 1
+  },
+  "actionCostMods": {},
+  "goalThresholds": {
+    "thirstRelevant": 50,
+    "proteinRelevant": 50,
+    "plantRelevant": 50,
+    "staminaRelevant": 30,
+    "shelterRelevant": 50,
+    "socialRelevant": 30,
+    "woodTarget": 30,
+    "stoneTarget": 20
+  },
+  "fallbackWeights": {
+    "drinkMedium": 60,
+    "eatMedium": 55,
+    "harvestCorpse": 45,
+    "gatherWood": 55,
+    "mineStone": 50,
+    "huntAnimal": 30,
+    "socialize": 20,
+    "mineIron": 40,
+    "craft": 50,
+    "tameAnimal": 25,
+    "plantSeeds": 25,
+    "wander": 8
+  },
+  "strategyRules": [
+    {
+      "id": "rule_builder_wood_priority",
+      "name": "Lumber Focus",
+      "condition": {
+        "type": "resource_below",
+        "field": "wood",
+        "value": 15
+      },
+      "effect": {
+        "type": "boost_priority",
+        "action": "gatherWood",
+        "amount": 20
+      },
+      "priority": 50,
+      "enabled": true,
+      "source": "builder"
+    },
+    {
+      "id": "rule_builder_stone_priority",
+      "name": "Quarry Focus",
+      "condition": {
+        "type": "resource_below",
+        "field": "stone",
+        "value": 10
+      },
+      "effect": {
+        "type": "boost_priority",
+        "action": "mineStone",
+        "amount": 20
+      },
+      "priority": 48,
+      "enabled": true,
+      "source": "builder"
+    },
+    {
+      "id": "rule_builder_craft_ready",
+      "name": "Build When Ready",
+      "condition": {
+        "type": "and",
+        "conditions": [
+          {
+            "type": "resource_above",
+            "field": "wood",
+            "value": 10
+          },
+          {
+            "type": "resource_above",
+            "field": "stone",
+            "value": 5
+          }
+        ]
+      },
+      "effect": {
+        "type": "boost_priority",
+        "action": "building",
+        "amount": 25
+      },
+      "priority": 55,
+      "enabled": true,
+      "source": "builder"
+    },
+    {
+      "id": "rule_builder_iron_hunt",
+      "name": "Iron Seeker",
+      "condition": {
+        "type": "skill_level",
+        "field": "mining",
+        "value": 8
+      },
+      "effect": {
+        "type": "boost_priority",
+        "action": "mineIron",
+        "amount": 20
+      },
+      "priority": 45,
+      "enabled": true,
+      "source": "builder"
+    },
+    {
+      "id": "rule_builder_flee_smart",
+      "name": "Protect Investment",
+      "condition": {
+        "type": "resource_above",
+        "field": "wood",
+        "value": 15
+      },
+      "effect": {
+        "type": "boost_priority",
+        "action": "fleeing",
+        "amount": 10
+      },
+      "priority": 60,
+      "enabled": true,
+      "source": "builder"
+    }
+  ],
+  "createdAt": 0,
+  "mutatedAt": 0,
+  "fitnessScore": 50
+}

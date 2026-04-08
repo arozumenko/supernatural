@@ -152,7 +152,7 @@ function goapActionToDecision(
       return { action: 'harvesting', priority: 50, target: adj, targetRockId: rock.id, reason: `GOAP: ${action.name}` };
     }
     case 'forage_plants': {
-      const foodTypes = [PlantType.BERRY_BUSH, PlantType.MUSHROOM, PlantType.HUNGER_HERB, PlantType.EDIBLE_FLOWER];
+      const foodTypes: PlantType[] = [PlantType.BERRY_BUSH, PlantType.MUSHROOM, PlantType.HUNGER_HERB, PlantType.EDIBLE_FLOWER, PlantType.FLOWER, PlantType.STAMINA_HERB];
       const plant = world.findNearestPlant(ax, ay, foodTypes);
       if (!plant) return null;
       return { action: 'harvesting', priority: 50, target: { x: plant.x, y: plant.y }, targetPlantId: plant.id, reason: `GOAP: ${action.name}` };
@@ -562,6 +562,10 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
     // Desperate agents don't flee as readily — they'll fight for survival
     const desperation = (agent.needs.proteinHunger < 15 || agent.needs.thirst < 15) ? 25 : 0;
     fleePriority -= desperation;
+    // Armed agents are braver — weapon bonus reduces flee urgency
+    const equippedWeapon = agent.inventory.equipped.mainHand;
+    const weaponBravery = equippedWeapon ? (getItemDef(equippedWeapon.itemId).attackBonus || 0) : 0;
+    fleePriority -= weaponBravery;
     if (wasAttacked) fleePriority = Math.min(fleePriority + 20, 98);
 
     // Don't flee from predators that are faster — running is futile, stand and fight
@@ -623,8 +627,10 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
         }
         const myAttack = 10 + agent.skills.combat.level * 0.5 + weaponBonus;
         const desperate = agent.needs.health < 30 || agent.needs.proteinHunger < 15;
-        // Fight back if strong enough OR if desperate (nothing to lose)
-        if (desperate || myAttack > attackerSpecies.attack * genome.thresholds.fightBackMinRatio) {
+        const hasWeapon = weaponBonus > 0;
+        const cantOutrun = attackerSpecies.speed > getAgentSpeed(agent) * 1.1;
+        // Fight back if: strong enough, desperate, armed, or can't outrun
+        if (desperate || cantOutrun || hasWeapon || myAttack > attackerSpecies.attack * genome.thresholds.fightBackMinRatio) {
           decisions.push({
             action: 'harvesting',
             priority: genome.interruptWeights.fightBack,
@@ -836,24 +842,28 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
       // Meat gives 20% plant hunger as omnivore stopgap
       decisions.push({ action: 'eating', priority: eatPrio - 3, reason: 'eating meat (need plants)' });
     } else {
-      // No food — forage for plants
-      const foodTypes: PlantType[] = [PlantType.BERRY_BUSH, PlantType.MUSHROOM, PlantType.HUNGER_HERB, PlantType.EDIBLE_FLOWER];
+      // No food — forage for plants. Urgency scales with distance to nearest edible plant.
+      const foodTypes: PlantType[] = [PlantType.BERRY_BUSH, PlantType.MUSHROOM, PlantType.HUNGER_HERB, PlantType.EDIBLE_FLOWER, PlantType.FLOWER, PlantType.STAMINA_HERB];
       if (!canIdentifyPoison(agent.skills) && Math.random() < 0.3) {
         foodTypes.push(PlantType.POISON_SHROOM);
       }
       const foodPlant = world.findNearestPlant(ax, ay, foodTypes);
       if (foodPlant) {
+        // Farther food = higher urgency (need to start moving NOW)
+        const dist = distance(ax, ay, foodPlant.x, foodPlant.y);
+        const distUrgency = Math.min(8, Math.floor(dist / 5)); // +0 to +8 based on distance
         decisions.push({
           action: 'harvesting',
-          priority: foragePrio,
+          priority: foragePrio + distUrgency,
           target: { x: foodPlant.x, y: foodPlant.y },
           targetPlantId: foodPlant.id,
           reason: 'foraging for food (starving)'
         });
       } else {
+        // No edible plants on map — maximum urgency to search
         decisions.push({
           action: 'wandering',
-          priority: searchPrio,
+          priority: searchPrio + 10,
           target: { x: ax + (Math.random() > 0.5 ? 15 : -15), y: ay + (Math.random() > 0.5 ? 15 : -15) },
           reason: 'searching for food (desperate)'
         });
@@ -1021,15 +1031,17 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
     if (agent.resources.food > 0 || agent.resources.meat > 0) {
       decisions.push({ action: 'eating', priority: genome.mediumPriorityWeights.eatMedium, reason: 'having a snack' });
     } else {
-      const medFoodTypes: PlantType[] = [PlantType.BERRY_BUSH, PlantType.MUSHROOM, PlantType.HUNGER_HERB, PlantType.EDIBLE_FLOWER];
+      const medFoodTypes: PlantType[] = [PlantType.BERRY_BUSH, PlantType.MUSHROOM, PlantType.HUNGER_HERB, PlantType.EDIBLE_FLOWER, PlantType.FLOWER, PlantType.STAMINA_HERB];
       if (!canIdentifyPoison(agent.skills) && Math.random() < 0.2) {
         medFoodTypes.push(PlantType.POISON_SHROOM);
       }
       const foodPlant = world.findNearestPlant(ax, ay, medFoodTypes);
       if (foodPlant) {
+        const dist = distance(ax, ay, foodPlant.x, foodPlant.y);
+        const distUrgency = Math.min(5, Math.floor(dist / 8));
         decisions.push({
           action: 'harvesting',
-          priority: genome.mediumPriorityWeights.eatMedium,
+          priority: genome.mediumPriorityWeights.eatMedium + distUrgency,
           target: { x: foodPlant.x, y: foodPlant.y },
           targetPlantId: foodPlant.id,
           reason: 'gathering food'
@@ -1095,6 +1107,51 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
     }
   }
 
+  // --- Territorial culling: hunt herbivores to protect plant food supply ---
+  // Calculate local grazing pressure = nearby herbivores / nearby edible plants
+  {
+    const scanRange = 20;
+    let herbivoreCount = 0;
+    let nearestHerbivore: { animal: typeof world.animals[0]; species: ReturnType<typeof getSpecies>; dist: number } | null = null;
+    for (const animal of world.animals) {
+      if (!animal.alive) continue;
+      if (animal.tamedBy === agent.id) continue;
+      const species = getSpecies(animal.species);
+      if (species.diet !== 'herbivore' && species.diet !== 'omnivore') continue;
+      const dist = distance(agent.x, agent.y, animal.x, animal.y);
+      if (dist > scanRange) continue;
+      herbivoreCount++;
+      const meatValue = species.drops?.meat ?? species.foodDrop ?? 0;
+      if (meatValue === 0) continue;
+      // Prefer weakest/closest herbivore for culling
+      const riskScore = species.attack / Math.max(1, 10 + agent.skills.combat.level * 0.5);
+      if (riskScore < 2.0 && (!nearestHerbivore || dist < nearestHerbivore.dist)) {
+        nearestHerbivore = { animal, species, dist };
+      }
+    }
+    // Count nearby edible plants
+    let plantCount = 0;
+    const edibleTypes = [PlantType.BERRY_BUSH, PlantType.MUSHROOM, PlantType.HUNGER_HERB, PlantType.EDIBLE_FLOWER, PlantType.FLOWER] as PlantType[];
+    for (const plant of world.plants) {
+      if (plant.health <= 0) continue;
+      if (!edibleTypes.includes(plant.type)) continue;
+      if (distance(ax, ay, plant.x, plant.y) <= scanRange) plantCount++;
+    }
+
+    const grazingPressure = herbivoreCount / Math.max(1, plantCount);
+    if (grazingPressure > 1.5 && nearestHerbivore) {
+      // High grazing pressure — cull herbivores to preserve food supply
+      const cullPriority = Math.min(75, Math.floor(30 + (grazingPressure - 1.5) * 15));
+      decisions.push({
+        action: 'harvesting',
+        priority: cullPriority + gatherBonus,
+        target: { x: Math.floor(nearestHerbivore.animal.x), y: Math.floor(nearestHerbivore.animal.y) },
+        targetAnimalId: nearestHerbivore.animal.id,
+        reason: `culling ${nearestHerbivore.species.name} (protecting food)`
+      });
+    }
+  }
+
   // --- Harvest nearby corpses for materials/meat (always check — free food!) ---
   {
     const corpseRange = agent.needs.proteinHunger < 20 ? 40 : genome.thresholds.corpseDetectRange;
@@ -1147,7 +1204,7 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
   const totalFood = agent.resources.food + agent.resources.meat;
   const foodTarget = genome.thresholds.foodTarget ?? 6;
   if (totalFood < foodTarget) {
-    const berryBush = world.findNearestPlant(ax, ay, [PlantType.BERRY_BUSH, PlantType.EDIBLE_FLOWER]);
+    const berryBush = world.findNearestPlant(ax, ay, [PlantType.BERRY_BUSH, PlantType.EDIBLE_FLOWER, PlantType.FLOWER, PlantType.STAMINA_HERB]);
     if (berryBush) {
       const urgentPriority = genome.thresholds.stockpileUrgent ?? 50;
       const stockPriority = totalFood === 0 ? urgentPriority : totalFood < foodTarget / 2 ? urgentPriority - 10 : urgentPriority - 20;
@@ -1255,10 +1312,19 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
         const shelterUrgency = agent.needs.shelter < 15 ? 20 : agent.needs.shelter < 30 ? 10 : 0;
         // Shelter-driven campfire gets high priority; settlement upgrades get moderate priority
         const basePriority = hasShelterNeed && !ownsCampfireNearby ? 45 + shelterUrgency : 30;
+        // If building requires workbench, walk to it first
+        let buildTarget = { x: ax, y: ay };
+        if (!isAdjacentToTile(ax, ay, TileType.WORKBENCH, world)) {
+          const wb = world.findNearest(ax, ay, TileType.WORKBENCH, 20);
+          if (wb) {
+            const adj = world.findNearestWalkable(ax, ay, wb.x, wb.y);
+            if (adj) buildTarget = adj;
+          }
+        }
         decisions.push({
           action: 'building',
           priority: basePriority + (agent.skills.building.level / 5),
-          target: { x: ax, y: ay },
+          target: buildTarget,
           reason: hasShelterNeed && !ownsCampfireNearby ? 'needs shelter' : 'expanding settlement'
         });
       }
@@ -1286,6 +1352,18 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
           if (((agent.resources as any)[mat] || 0) < qty) { canCraft = false; break; }
         }
         if (!canCraft) continue;
+
+        // Don't craft non-stackable items agent already owns (no duplicate tools/weapons)
+        if (recipe.produces.type === 'item' && recipe.produces.itemId) {
+          const def = getItemDef(recipe.produces.itemId);
+          if (!def.stackable) {
+            const alreadyInInventory = agent.inventory.items.some(i => i.itemId === recipe.produces.itemId);
+            const alreadyEquipped = agent.inventory.equipped.mainHand?.itemId === recipe.produces.itemId
+              || agent.inventory.equipped.body?.itemId === recipe.produces.itemId
+              || agent.inventory.equipped.accessory?.itemId === recipe.produces.itemId;
+            if (alreadyInInventory || alreadyEquipped) continue;
+          }
+        }
 
         // Prioritize food crafting when hungry
         const isFoodRecipe = recipe.produces.type === 'item' && recipe.produces.itemId
@@ -1323,12 +1401,15 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
   }
 
   // --- Planting (long-term food/resource investment) ---
+  // Urgency scales with how scarce nearby food plants are
+  const nearbyEdible = world.findNearestPlant(ax, ay, [PlantType.BERRY_BUSH, PlantType.MUSHROOM, PlantType.HUNGER_HERB, PlantType.EDIBLE_FLOWER, PlantType.FLOWER] as PlantType[]);
+  const foodScarcityBoost = !nearbyEdible ? 30 : nearbyEdible ? Math.min(20, Math.floor(distance(ax, ay, nearbyEdible.x, nearbyEdible.y) / 3)) : 0;
   if (agent.resources.treeSeed > 0 && agent.resources.wood > genome.thresholds.woodToKeepBeforePlanting) {
     const plantSpot = world.findNearestPlantable(ax, ay);
     if (plantSpot) {
       decisions.push({
         action: 'planting',
-        priority: genome.fallbackWeights.plantSeeds + gatherBonus,
+        priority: genome.fallbackWeights.plantSeeds + gatherBonus + foodScarcityBoost,
         target: plantSpot,
         reason: 'planting a tree seed'
       });
@@ -1336,13 +1417,13 @@ export function decideAction(agent: AgentState, world: World, allAgents: AgentSt
   }
   if (agent.resources.plantSeed > 0) {
     // Plant food seeds whenever agent has them — food plants are always valuable
-    // Priority boost when hungry (investment is more urgent)
-    const plantBoost = agent.needs.plantHunger < 40 ? 15 : agent.needs.plantHunger < 60 ? 8 : 0;
+    // Priority boost when hungry or when food is scarce nearby
+    const plantBoost = agent.needs.plantHunger < 40 ? 20 : agent.needs.plantHunger < 60 ? 10 : 0;
     const plantSpot = world.findNearestPlantable(ax, ay);
     if (plantSpot) {
       decisions.push({
         action: 'planting',
-        priority: genome.fallbackWeights.plantSeeds + 5 + plantBoost + gatherBonus,
+        priority: genome.fallbackWeights.plantSeeds + 10 + plantBoost + gatherBonus + foodScarcityBoost,
         target: plantSpot,
         reason: 'planting a food plant'
       });
@@ -1888,6 +1969,7 @@ export function executeAction(
                   // Agent doesn't know it's poison — eats it thinking it's food
                   const consumed = world.consumePlant(plant.id);
                   if (consumed) {
+                    agent.needs.plantHunger = clamp(agent.needs.plantHunger + 10, 0, 100);
                     agent.needs.health = clamp(agent.needs.health - 25, 0, 100);
                     // Defense XP from surviving poison damage
                     awardXP(agent.skills, 'defense', 2.0, 2.5);
@@ -1898,6 +1980,8 @@ export function executeAction(
                   const consumed = world.consumePlant(plant.id);
                   if (consumed) {
                     agent.needs.health = clamp(agent.needs.health + 30, 0, 100);
+                    agent.needs.plantHunger = clamp(agent.needs.plantHunger + 8, 0, 100);
+                    awardXP(agent.skills, 'foraging', 0.6, 0.8);
                   }
                   break;
                 }
@@ -1905,6 +1989,8 @@ export function executeAction(
                   const consumed = world.consumePlant(plant.id);
                   if (consumed) {
                     agent.needs.stamina = clamp(agent.needs.stamina + 35, 0, 100);
+                    agent.needs.plantHunger = clamp(agent.needs.plantHunger + 5, 0, 100);
+                    awardXP(agent.skills, 'foraging', 0.6, 0.8);
                   }
                   break;
                 }
@@ -1973,6 +2059,7 @@ export function executeAction(
                 if (prey.health <= 0) {
                   prey.alive = false;
                   prey.action = 'dying';
+                  agent.animalKills = (agent.animalKills ?? 0) + 1;
                   agent.resources.food += preySpecies.foodDrop;
                   agent.needs.proteinHunger = clamp(agent.needs.proteinHunger + preySpecies.foodDrop * 5, 0, 100);
                   // Omnivore agents get partial plant hunger from fresh kill
@@ -2034,6 +2121,7 @@ export function executeAction(
                 if (targetAgent.needs.health <= 0) {
                   targetAgent.alive = false;
                   targetAgent.action = 'dying';
+                  agent.agentKills = (agent.agentKills ?? 0) + 1;
                   // Major reward for killing another agent
                   const cc = cfg.combat;
                   if (agent.livesRemaining !== undefined) {
@@ -2172,8 +2260,11 @@ export function executeAction(
       });
 
       if (buildRecipe && buildRecipe.produces.tileType !== undefined) {
-        // Find empty grass tile nearby
-        const dirs = [{ dx: 1, dy: 0 }, { dx: -1, dy: 0 }, { dx: 0, dy: 1 }, { dx: 0, dy: -1 }];
+        // Find empty grass/dirt/sand tile nearby — check 8 directions + cardinal first
+        const dirs = [
+          { dx: 1, dy: 0 }, { dx: -1, dy: 0 }, { dx: 0, dy: 1 }, { dx: 0, dy: -1 },
+          { dx: 1, dy: 1 }, { dx: -1, dy: 1 }, { dx: 1, dy: -1 }, { dx: -1, dy: -1 },
+        ];
         for (const { dx, dy } of dirs) {
           const bx = ax + dx;
           const by = ay + dy;

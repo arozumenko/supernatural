@@ -204,7 +204,8 @@ export class OrchestratorLoop {
       return { applied: false, errors: validation.errors };
     }
 
-    clampGenome(draft);
+    const totalLvl = Object.values(agent.skills).reduce((sum, s) => sum + s.level, 0);
+    clampGenome(draft, totalLvl);
     draft.version = genome.version + 1;
     draft.mutatedAt = game.tickCount;
     if (!draft.lineage) draft.lineage = [];
